@@ -30,6 +30,8 @@
 #include "sensors.h"
 
 #define GYRO_INPUT_DEV_NAME 	"gyroscope"
+#define GYR_HW_LSM330	true
+#define GYR_HW_OTHERS	false
 
 #define FETCH_FULL_EVENT_BEFORE_RETURN 	1
 #define IGNORE_EVENT_TIME 				350000000
@@ -38,10 +40,11 @@
 #define	EVENT_TYPE_GYRO_Y	ABS_RY
 #define	EVENT_TYPE_GYRO_Z	ABS_RZ
 
-#define GYROSCOPE_CONVERT		(M_PI / (180 * 16.4))
-#define CONVERT_GYRO_X		(-GYROSCOPE_CONVERT)
-#define CONVERT_GYRO_Y		( GYROSCOPE_CONVERT)
-#define CONVERT_GYRO_Z		(-GYROSCOPE_CONVERT)
+#define GYR_LSM_CONVERT	((M_PI * 0.00875) / 180)
+#define GYROSCOPE_CONVERT	(M_PI / (180 * 16.4))
+#define CONVERT_GYRO_X(lsm)	(lsm ? GYR_LSM_CONVERT : -GYROSCOPE_CONVERT)
+#define CONVERT_GYRO_Y(lsm)	(lsm ? GYR_LSM_CONVERT : GYROSCOPE_CONVERT)
+#define CONVERT_GYRO_Z(lsm)	(lsm ? GYR_LSM_CONVERT : -GYROSCOPE_CONVERT)
 
 /*****************************************************************************/
 
@@ -88,6 +91,10 @@ GyroSensor::GyroSensor(struct SensorContext *context)
 	mUseAbsTimeStamp = false;
 	mSensor = *(context->sensor);
 	read_dynamic_calibrate_params(&mSensor);
+	gyro_hw_type = GYR_HW_OTHERS;
+	if(!strncmp(mSensor.name, "lsm330_gyr", 10)) {
+		gyro_hw_type = GYR_HW_LSM330;
+	}
 
 	enable(0, 1);
 }
@@ -129,11 +136,11 @@ int GyroSensor::setInitialState() {
 		!ioctl(data_fd, EVIOCGABS(EVENT_TYPE_GYRO_Y), &absinfo_y) &&
 		!ioctl(data_fd, EVIOCGABS(EVENT_TYPE_GYRO_Z), &absinfo_z)) {
 		value = absinfo_x.value;
-		mPendingEvent.data[0] = value * CONVERT_GYRO_X;
+		mPendingEvent.data[0] = value * CONVERT_GYRO_X(gyro_hw_type);
 		value = absinfo_y.value;
-		mPendingEvent.data[1] = value * CONVERT_GYRO_Y;
+		mPendingEvent.data[1] = value * CONVERT_GYRO_Y(gyro_hw_type);
 		value = absinfo_z.value;
-		mPendingEvent.data[2] = value * CONVERT_GYRO_Z;
+		mPendingEvent.data[2] = value * CONVERT_GYRO_Z(gyro_hw_type);
 		mHasPendingEvent = true;
 	}
 	return 0;
@@ -237,11 +244,11 @@ again:
 		if (type == EV_ABS) {
 			float value = event->value;
 			if (event->code == EVENT_TYPE_GYRO_X) {
-				mPendingEvent.data[0] = value * CONVERT_GYRO_X;
+				mPendingEvent.data[0] = value * CONVERT_GYRO_X(gyro_hw_type);
 			} else if (event->code == EVENT_TYPE_GYRO_Y) {
-				mPendingEvent.data[1] = value * CONVERT_GYRO_Y;
+				mPendingEvent.data[1] = value * CONVERT_GYRO_Y(gyro_hw_type);
 			} else if (event->code == EVENT_TYPE_GYRO_Z) {
-				mPendingEvent.data[2] = value * CONVERT_GYRO_Z;
+				mPendingEvent.data[2] = value * CONVERT_GYRO_Z(gyro_hw_type);
 			}
 		} else if (type == EV_SYN) {
 			switch ( event->code ){
