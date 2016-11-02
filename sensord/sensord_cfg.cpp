@@ -104,7 +104,7 @@
 
 #define MAX_SECTION 50
 
-#define BSTHAL_CFG_FILE  (PATH_DIR_SENSOR_STORAGE "/bst_hal_cfg.txt")
+#define BSTHAL_CFG_FILE  (PATH_DIR_SENSOR_CONFIG_STORAGE "/bst_hal_cfg.txt")
 
 #define SOLUTION_SEC		"SOLUTION"
 #define SOLUTION_NAME		"solution"

@@ -22,14 +22,11 @@ include $(CLEAR_VARS)
 ifeq ($(origin TARGET_BOARD_PLATFORM), undefined)
 	LOCAL_MODULE := sensors.default
 else
-	LOCAL_MODULE := sensors.$(TARGET_BOARD_PLATFORM)
+	LOCAL_MODULE := sensors.$(TARGET_BOARD_PLATFORM)_$(TARGET_BOARD_TYPE)
+	LOCAL_MODULE_RELATIVE_PATH := hw
 endif
 
 LOCAL_MODULE_TAGS := eng
-
-LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
-
-LOCAL_MULTILIB := first
 
 LOCAL_SRC_FILES :=\
 	sensord/axis_remap.c\
@@ -60,9 +57,15 @@ LOCAL_LDLIBS += -lm -llog -lutils
 #LOCAL_LDFLAGS_arm64 :=
 LOCAL_PRELINK_MODULE := false
 
-
-
 include $(BUILD_SHARED_LIBRARY)
 
-
 endif  # TARGET_SIMULATOR != true
+
+#Copy bst_hal_cfg.txt to system img
+include $(CLEAR_VARS)
+LOCAL_MODULE := bst_hal_cfg.txt
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := ETC
+LOCAL_SRC_FILES := bst_hal_cfg.txt
+LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)
+include $(BUILD_PREBUILT)

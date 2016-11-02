@@ -220,6 +220,8 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define BMI160_ACCEL_RANGE_8G   8
 #define BMI160_ACCEL_RANGE_16G  12
 
+#define BMI160_GYRO_RANGE_125_DEG_SEC	4
+
 #define BMA2X2_RANGE_2G     3
 #define BMA2X2_RANGE_4G     5
 #define BMA2X2_RANGE_8G     8
@@ -3438,21 +3440,18 @@ static void ap_show_ver()
 
     PNOTE("\n **************************\n \
 * HAL version: %d.%d.%d.%d\n \
-* build time: %s, %s\n \
 * solution type: %s\n \
 * accl_chip: %s\n \
 * magn_chip: %s\n \
 * gyro_chip: %s\n \
 **************************",
             HAL_ver[0], HAL_ver[1], HAL_ver[2], HAL_ver[3],
-            __DATE__, __TIME__, solution_name, accl_chip_name, magn_chip_name, gyro_chip_name);
+            solution_name, accl_chip_name, magn_chip_name, gyro_chip_name);
 
     if(bsx_datalog){
         sprintf(data_log_buf, "<component>HAL version: %d.%d.%d.%d</component>\n",
                 HAL_ver[0], HAL_ver[1], HAL_ver[2], HAL_ver[3]);
         bsx_datalog_algo(data_log_buf);
-        sprintf(data_log_buf, "<component>build time: %s, %s</component>\n",
-                __DATE__, __TIME__);
         bsx_datalog_algo(data_log_buf);
         sprintf(data_log_buf, "<component>solution type: %s</component>\n\n", solution_name);
         bsx_datalog_algo(data_log_buf);
@@ -3698,6 +3697,15 @@ static int32_t ap_hwcntl_init_GYRO()
         if (gyro_iio_fd == -1)
         { /*If it isn't there make the node */
             PERR("Failed to open %s\n", gyro_buffer_access);
+        }
+
+        /* Set BMI160 GYRO RANGE */
+        ret = wr_sysfs_oneint("gyro_range", iio_dev0_dir_name, BMI160_GYRO_RANGE_125_DEG_SEC);
+
+        if (ret < 0)
+        {
+            PERR("write_sysfs() fail, ret = %d", ret);
+            return ret;
         }
     }else if(GYR_CHIP_BMG160 ==  gyro_chip)
     {
