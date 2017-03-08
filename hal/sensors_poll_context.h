@@ -16,6 +16,8 @@
 
 
 /*****************************************************************************/
+#include "BstSensor.h"
+
 struct sensors_poll_context_t
 {
     struct sensors_poll_device_1 device; // must be first
@@ -29,6 +31,7 @@ struct sensors_poll_context_t
     int pollEvents(sensors_event_t* data, int count);
     int batch(int handle, int flags, int64_t sampling_period_ns, int64_t max_report_latency_ns);
     int flush(int handle);
+    int get_sensors_list(struct sensor_t const** list);
 #if defined(SENSORS_DEVICE_API_VERSION_1_4)
     int inject_sensor_data(const sensors_event_t *data);
 #endif
