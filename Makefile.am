@@ -30,9 +30,6 @@ library_include_HEADERS = \
                         ./make/sensors.h \
                         ./sensord/inc/sensord_def.h \
                         ./sensord/inc/bstsimple_list.h \
-                        ./sensord/bsx/inc/bsx_user_def.h \
-                        ./sensord/bsx/inc/bsx_android.h \
-                        ./sensord/bsx/inc/bsx_datatypes.h \
                         ./hal/BstSensor.h \
                         ./hal/sensors_poll_context.h
 
