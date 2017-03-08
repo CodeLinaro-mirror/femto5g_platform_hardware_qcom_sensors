@@ -42,16 +42,17 @@ LOCAL_SRC_FILES :=\
 	sensord/sensord.cpp\
 	sensord/bstsimple_list.cpp\
 	hal/sensors.cpp\
-	hal/BstSensor.cpp\
+	hal/BstSensor.cpp
 
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/hal\
 		$(LOCAL_PATH)/sensord/bsx/inc\
 		$(LOCAL_PATH)/sensord/inc
 
-LOCAL_CFLAGS := -pthread\
+LOCAL_CFLAGS := -pthread
 
 LOCAL_CPPFLAGS := -pthread\
+                  -Wno-error=date-time
 
 LOCAL_LDLIBS += -lm -llog -lutils
 #LOCAL_SHARED_LIBRARIES := libm
