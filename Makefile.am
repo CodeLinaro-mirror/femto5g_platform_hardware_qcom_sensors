@@ -51,7 +51,7 @@ libsensors_la_LIBADD = -lstdc++
 
 library_includedir = $(pkgincludedir)
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = sensors.pc
+pkgconfig_DATA = libsensors.pc
 
 #Create and Install libraries
 lib_LTLIBRARIES = libsensors.la
