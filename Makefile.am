@@ -30,9 +30,6 @@ library_include_HEADERS = \
                         ./make/sensors.h \
                         ./sensord/inc/sensord_def.h \
                         ./sensord/inc/bstsimple_list.h \
-                        ./sensord/bsx/inc/bsx_user_def.h \
-                        ./sensord/bsx/inc/bsx_android.h \
-                        ./sensord/bsx/inc/bsx_datatypes.h \
                         ./hal/BstSensor.h \
                         ./hal/sensors_poll_context.h
 
@@ -51,7 +48,7 @@ libsensors_la_LIBADD = -lstdc++
 
 library_includedir = $(pkgincludedir)
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = sensors.pc
+pkgconfig_DATA = libsensors.pc
 
 #Create and Install libraries
 lib_LTLIBRARIES = libsensors.la

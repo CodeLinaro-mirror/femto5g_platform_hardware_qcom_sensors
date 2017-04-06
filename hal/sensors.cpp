@@ -69,6 +69,12 @@ sensors_poll_context_t::~sensors_poll_context_t()
     BstSensor::destroy();
 }
 
+int sensors_poll_context_t::get_sensors_list(struct sensor_t const** list)
+{
+    *list = sSensorList;
+    return sensorsNum;
+}
+
 int sensors_poll_context_t::activate(int handle, int enabled)
 {
     return bst_sensor->activate(handle, enabled);
