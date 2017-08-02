@@ -23,7 +23,7 @@ ifeq ($(origin TARGET_BOARD_PLATFORM), undefined)
 	LOCAL_MODULE := sensors.default
 else
 	LOCAL_MODULE := sensors.$(TARGET_BOARD_PLATFORM)_$(TARGET_BOARD_TYPE)
-ifeq ($(PLATFORM_VERSION), O)
+ifeq ($(PLATFORM_VERSION), 8.0.0)
 	LOCAL_VENDOR_MODULE := true
 	LOCAL_MODULE_PATH_32 := $(TARGET_OUT_VENDOR)/lib
 else
