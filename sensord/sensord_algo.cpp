@@ -102,7 +102,7 @@
 
 
 #define CONVERT_ACC (0.0098) //library output is in mg = 0.0098 m/s^2
-#define CONVERT_GYRO (0.001065)
+#define CONVERT_GYRO (0.000066322) //125deg/Second Full scale configuration
 #define CONVERT_MAG (0.1)
 #define CONVERT_ORI (57.2958)
 
