@@ -220,6 +220,13 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define BMI160_ACCEL_RANGE_8G   8
 #define BMI160_ACCEL_RANGE_16G  12
 
+
+#define BMI160_GYRO_RANGE_2000_DEG_SEC  (0x00)
+#define BMI160_GYRO_RANGE_1000_DEG_SEC  (0x01)
+#define BMI160_GYRO_RANGE_500_DEG_SEC   (0x02)
+#define BMI160_GYRO_RANGE_250_DEG_SEC   (0x03)
+#define BMI160_GYRO_RANGE_125_DEG_SEC   (0x04)
+
 #define BMA2X2_RANGE_2G     3
 #define BMA2X2_RANGE_4G     5
 #define BMA2X2_RANGE_8G     8
@@ -3458,6 +3465,13 @@ static int32_t ap_hwcntl_init_GYRO()
 
         /* Setup ring buffer parameters */
         ret = wr_sysfs_oneint("length", gyro_buf_dir_name, hwdata_unit_toread);
+        if (ret < 0)
+        {
+            PERR("wr_sysfs_oneint() fail");
+            return 0;
+        }
+
+        ret = wr_sysfs_oneint("gyro_range", iio_dev0_dir_name, BMI160_GYRO_RANGE_125_DEG_SEC);
         if (ret < 0)
         {
             PERR("wr_sysfs_oneint() fail");
