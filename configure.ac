@@ -52,6 +52,7 @@ AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
 
 AC_CONFIG_FILES([ \
         Makefile \
+        bmi160/Makefile \
         libsensors.pc \
         ])
 
