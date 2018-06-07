@@ -27,11 +27,7 @@ libbmi160sensors_la_SOURCES = \
 
 library_include_HEADERS = \
                         ./make/hardware.h \
-                        ./make/sensors.h \
-                        ./sensord/inc/sensord_def.h \
-                        ./sensord/inc/bstsimple_list.h \
-                        ./hal/BstSensor.h \
-                        ./hal/sensors_poll_context.h
+                        ./make/sensors.h
 
 library_includedir = $(pkgincludedir)
 
@@ -45,10 +41,6 @@ libbmi160sensors_la_LDFLAGS = -lpthread -shared -version-info 1:0:0
 libbmi160sensors_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
 libbmi160sensors_la_LIBADD = -lstdc++
-
-#library_includedir = $(pkgincludedir)
-#pkgconfigdir = $(libdir)/pkgconfig
-#pkgconfig_DATA = ../libbmi160sensors.pc
 
 #Create and Install libraries
 lib_LTLIBRARIES = libbmi160sensors.la
