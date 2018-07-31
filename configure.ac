@@ -49,11 +49,13 @@ if (test "x${with_glib}" = "xyes"); then
 fi
 
 AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
+AM_CONDITIONAL(CONFIG_ST_HAL_HAS_SELFTEST_FUNCTIONS, test "x${with_st}" = "xyes")
 
 AC_CONFIG_FILES([ \
         Makefile \
         bmi160/Makefile \
         iam20680/Makefile \
+        st/asm330lhh/Makefile \
         libsensors.pc \
         ])
 
