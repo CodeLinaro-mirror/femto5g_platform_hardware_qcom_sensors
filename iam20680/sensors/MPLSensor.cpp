@@ -49,9 +49,11 @@
 
 #define MAX_SYSFS_ATTRB (sizeof(struct sysfs_attrbs) / sizeof(char*))
 
-#define ACCEL_FSR       8.0f    // 8g
-#define ACCEL_FSR_SYSFS 2       // 0:2g, 1:4g, 2:8g, 3:16g
+#define ACCEL_FSR       2.0f   // 2:2g, 4:4g, 8:8g, 16:16g
+#define ACCEL_FSR_SYSFS 0       // 0:2g, 1:4g, 2:8g, 3:16g
 
+#define GYRO_FSR       131.0f   // 131:250dbps 65.5:500dbps 32.8:1000dbps 16.4:2000dbps
+#define GYRO_FSR_SYSFS 0       // 0:250dps, 1:500dbps, 2:1000dpps, 3:2000dbps
 /*******************************************************************************
  * MPLSensor class implementation
  ******************************************************************************/
@@ -191,6 +193,7 @@ MPLSensor::MPLSensor(CompassSensor *compass) :
 
     /* set accel FSR */
     writeSysfs(ACCEL_FSR_SYSFS, mpu.accel_fsr);
+    writeSysfs(GYRO_FSR_SYSFS, mpu.gyro_fsr);
 
 #ifdef BATCH_MODE_SUPPORT
     /* reset batch timeout */
@@ -546,7 +549,7 @@ int MPLSensor::rawGyroHandler(sensors_event_t* s)
     int update = 0;
     int data[3];
     int i;
-    float scale = 1.f / 16.4f * 0.0174532925f; // 2000dps
+    float scale = 1.f / GYRO_FSR * 0.0174532925f;
 
     /* convert to body frame */
     for (i = 0; i < 3 ; i++) {
