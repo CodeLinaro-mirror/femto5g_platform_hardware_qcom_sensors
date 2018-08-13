@@ -292,15 +292,7 @@ int device_iio_utils::get_fifo_length(const char *device_dir)
 	if (ret < 0)
 		return ret;
 
-	/* write "1" -> <iio:devicex>/hwfifo_enabled */
-	ret = snprintf(tmp_filaname, DEVICE_IIO_MAX_FILENAME_LEN,
-		       "%s/%s", device_dir, device_iio_hw_fifo_enabled);
-	if (ret < 0)
-		return -ENOMEM;
-
-	ret = sysfs_write_int(tmp_filaname, 1);
-
-	return ret < 0 ? ret : len;
+	return len;
 }
 
 int device_iio_utils::set_sampling_frequency(char *device_dir,

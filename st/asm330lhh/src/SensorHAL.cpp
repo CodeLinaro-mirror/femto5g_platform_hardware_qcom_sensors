@@ -842,7 +842,7 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 						&device_iio_devices_data[0]);
 	device_found_num += st_hal_load_gyro_data(&ST_sensors_supported[1],
 						  &device_iio_devices_data[1]);
-	if (device_found_num <= 0) {
+	if (device_found_num < 0) {
 		err = device_found_num;
 		goto free_hal_data;
 	}
