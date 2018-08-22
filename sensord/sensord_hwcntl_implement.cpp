@@ -651,50 +651,6 @@ static inline float BMG160_convert_ODR(float Hz, int32_t *p_bandwith)
 }
 
 
-static inline int32_t ap_convert_latency(
-        uint16_t alshconf_maxlatency,
-        uint8_t alshconf_latencyunit,
-        int32_t acc_odr, int32_t gyro_odr, int32_t magn_odr)
-{
-
-#if 0
-    uint64_t maxlatency_ns = 0;
-
-    switch(alshconf_latencyunit)
-    {
-        case ALSH_CONFSTR_UNITns:
-        maxlatency_ns = (uint64_t)alshconf_maxlatency;
-        break;
-        case ALSH_CONFSTR_UNITus:
-        maxlatency_ns = (uint64_t)alshconf_maxlatency * 1000;
-        break;
-        case ALSH_CONFSTR_UNITms:
-        maxlatency_ns = (uint64_t)alshconf_maxlatency * 1000000;
-        break;
-        case ALSH_CONFSTR_UNITs:
-        maxlatency_ns = (uint64_t)alshconf_maxlatency * 1000000000;
-        break;
-    }
-
-    //caculate out water mark
-    if(maxlatency_ns < xxx)
-    if(acc_odr .., gyro_odr .., magn_odr ..)
-    return xxx
-    else if(maxlatency_ns < xxx)
-    if(acc_odr .., gyro_odr .., magn_odr ..)
-    return xxx
-#else
-    (void) alshconf_maxlatency;
-    (void) alshconf_latencyunit;
-    (void) acc_odr;
-    (void) gyro_odr;
-    (void) magn_odr;
-
-    return default_watermark;
-#endif
-}
-
-
 #if !defined(UNIT_TEST_ACTIVE)
 static int32_t is_acc_open = 0;
 static int32_t is_gyr_open = 0;
@@ -805,7 +761,6 @@ static void ap_config_phyACC(bsx_f32_t sample_rate)
     int32_t fifo_data_sel_regval;
     float physical_Hz = 0;
     uint32_t period_ms = 0;
-    struct itimerspec timerspec;
     static float pre_poll_rate = 0;
 
     PINFO("set physical ACC rate %f", sample_rate);
@@ -905,7 +860,6 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate)
     int32_t fifo_data_sel_regval;
     float physical_Hz = 0;
     uint32_t period_ms = 0;
-    struct itimerspec timerspec;
     static float pre_poll_rate = 0;
 
     PINFO("set physical GYRO rate %f", sample_rate);
