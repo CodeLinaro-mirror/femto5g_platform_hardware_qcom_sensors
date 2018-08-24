@@ -6,6 +6,7 @@ AM_CFLAGS = \
 -I./sensors/linux/test-sensors-hal/android_linux \
 -D__func__=__PRETTY_FUNCTION__ \
 -DON_TARGET_TEST \
+-DBATCH_MODE_SUPPORT \
 -D_HW_DONT_INCLUDE_CORE_
 
 ACLOCAL_AMFLAGS = -I m4
