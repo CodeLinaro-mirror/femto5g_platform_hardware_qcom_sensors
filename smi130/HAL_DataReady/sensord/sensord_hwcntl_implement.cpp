@@ -270,6 +270,12 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define BMA2X2_RANGE_8G     8
 #define BMA2X2_RANGE_16G    12
 
+#define BMG160_GYRO_RANGE_2000_DEG_SEC  (0x00)
+#define BMG160_GYRO_RANGE_1000_DEG_SEC  (0x01)
+#define BMG160_GYRO_RANGE_500_DEG_SEC  (0x02)
+#define BMG160_GYRO_RANGE_250_DEG_SEC  (0x03)
+#define BMG160_GYRO_RANGE_125_DEG_SEC  (0x04)
+
 #define BMA2x2_FIFO_PASSBY  0
 #define BMA2x2_FIFO_STREAM  2
 #define BMG160_FIFO_PASSBY  0
@@ -900,6 +906,7 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate)
 
                 is_gyr_open = 1;
             }
+	    wr_sysfs_oneint("range", gyr_input_dir_name, BMG160_GYRO_RANGE_125_DEG_SEC);
         }
 
     }
@@ -1893,7 +1900,7 @@ static int32_t ap_hwcntl_init_ACC()
         }
     }else if(ACC_CHIP_BMA2x2 == accl_chip)
     {
-        accl_device_name = "bma2x2";
+        accl_device_name = "smi130_acc";
 
         open_input_by_name(accl_device_name, &acc_input_fd, &acc_input_num);
         if (-1 == acc_input_fd)
@@ -1988,7 +1995,7 @@ static int32_t ap_hwcntl_init_GYRO()
         }
     }else if(GYR_CHIP_BMG160 ==  gyro_chip)
     {
-        gyro_device_name = "bmg160";
+        gyro_device_name = "smi130_gyro";
 
         open_input_by_name(gyro_device_name, &gyr_input_fd, &gyr_input_num);
         if (-1 == gyr_input_fd)
