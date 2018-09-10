@@ -796,14 +796,14 @@ int NativeSensorManager::getEventPath(const char *sysfs_path, char *event_path)
 		ALOGE("invalid NULL argument.");
 		return -EINVAL;
 	}
-
+        ALOGE("check path  %s(%s)\n", sysfs_path, strerror(errno));
 	dir = opendir(sysfs_path);
 	if (dir == NULL) {
 		ALOGE("open %s failed.(%s)\n", strerror(errno));
 		return -1;
 	}
-
 	len = readlink(sysfs_path, symlink, PATH_MAX);
+        ALOGE("len: %d", len);
 	if (len < 0) {
 		ALOGE("readlink failed for %s(%s)\n", sysfs_path, strerror(errno));
 		return -1;
