@@ -799,7 +799,7 @@ int NativeSensorManager::getEventPath(const char *sysfs_path, char *event_path)
 
 	dir = opendir(sysfs_path);
 	if (dir == NULL) {
-		ALOGE("open %s failed.(%s)\n", strerror(errno));
+		ALOGE("open failed.(%s)\n", strerror(errno));
 		return -1;
 	}
 
