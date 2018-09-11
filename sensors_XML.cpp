@@ -33,7 +33,6 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "unistd.h"
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <string.h>
 #include <private/android_filesystem_config.h>
 
 #define SENSOR_XML_ROOT_ELEMENT "sensors"

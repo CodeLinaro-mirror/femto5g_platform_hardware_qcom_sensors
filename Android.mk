@@ -34,10 +34,6 @@ endif
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_CFLAGS += -DLOG_TAG=\"Sensors\"
-LOCAL_CFLAGS += -Wno-unused-variable
-LOCAL_CFLAGS += -Wno-format
-LOCAL_CFLAGS += -Wno-gnu-designator
-LOCAL_CFLAGS += -Wno-unused-private-field
 ifeq ($(call is-board-platform,msm8960),true)
   LOCAL_CFLAGS += -DTARGET_8930
 endif
@@ -82,8 +78,6 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
-LOCAL_CFLAGS += -Wno-unused-variable
-LOCAL_CFLAGS += -Wno-incompatible-pointer-types
 LOCAL_MODULE := libcalmodule_common
 LOCAL_SRC_FILES := \
 		   algo/common/common_wrapper.c \
