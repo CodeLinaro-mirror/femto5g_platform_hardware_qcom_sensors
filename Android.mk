@@ -34,22 +34,22 @@ endif
 LOCAL_MODULE_TAGS := eng
 
 LOCAL_SRC_FILES :=\
-	sensord/axis_remap.c\
-	sensord/sensord_hwcntl.cpp\
-	sensord/sensord_hwcntl_implement.cpp\
-	sensord/util_misc.c\
-	sensord/sensord_pltf.c\
-	sensord/sensord_cfg.cpp\
-	sensord/sensord_algo.cpp\
-	sensord/sensord.cpp\
-	sensord/bstsimple_list.cpp\
-	hal/sensors.cpp\
-	hal/BstSensor.cpp\
+	bmi160_iio/sensord/axis_remap.c\
+	bmi160_iio/sensord/sensord_hwcntl.cpp\
+	bmi160_iio/sensord/sensord_hwcntl_implement.cpp\
+	bmi160_iio/sensord/util_misc.c\
+	bmi160_iio/sensord/sensord_pltf.c\
+	bmi160_iio/sensord/sensord_cfg.cpp\
+	bmi160_iio/sensord/sensord_algo.cpp\
+	bmi160_iio/sensord/sensord.cpp\
+	bmi160_iio/sensord/bstsimple_list.cpp\
+	bmi160_iio/hal/sensors.cpp\
+	bmi160_iio/hal/BstSensor.cpp\
 
 
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/hal\
-		$(LOCAL_PATH)/sensord/bsx/inc\
-		$(LOCAL_PATH)/sensord/inc
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/bmi160_iio/hal\
+		$(LOCAL_PATH)/bmi160_iio/sensord/bsx/inc\
+		$(LOCAL_PATH)/bmi160_iio/sensord/inc
 
 LOCAL_CFLAGS := -pthread\
 
@@ -68,9 +68,9 @@ endif  # TARGET_SIMULATOR != true
 
 #Copy bst_hal_cfg.txt to system img
 include $(CLEAR_VARS)
-LOCAL_MODULE := bst_hal_cfg.txt
+LOCAL_MODULE := bmi160_iio/bst_hal_cfg.txt
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := ETC
-LOCAL_SRC_FILES := bst_hal_cfg.txt
+LOCAL_SRC_FILES := bmi160_iio/bst_hal_cfg.txt
 LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)
 include $(BUILD_PREBUILT)
