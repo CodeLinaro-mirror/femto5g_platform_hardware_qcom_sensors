@@ -1523,9 +1523,7 @@ void open_input_by_name(const char *event_name, int *p_fd, int *p_num)
     char devname[PATH_MAX];
     char *filename;
     DIR *dir;
-    int ret;
-    struct dirent entry;
-    struct dirent *result;
+    struct dirent *entry = NULL;
 
     dir = opendir(dirname);
     if (dir == NULL)
@@ -1540,21 +1538,21 @@ void open_input_by_name(const char *event_name, int *p_fd, int *p_num)
 
     while (1)
     {
-        ret = readdir_r(dir, &entry, &result);
-        if (0 != ret || NULL == result)
+        entry = readdir(dir);
+        if (NULL == entry)
         {
             //error or end of directory stream
             break;
         }
 
-        if (entry.d_name[0] == '.' &&
-                (entry.d_name[1] == '\0' ||
-                        (entry.d_name[1] == '.' && entry.d_name[2] == '\0')))
+        if (entry->d_name[0] == '.' &&
+                (entry->d_name[1] == '\0' ||
+                        (entry->d_name[1] == '.' && entry->d_name[2] == '\0')))
         {
             continue;
         }
 
-        strcpy(filename, entry.d_name);
+        strcpy(filename, entry->d_name);
         fd = open(devname, O_RDONLY | O_NONBLOCK);
         if (fd >= 0)
         {
@@ -1567,7 +1565,7 @@ void open_input_by_name(const char *event_name, int *p_fd, int *p_num)
             }
             if (!strcmp(name, event_name))
             {
-                sscanf(entry.d_name + strlen("event"), "%8d", p_num);
+                sscanf(entry->d_name + strlen("event"), "%8d", p_num);
                 break;
             }
             else

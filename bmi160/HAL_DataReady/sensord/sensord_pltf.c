@@ -211,6 +211,10 @@ void trace_log(uint32_t level, const char *fmt, ...)
 #include<android/log.h>
 #define BST_LOG_TAG    "sensord"
 
+/*To supress the compiler warning of unused typedef definitions from log.h*/
+android_LogPriority logPriority __attribute__ ((unused));
+log_id_t logId  __attribute__ ((unused));
+
         va_start(ap, fmt);
         (void)vsnprintf(buffer, sizeof(buffer) - 1, fmt, ap);
         va_end(ap);

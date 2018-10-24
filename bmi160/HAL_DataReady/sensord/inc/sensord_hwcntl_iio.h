@@ -98,8 +98,7 @@ static inline int get_IIOnum_by_name(const char *name, const char *iio_dir)
 #define IIO_NAME_MAXLEN 30
 #define MAX_FILENAME_LEN 256
     const char *type = "iio:device";
-    struct dirent *ent;
-    struct dirent dirent;
+    struct dirent *ent = NULL;
     int number, numstrlen;
 
     FILE *nameFile;
@@ -114,8 +113,13 @@ static inline int get_IIOnum_by_name(const char *name, const char *iio_dir)
         return -ENODEV;
     }
 
-    while (!readdir_r(dp, &dirent, &ent) && NULL != ent)
+    while (1)
     {
+        ent = readdir(dp);
+        if(NULL == ent) {
+           //error or end of directory stream
+           break;
+        }
         if (0 == strcmp(ent->d_name, ".") ||
                 0 == strcmp(ent->d_name, "..") ||
                 strlen(ent->d_name) <= strlen(type) ||
