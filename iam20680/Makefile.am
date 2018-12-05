@@ -19,7 +19,6 @@ libiam20680sensors_la_SOURCES = \
                              ./sensors/MPLSensor.cpp\
                              ./sensors/tools/ml_sysfs_helper.c\
                              ./sensors/tools/inv_sysfs_utils.c\
-                             ./sensors/tools/ml_sensor_parsing.c\
                              ./sensors/tools/inv_iio_buffer.c
 
 library_includedir = $(pkgincludedir)
