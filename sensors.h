@@ -203,6 +203,8 @@ static inline const char* sensorTypeToSensorString(int sensorType)
 			return SENSOR_STRING_TYPE_STEP_COUNTER;
 		case SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR:
 			return SENSOR_STRING_TYPE_GEOMAGNETIC_ROTATION_VECTOR;
+                case SENSOR_TYPE_POCKET:
+                        return POCKET_NAME;
 		default:
 			return "";
 	}
