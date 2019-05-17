@@ -11,6 +11,7 @@ AM_CFLAGS = \
 -DPLTF_LINUX_ENABLED
 
 ACLOCAL_AMFLAGS = -I m4
+SUBDIRS = iam20680
 
 libsensors_la_SOURCES = \
                         hal/sensors.cpp \
