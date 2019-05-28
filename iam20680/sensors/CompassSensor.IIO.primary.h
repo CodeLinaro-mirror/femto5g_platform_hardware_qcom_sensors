@@ -33,7 +33,7 @@
 #include "SensorBase.h"
 #include "inv_iio_buffer.h"
 
-#define MAX_CHIP_ID_LEN (20)
+#define MAX_CHIP_ID_LEN (30)
 #define COMPASS_ON_PRIMARY "in_magn_x_raw"
 
 //COMPASS_ID_AK09911

@@ -33,7 +33,7 @@
                     "Entering handler '%s'", __PRETTY_FUNCTION__)
 #define CALL_MEMBER_FN(pobject, ptrToMember) ((pobject)->*(ptrToMember))
 
-#define MAX_SYSFS_NAME_LEN  (100)
+#define MAX_SYSFS_NAME_LEN  (257)
 #define IIO_BUFFER_LENGTH   (32768)
 
 /*****************************************************************************/

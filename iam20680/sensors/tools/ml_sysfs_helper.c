@@ -28,6 +28,7 @@
 #include "log.h"
 
 #define MPU_SYSFS_ABS_PATH "/sys/class/invensense/mpu"
+#define MAX_SYSFS_NAME_LEN  (256)
 
 enum PROC_SYSFS_CMD {
 	CMD_GET_SYSFS_PATH,
@@ -271,7 +272,7 @@ static void init_iio() {
 
 static int process_sysfs_request(enum PROC_SYSFS_CMD cmd, char *data)
 {
-	char key_path[100];
+	char key_path[MAX_SYSFS_NAME_LEN];
 	FILE *fp;
 	int i, result, ret;
 	if(initialized == 0){
@@ -387,6 +388,8 @@ int find_name_by_sensor_type(const char *sensor_type, const char *type, char *se
                         + strlen(type)
                         + numstrlen
                         + 6);
+		if (filename == NULL)
+                    return -ENOMEM;
                 sprintf(filename, "%s%s%d/name",
                     iio_dir,
                     type,
