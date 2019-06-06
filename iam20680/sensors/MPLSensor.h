@@ -54,7 +54,7 @@
 /*****************************************************************************/
 /* Sensors Enable/Disable Mask
  *****************************************************************************/
-#define MAX_CHIP_ID_LEN             (20)
+#define MAX_CHIP_ID_LEN             (30)
 
 #define INV_THREE_AXIS_GYRO         (1LL << Gyro)
 #define INV_THREE_AXIS_ACCEL        (1LL << Accelerometer)
