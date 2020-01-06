@@ -200,6 +200,7 @@ bool ProximitySensor::hasPendingEvents() const {
 
 int ProximitySensor::readEvents(sensors_event_t* data, int count)
 {
+#ifndef TARGET_ROARING_LIONUS
     if (count < 1)
         return -EINVAL;
 
@@ -262,6 +263,9 @@ int ProximitySensor::readEvents(sensors_event_t* data, int count)
     }
 
     return numEventReceived;
+#else
+    return -EINVAL;
+#endif
 }
 
 int ProximitySensor::setDelay(int32_t, int64_t ns)

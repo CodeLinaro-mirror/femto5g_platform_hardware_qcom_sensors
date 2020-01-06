@@ -204,6 +204,7 @@ int GyroSensor::setDelay(int32_t, int64_t delay_ns)
 
 int GyroSensor::readEvents(sensors_event_t* data, int count)
 {
+#ifndef TARGET_ROARING_LIONUS
 	if (count < 1)
 		return -EINVAL;
 
@@ -315,6 +316,9 @@ again:
 #endif
 
 	return numEventReceived;
+#else
+	return -EINVAL;
+#endif
 }
 
 int GyroSensor::read_dynamic_calibrate_params(struct sensor_t *sensor)

@@ -225,6 +225,7 @@ bool LightSensor::hasPendingEvents() const {
 
 int LightSensor::readEvents(sensors_event_t* data, int count)
 {
+#ifndef TARGET_ROARING_LIONUS
 	if (count < 1)
 		return -EINVAL;
 
@@ -284,6 +285,9 @@ int LightSensor::readEvents(sensors_event_t* data, int count)
 	}
 
 	return numEventReceived;
+#else
+	return -EINVAL;
+#endif
 }
 
 float LightSensor::convertEvent(int value)

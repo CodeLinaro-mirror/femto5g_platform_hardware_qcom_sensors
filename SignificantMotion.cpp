@@ -103,6 +103,7 @@ int SmdSensor::enable(int32_t, int en) {
 
 int SmdSensor::readEvents(sensors_event_t* data, int count)
 {
+#ifndef TARGET_ROARING_LIONUS
         int hasEvent = 0;
 
         if (count < 1)
@@ -159,5 +160,8 @@ int SmdSensor::readEvents(sensors_event_t* data, int count)
         ALOGD("%d SMD event received. timestamp:%lld\n", numEventReceived, mPendingEvent.timestamp);
 
         return numEventReceived;
+#else
+        return -EINVAL;
+#endif
 }
 
