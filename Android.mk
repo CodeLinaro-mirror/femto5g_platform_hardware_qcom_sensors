@@ -33,8 +33,6 @@ else
 endif
 endif
 
-LOCAL_MODULE_TAGS := eng
-
 LOCAL_SRC_FILES :=\
                  ./iam20680/sensors/MPLSupport.cpp \
                  ./iam20680/sensors/SensorsMain.cpp\
@@ -82,8 +80,6 @@ else
     LOCAL_MODULE_RELATIVE_PATH := hw
 endif
 endif
-
-LOCAL_MODULE_TAGS := eng
 
 LOCAL_SRC_FILES :=\
                  ./bmi160/HAL_DataReady/hal/sensors.cpp \
