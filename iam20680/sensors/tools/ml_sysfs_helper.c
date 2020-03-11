@@ -65,7 +65,7 @@ static int status = 0;
 static int iio_initialized = 0;
 static int iio_dev_num = 0;
 
-#define IIO_MAX_NAME_LENGTH 30
+#define IIO_MAX_NAME_LENGTH 100
 
 #define FORMAT_SCAN_ELEMENTS_DIR "%s/scan_elements"
 #define FORMAT_TYPE_FILE "%s_type"
