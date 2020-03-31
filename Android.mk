@@ -25,13 +25,9 @@ ifeq ($(origin TARGET_BOARD_PLATFORM), undefined)
     LOCAL_MODULE := sensors.default
 else
     LOCAL_MODULE := sensors.$(TARGET_BOARD_PLATFORM).iam_$(TARGET_BOARD_TYPE)
-ifeq ($(PLATFORM_VERSION), 8.0.0)
-    LOCAL_VENDOR_MODULE := true
-    LOCAL_MODULE_PATH_32 := $(TARGET_OUT_VENDOR)/lib
-else
-    LOCAL_MODULE_RELATIVE_PATH := hw
 endif
-endif
+LOCAL_VENDOR_MODULE := true
+LOCAL_MODULE_RELATIVE_PATH := hw
 
 LOCAL_SRC_FILES :=\
                  ./iam20680/sensors/MPLSupport.cpp \
@@ -44,6 +40,8 @@ LOCAL_SRC_FILES :=\
                  ./iam20680/sensors/CompassSensor.IIO.primary.cpp\
                  ./iam20680/sensors/MPLSensor.cpp
 
+LOCAL_SHARED_LIBRARIES := \
+      libhardware \
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/iam20680/sensors/tools
 
@@ -52,10 +50,6 @@ LOCAL_CFLAGS := -DBATCH_MODE_SUPPORT -DLOG_TAG=\"Invensense\" -pthread -Wno-erro
 LOCAL_CPPFLAGS := -pthread\
 
 LOCAL_LDLIBS += -lm -llog -lutils -lcutils
-#LOCAL_SHARED_LIBRARIES := libm
-#LOCAL_LDFLAGS :=
-#LOCAL_LDFLAGS_arm :=
-#LOCAL_LDFLAGS_arm64 :=
 LOCAL_PRELINK_MODULE := false
 
 include $(BUILD_SHARED_LIBRARY)
@@ -73,13 +67,9 @@ ifeq ($(origin TARGET_BOARD_PLATFORM), undefined)
     LOCAL_MODULE := sensors.default
 else
     LOCAL_MODULE := sensors.$(TARGET_BOARD_PLATFORM).bmi_$(TARGET_BOARD_TYPE)
-ifeq ($(PLATFORM_VERSION), 8.0.0)
-    LOCAL_VENDOR_MODULE := true
-    LOCAL_MODULE_PATH_32 := $(TARGET_OUT_VENDOR)/lib
-else
-    LOCAL_MODULE_RELATIVE_PATH := hw
 endif
-endif
+LOCAL_VENDOR_MODULE := true
+LOCAL_MODULE_RELATIVE_PATH := hw
 
 LOCAL_SRC_FILES :=\
                  ./bmi160/HAL_DataReady/hal/sensors.cpp \
@@ -98,26 +88,62 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/bmi160/HAL_DataReady/hal\
             $(LOCAL_PATH)/bmi160/HAL_DataReady/sensord/bsx/inc\
             $(LOCAL_PATH)/bmi160/HAL_DataReady/sensord/inc
 
+LOCAL_SHARED_LIBRARIES := \
+      libhardware \
+
 LOCAL_CFLAGS := -pthread -Wno-error=date-time\
 
 LOCAL_CPPFLAGS := -pthread\
 
 LOCAL_LDLIBS += -lm -llog -lutils -lcutils
-#LOCAL_SHARED_LIBRARIES := libm
-#LOCAL_LDFLAGS :=
-#LOCAL_LDFLAGS_arm :=
-#LOCAL_LDFLAGS_arm64 :=
 LOCAL_PRELINK_MODULE := false
 
 include $(BUILD_SHARED_LIBRARY)
 
-#Copy bst_hal_cfg.txt to system img
-#include $(CLEAR_VARS)
-#LOCAL_MODULE := bst_hal_cfg.txt
-#LOCAL_MODULE_TAGS := optional
-#LOCAL_MODULE_CLASS := ETC
-#LOCAL_SRC_FILES := bst_hal_cfg.txt
-#LOCAL_MODULE_PATH := $(TARGET_OUT_ETC)
-#include $(BUILD_PREBUILT)
+endif  # TARGET_SIMULATOR != true
 
+
+#
+## build ASM (ASM330) HAL module
+#
+ifneq ($(TARGET_SIMULATOR),true)
+
+include $(CLEAR_VARS)
+
+ifeq ($(origin TARGET_BOARD_PLATFORM), undefined)
+    LOCAL_MODULE := sensors.default
+else
+    LOCAL_MODULE := sensors.$(TARGET_BOARD_PLATFORM).asm_$(TARGET_BOARD_TYPE)
+endif
+LOCAL_VENDOR_MODULE := true
+LOCAL_MODULE_RELATIVE_PATH := hw
+
+LOCAL_SRC_FILES :=\
+                  ./st/asm330lhh/src/SensorHAL.cpp \
+                  ./st/asm330lhh/src/Accelerometer.cpp \
+                  ./st/asm330lhh/src/FlushBufferStack.cpp \
+                  ./st/asm330lhh/src/HWSensorBase.cpp \
+                  ./st/asm330lhh/src/SensorBase.cpp \
+                  ./st/asm330lhh/src/utils.cpp \
+                  ./st/asm330lhh/src/CircularBuffer.cpp \
+                  ./st/asm330lhh/src/FlushRequested.cpp \
+                  ./st/asm330lhh/src/ChangeODRTimestampStack.cpp \
+                  ./st/asm330lhh/src/Gyroscope.cpp
+
+ifdef CONFIG_ST_HAL_HAS_SELFTEST_FUNCTIONS
+LOCAL_SRC_FILES += ./st/asm330lhh/src/SelfTest.cpp
+endif # CONFIG_ST_HAL_HAS_SELFTEST_FUNCTIONS
+LOCAL_SHARED_LIBRARIES := \
+      libhardware \
+
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/st/asm330lhh/src
+
+LOCAL_CFLAGS := -pthread -Wno-error=date-time\
+
+LOCAL_CPPFLAGS := -pthread\
+
+LOCAL_LDLIBS += -lm -llog -lutils -lcutils
+LOCAL_PRELINK_MODULE := false
+
+include $(BUILD_SHARED_LIBRARY)
 endif  # TARGET_SIMULATOR != true
