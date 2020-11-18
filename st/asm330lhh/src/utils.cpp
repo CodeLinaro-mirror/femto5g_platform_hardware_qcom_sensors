@@ -243,6 +243,7 @@ int device_iio_utils::get_sampling_frequency_available(char *device_dir,
 	char sf_filaname[DEVICE_IIO_MAX_FILENAME_LEN];
 	char *pch;
 	char line[100];
+	char *saveptr = NULL;
 
 	sfa->length = 0;
 
@@ -253,14 +254,14 @@ int device_iio_utils::get_sampling_frequency_available(char *device_dir,
 	if (err < 0)
 		return err;
 
-	err = sysfs_read_str(sf_filaname, line, 100);
+	err = sysfs_read_str(sf_filaname, line, sizeof(line));
 	if (err < 0)
 		return err;
 
-	pch = strtok(line," ,.");
+	pch = strtok_r(line, " ,", &saveptr);
 	while (pch != NULL) {
-		sfa->freq[sfa->length] = atoi(pch);
-		pch = strtok(NULL, " ,.");
+		sfa->freq[sfa->length] = atof(pch);
+		pch = strtok_r(NULL, " ,", &saveptr);
 		sfa->length++;
 
 		if (sfa->length >= DEVICE_IIO_MAX_SAMP_FREQ_AVAILABLE)
@@ -298,7 +299,7 @@ int device_iio_utils::get_fifo_length(const char *device_dir)
 
 	/* write "1" -> <iio:devicex>/hwfifo_enabled */
 	ret = snprintf(tmp_filaname, DEVICE_IIO_MAX_FILENAME_LEN,
-		       "%s/%s", device_dir, device_iio_hw_fifo_enabled);
+			"%s/%s", device_dir, device_iio_hw_fifo_enabled);
 	if (ret < 0)
 		return -ENOMEM;
 
