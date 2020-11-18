@@ -128,7 +128,8 @@ LOCAL_SRC_FILES :=\
                   ./st/asm330lhh/src/CircularBuffer.cpp \
                   ./st/asm330lhh/src/FlushRequested.cpp \
                   ./st/asm330lhh/src/ChangeODRTimestampStack.cpp \
-                  ./st/asm330lhh/src/Gyroscope.cpp
+                  ./st/asm330lhh/src/Gyroscope.cpp\
+		  ./st/asm330lhh/src/SensorAdditionalInfo.cpp
 
 ifdef CONFIG_ST_HAL_HAS_SELFTEST_FUNCTIONS
 LOCAL_SRC_FILES += ./st/asm330lhh/src/SelfTest.cpp
