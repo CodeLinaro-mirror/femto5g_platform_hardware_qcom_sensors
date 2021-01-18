@@ -353,7 +353,7 @@ int64_t elapsedRealtimeNano()
         ALOGE("clock_gettime(CLOCK_BOOTTIME) failed: %s", strerror(errno));
         return 0;
     }
-    return (ts.tv_sec * 1000000000) + ts.tv_nsec;
+    return (ts.tv_sec * 1000000000LL) + ts.tv_nsec;
 #else
     return android::elapsedRealtimeNano();
 #endif
