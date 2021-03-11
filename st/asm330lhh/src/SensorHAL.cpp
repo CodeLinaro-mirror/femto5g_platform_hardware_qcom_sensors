@@ -201,6 +201,9 @@ static SensorBase* st_hal_create_class_sensor(STSensorHAL_device_iio_devices_dat
 	return sb->IsValidClass() ? sb : NULL;
 }
 
+//Config file
+#define SENSOR_CONF_PATH "/etc/sensors.conf"
+
 /*
  * st_hal_set_fullscale() - Change fullscale of iio device sensor
  * @device_iio_sysfs_path: iio device driver sysfs path.
@@ -211,13 +214,47 @@ static SensorBase* st_hal_create_class_sensor(STSensorHAL_device_iio_devices_dat
  *
  * Return value: 0 on success, negative number on fail.
  */
+void SENSOR_READ_CONF(char *file_name, int *acc_range, int *gyro_range)
+{
+    FILE *file;
+    char buffer[BUFSIZ];
+    char *line;
+    int i;
+
+    file = fopen(file_name, "r");
+    if (file == NULL) {
+	ALOGE("open failed: %s: %s\n", file_name, strerror(errno));
+	return;
+    }
+
+    while(fgets(buffer, sizeof(buffer), file) != NULL) {
+       for(i = 0; i < strlen(buffer); i++) { // iterate through the chars in a line
+         if(buffer[i] == '#') { // if char is a #, stop processing chars on this line
+                 break;
+         } else if(buffer[i] == ' ') { // if char is whitespace, continue until something is found
+                 continue;
+         } else if(strstr(buffer, "ACC_RANGE=")) {
+                 line = strstr(buffer, "=");
+                 sscanf(&line[1], "%d", acc_range);
+                 break;
+         }
+         else if(strstr(buffer, "GYRO_RANGE=")) {
+               line = strstr(buffer, "=");
+               sscanf(&line[1], "%d", gyro_range);
+               break;
+         }
+    }
+    }
+    fclose(file);
+}
+
 static int st_hal_set_fullscale(char *device_iio_sysfs_path, int sensor_type,
 				struct device_iio_scales *sa,
 				struct device_iio_info_channel *channels,
 				int num_channels)
 {
 	double max_number = 0;
-	int err, i, c, max_value;
+	int err, i, c, max_value, acc_range = 0 , gyro_range = 0;
 	device_iio_chan_type_t device_iio_sensor_type;
 
 	switch (sensor_type) {
@@ -246,7 +283,11 @@ static int st_hal_set_fullscale(char *device_iio_sysfs_path, int sensor_type,
 		if ((sa->scales[i] * max_number) >= max_value)
 			break;
 	}
-	if (i == (int)sa->length)
+
+	SENSOR_READ_CONF(SENSOR_CONF_PATH , &acc_range, &gyro_range);
+	i = (sensor_type == SENSOR_TYPE_ACCELEROMETER) ? acc_range : gyro_range;
+
+	if (i >= (int)sa->length)
 		i = sa->length - 1;
 
 	err = device_iio_utils::set_scale(device_iio_sysfs_path,

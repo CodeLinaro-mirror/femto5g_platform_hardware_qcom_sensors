@@ -214,7 +214,9 @@ int device_iio_utils::get_device_by_name(const char *name)
 				break;
 			}
 
-			if (strncmp(name, dname, strlen(dname)) == 0) {
+			if (strncmp(name, dname, strlen(dname)) == 0 &&
+			    /* check if asm330lhh and asm330lhhx */
+			    strlen(name) == strlen(dname)) {
 				fclose(devilceFile);
 				closedir(dp);
 				return number;
@@ -250,6 +252,7 @@ int device_iio_utils::get_sampling_frequency_available(char *device_dir,
 	char sf_filaname[DEVICE_IIO_MAX_FILENAME_LEN];
 	char *pch;
 	char line[100];
+	char *saveptr = NULL;
 
 	sfa->length = 0;
 
@@ -264,10 +267,10 @@ int device_iio_utils::get_sampling_frequency_available(char *device_dir,
 	if (err < 0)
 		return err;
 
-	pch = strtok(line," ,");
+	pch = strtok_r(line," ,", &saveptr);
 	while (pch != NULL) {
 		sfa->freq[sfa->length] = atof(pch);
-		pch = strtok(NULL, " ,");
+		pch = strtok_r(NULL, " ,", &saveptr);
 		sfa->length++;
 		if (sfa->length >= DEVICE_IIO_MAX_SAMP_FREQ_AVAILABLE)
 			break;

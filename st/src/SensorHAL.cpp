@@ -23,8 +23,6 @@
 #include "SensorHAL.h"
 #include "Accelerometer.h"
 #include "Gyroscope.h"
-#include "SWGyroscopeUncalibrated.h"
-#include "SWAccelerometerUncalibrated.h"
 
 /*
  * STSensorHAL_device_iio_devices_data: informations related to the IIO devices,
@@ -76,45 +74,33 @@ static const struct ST_sensors_supported {
 	device_iio_chan_type_t device_iio_sensor_type;
 	float power_consumption;
 } ST_sensors_supported[] = {
-/**************** Accelerometer sensors ****************/
-#ifdef CONFIG_ST_HAL_ACCEL_ENABLED
-#ifdef CONFIG_ST_HAL_ASM330LHH_ENABLED
+	/**************** Accelerometer sensors ****************/
 	ST_HAL_NEW_SENSOR_SUPPORTED(CONCATENATE_STRING(ST_SENSORS_LIST_1,
 				    ACCEL_NAME_SUFFIX_IIO),
 				    SENSOR_TYPE_ACCELEROMETER,
 				    DEVICE_IIO_ACC,
 				    "ASM330LHH Accelerometer Sensor",
 				    0.01f)
-#endif /* CONFIG_ST_HAL_ASM330LHH_ENABLED */
-#ifdef CONFIG_ST_HAL_ASM330LHHX_ENABLED
 	ST_HAL_NEW_SENSOR_SUPPORTED(CONCATENATE_STRING(ST_SENSORS_LIST_2,
 				    ACCEL_NAME_SUFFIX_IIO),
 				    SENSOR_TYPE_ACCELEROMETER,
 				    DEVICE_IIO_ACC,
 				    "ASM330LHHX Accelerometer Sensor",
 				    0.01f)
-#endif /* CONFIG_ST_HAL_ASM330LHHX_ENABLED */
-#endif /* CONFIG_ST_HAL_ACCEL_ENABLED */
 
-/**************** Gyroscope sensors ****************/
-#ifdef CONFIG_ST_HAL_GYRO_ENABLED
-#ifdef CONFIG_ST_HAL_ASM330LHH_ENABLED
+	/**************** Gyroscope sensors ****************/
 	ST_HAL_NEW_SENSOR_SUPPORTED(CONCATENATE_STRING(ST_SENSORS_LIST_1,
 				    GYRO_NAME_SUFFIX_IIO),
 				    SENSOR_TYPE_GYROSCOPE,
 				    DEVICE_IIO_GYRO,
 				    "ASM330LHH Gyroscope Sensor",
 				    0.01f)
-#endif /* CONFIG_ST_HAL_ASM330LHH_ENABLED */
-#ifdef CONFIG_ST_HAL_ASM330LHHX_ENABLED
 	ST_HAL_NEW_SENSOR_SUPPORTED(CONCATENATE_STRING(ST_SENSORS_LIST_2,
 				    GYRO_NAME_SUFFIX_IIO),
 				    SENSOR_TYPE_GYROSCOPE,
 				    DEVICE_IIO_GYRO,
 				    "ASM330LHHX Gyroscope Sensor",
 				    0.01f)
-#endif /* CONFIG_ST_HAL_ASM330LHHX_ENABLED */
-#endif /* CONFIG_ST_HAL_GYRO_ENABLED */
 };
 
 /*
@@ -264,6 +250,9 @@ static SensorBase* st_hal_create_class_sensor(STSensorHAL_device_iio_devices_dat
 	return sb->IsValidClass() ? sb : NULL;
 }
 
+//Config file
+#define SENSOR_CONF_PATH "/etc/sensors.conf"
+
 /*
  * st_hal_set_fullscale() - Change fullscale of iio device sensor
  * @device_iio_sysfs_path: iio device driver sysfs path.
@@ -274,13 +263,47 @@ static SensorBase* st_hal_create_class_sensor(STSensorHAL_device_iio_devices_dat
  *
  * Return value: 0 on success, negative number on fail.
  */
+void SENSOR_READ_CONF(char *file_name, int *acc_range, int *gyro_range)
+{
+    FILE *file;
+    char buffer[BUFSIZ];
+    char *line;
+    int i;
+
+    file = fopen(file_name, "r");
+    if (file == NULL) {
+        ALOGE("open failed: %s: %s\n", file_name, strerror(errno));
+        return;
+    }
+
+    while(fgets(buffer, sizeof(buffer), file) != NULL) {
+       for(i = 0; i < strlen(buffer); i++) { // iterate through the chars in a line
+         if(buffer[i] == '#') { // if char is a #, stop processing chars on this line
+                 break;
+         } else if(buffer[i] == ' ') { // if char is whitespace, continue until something is found
+                 continue;
+         } else if(strstr(buffer, "ACC_RANGE=")) {
+                 line = strstr(buffer, "=");
+                 sscanf(&line[1], "%d", acc_range);
+                 break;
+         }
+         else if(strstr(buffer, "GYRO_RANGE=")) {
+               line = strstr(buffer, "=");
+               sscanf(&line[1], "%d", gyro_range);
+               break;
+         }
+    }
+    }
+    fclose(file);
+}
+
 static int st_hal_set_fullscale(char *device_iio_sysfs_path, int sensor_type,
 				struct device_iio_scales *sa,
 				struct device_iio_info_channel *channels,
 				int num_channels)
 {
 	double max_number = 0;
-	int err, i, c, max_value;
+	int err, i, c, max_value, acc_range = 0 , gyro_range = 0;
 	device_iio_chan_type_t device_iio_sensor_type;
 
 	switch (sensor_type) {
@@ -310,7 +333,10 @@ static int st_hal_set_fullscale(char *device_iio_sysfs_path, int sensor_type,
 			break;
 	}
 
-	if (i == (int)sa->length)
+	SENSOR_READ_CONF(SENSOR_CONF_PATH , &acc_range, &gyro_range);
+	i = (sensor_type == SENSOR_TYPE_ACCELEROMETER) ? acc_range : gyro_range;
+
+	if (i >= (int)sa->length)
 		i = sa->length - 1;
 
 	err = device_iio_utils::set_scale(device_iio_sysfs_path,
@@ -908,9 +934,13 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 
 	device_found_num = st_hal_load_acc_data(&ST_sensors_supported[0],
 						&device_iio_devices_data[0]);
-	device_found_num += st_hal_load_gyro_data(&ST_sensors_supported[1],
+	device_found_num += st_hal_load_acc_data(&ST_sensors_supported[1],
+						&device_iio_devices_data[0]);
+	device_found_num += st_hal_load_gyro_data(&ST_sensors_supported[2],
 						  &device_iio_devices_data[1]);
-	if (device_found_num <= 0) {
+	device_found_num += st_hal_load_gyro_data(&ST_sensors_supported[3],
+						  &device_iio_devices_data[1]);
+	if (device_found_num < 0) {
 		err = device_found_num;
 
 		goto free_hal_data;
