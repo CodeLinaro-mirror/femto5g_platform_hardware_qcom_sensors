@@ -1,0 +1,420 @@
+/* Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#ifndef SENSORAPIMSG_H
+#define SENSORAPIMSG_H
+
+#include <string>
+#include <memory>
+#include <algorithm>
+#include <glib.h>
+#include <stdint.h>
+#include <functional>
+#include <SensorIpc.h>
+#include <SensorLog.h>
+#include <sensors.h>
+#include <SensorList.h>
+
+#undef LOG_TAG
+#define LOG_TAG "SensorSvc_ApiMsg:"
+
+/******************************************************************************
+Constants
+******************************************************************************/
+#define BUFFER_EVENT    2048
+#define SENSOR_REMOTE_API_MSG_VERSION (1)
+
+/* Defines to enable/disable sensors */
+#define SENSOR_DISABLE    0
+#define SENSOR_ENABLE     1
+#define SENSOR_LPM        2
+#define SENSOR_HPM        3
+
+//Max Batch Count supported by SHD
+#define MAX_BATCH_COUNT 50
+
+#define strlcpy g_strlcpy
+#define strlcat g_strlcat
+
+#define UID_SENSOR (3011)
+#define GID_SENSORCLIENT (3011)
+
+#define SOCKET_SENSOR_CLIENT_DIR     "/dev/socket/sensor_client/"
+#define SOCKET_TO_SENSOR_HAL_DAEMON  "/dev/socket/sensor_client/hal_daemon"
+#define SOCKET_TO_SENSOR_CLIENT_BASE "/dev/socket/sensor_client/toclient"
+
+// Maximum fully qualified path(including the file name)
+// for the sensor remote API service and client socket name
+#define MAX_SOCKET_PATHNAME_LENGTH (128)
+
+#define SENSOR_CLIENT_SESSION_ID_INVALID (0)
+
+#define NS_TO_MS(x)                             (x / 1E6)
+#define NS_TO_FREQUENCY(x)                      (1E9 / x)
+#define FREQUENCY_TO_NS(x)                      (1E9 / x)
+#define FREQUENCY_TO_US(x)                      (1E6 / x)
+
+using namespace std;
+using namespace sensor_util;
+
+static const char SERVICE_NAME[] = "sensorapiservice";
+
+enum ClientType {
+    SENSOR_CLIENT_API = 1,
+};
+
+/******************************************************************************
+List of message IDs supported by Sensor Remote API
+******************************************************************************/
+enum ESensorMsgID {
+    E_SENSORAPI_UNDEFINED_MSG_ID = 0,
+
+    // registration
+    E_SENSORAPI_CLIENT_REGISTER_MSG_ID = 1,
+    E_SENSORAPI_CLIENT_DEREGISTER_MSG_ID = 2,
+    E_SENSORAPI_HAL_READY_MSG_ID = 3,
+
+    // tracking session
+    E_SENSORAPI_START_TRACKING_MSG_ID = 4,
+    E_SENSORAPI_STOP_TRACKING_MSG_ID = 5,
+
+    //Sensor Data indication message id
+    E_SENSORAPI_DATA_READ_MSG_ID = 6,
+
+    // batching session
+    E_SENSORAPI_START_BATCHING_MSG_ID = 7,
+    E_SENSORAPI_START_BATCHING_RES_ID = 8,
+    E_SENSORAPI_STOP_BATCHING_MSG_ID = 9,
+
+    // Get Sensor LIST
+    E_SENSORAPI_GET_SENSOR_LIST_MSG_ID = 10,
+    E_SENSORAPI_SENSOR_LIST_MSG_ID = 11,
+
+    //Enable Sensor
+    E_SENSORAPI_SENSOR_ENABLE_MSG_ID = 12,
+
+    //MLC Message ID
+    E_SENSORAPI_SENSOR_MLC_CASE_LIST_MSG_ID = 13,
+    E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID = 14,
+    E_SENSORAPI_SENSOR_MLC_EVENT_IND_MSG_ID = 15,
+
+    //Read Sensor temperature
+    E_SENSORAPI_SENSOR_TEMP_REQ_MSG_ID = 16,
+    E_SENSORAPI_SENSOR_TEMP_IND_MSG_ID = 17,
+
+    //Buffer data
+    E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID = 18,
+    E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID = 19,
+
+};
+
+
+/******************************************************************************
+Common data structure
+******************************************************************************/
+struct SensorDataPayload {
+    uint32_t count;
+    sensors_event_t events[1];
+};
+
+struct SensorList {
+    uint32_t count;
+    struct sensor_list s[1];
+};
+
+struct SensorMlcCaseList {
+    uint32_t count;
+    struct sensor_mlc_case_list s[1];
+};
+
+struct SensorMlcEventData {
+    char name[100];
+    struct mlc_event_data event[1];
+};
+/******************************************************************************
+  IPC message header structure
+ ******************************************************************************/
+struct SensorAPIMsgHeader
+{
+    char          mSocketName[MAX_SOCKET_PATHNAME_LENGTH]; /**< Processor string */
+    ESensorMsgID  msgId;               /**< SensorMsgID */
+    uint32_t      msgVersion;          /**< Sensor remote API message version */
+
+    inline SensorAPIMsgHeader(const char* name, ESensorMsgID msgId):
+	    msgId(msgId),
+	    msgVersion(SENSOR_REMOTE_API_MSG_VERSION) {
+		    memset(mSocketName, 0, MAX_SOCKET_PATHNAME_LENGTH);
+		    strlcpy(mSocketName, name, MAX_SOCKET_PATHNAME_LENGTH);
+	    }
+
+    inline bool isValidMsg(uint32_t msgSize) {
+	    bool msgValid = true;
+	    if (msgSize < sizeof(SensorAPIMsgHeader)) {
+		    SENSOR_LOGE(LOG_TAG "payload size %d smaller than minimum payload size %d\n",
+				    msgSize, sizeof(SensorAPIMsgHeader));
+		    msgValid = false;
+	    } else if (msgVersion != SENSOR_REMOTE_API_MSG_VERSION) {
+		    SENSOR_LOGE(LOG_TAG "msg id %d, msg version %d not matching with expected version %d\n",
+				    msgId, msgVersion, SENSOR_REMOTE_API_MSG_VERSION);
+		    msgValid = false;
+	    }
+                return msgValid;
+        }
+
+    bool isValidClientMsg(uint32_t msgSize) {
+	    bool msgValid = isValidMsg(msgSize);
+	    if ((true== msgValid) &&
+			    ((strncmp(mSocketName, SOCKET_SENSOR_CLIENT_DIR,
+				      sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0))) {
+		    SENSOR_LOGE(LOG_TAG "msg not from expected client\n");
+		    msgValid = false;
+	    }
+
+	    return msgValid;
+    }
+
+    bool isValidServerMsg(uint32_t msgSize) {
+	    bool msgValid = isValidMsg(msgSize);
+	    if ((true== msgValid) &&
+			    (strncmp(mSocketName, SERVICE_NAME, sizeof(SERVICE_NAME)) != 0)) {
+		    SENSOR_LOGE(LOG_TAG "msg not from expected server %s\n", SERVICE_NAME);
+		    msgValid = false;
+	    }
+
+	    return msgValid;
+    }
+
+};
+
+/******************************************************************************
+  IPC message structure
+ ******************************************************************************/
+// defintion for message with msg id of E_SENSORAPI_CLIENT_REGISTER_MSG_ID
+struct SensorAPIClientRegisterReqMsg: SensorAPIMsgHeader
+{
+    ClientType mClientType;
+
+    inline SensorAPIClientRegisterReqMsg(const char* name, ClientType clientType) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_CLIENT_REGISTER_MSG_ID),
+        mClientType(clientType) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_CLIENT_DEREGISTER_MSG_ID
+struct SensorAPIClientDeregisterReqMsg: SensorAPIMsgHeader
+{
+    inline SensorAPIClientDeregisterReqMsg(const char* name) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_CLIENT_DEREGISTER_MSG_ID) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_HAL_READY_MSG_ID
+struct SensorAPIHalReadyIndMsg: SensorAPIMsgHeader
+{
+    inline SensorAPIHalReadyIndMsg(const char* name) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_HAL_READY_MSG_ID) { }
+};
+
+// defintion for respone message for any msg id requested
+struct SensorAPIGenericRespMsg: SensorAPIMsgHeader
+{
+    int ret;
+
+    inline SensorAPIGenericRespMsg(const char* name, ESensorMsgID msgId, int ret) :
+        SensorAPIMsgHeader(name, msgId),
+        ret(ret) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_GET_SENSOR_LIST_MSG_ID
+struct SensorAPIListReqMsg: SensorAPIMsgHeader
+{
+    inline SensorAPIListReqMsg(const char* name) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_GET_SENSOR_LIST_MSG_ID) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_LIST_MSG_ID
+struct SensorAPIListIndMsg : SensorAPIMsgHeader
+{
+    SensorList sensorList;
+
+    inline SensorAPIListIndMsg(const char* name) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_LIST_MSG_ID) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_ENABLE_MSG_ID
+struct SensorAPIEnableReqMsg: SensorAPIMsgHeader
+{
+    int sensor_id;
+    int enable;
+
+    inline SensorAPIEnableReqMsg(const char* name, int sensor_id, int enable):
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_ENABLE_MSG_ID),
+        sensor_id(sensor_id),
+        enable(enable) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_START_BATCHING_MSG_ID
+struct SensorAPIStartBatchingReqMsg: SensorAPIMsgHeader
+{
+    int sensor_id;
+    float samplingRate;
+    int batchCount;
+
+    inline SensorAPIStartBatchingReqMsg(const char* name,
+                                     int sensor_id,
+                                     float Sampling_rate,
+                                     int Batch_Count
+                                     ):
+	SensorAPIMsgHeader(name, E_SENSORAPI_START_BATCHING_MSG_ID),
+        sensor_id(sensor_id),
+        samplingRate(Sampling_rate),
+        batchCount(Batch_Count) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_START_TRACKING_MSG_ID
+struct SensorAPIStartTrackingReqMsg: SensorAPIMsgHeader
+{
+    inline SensorAPIStartTrackingReqMsg(const char* name):
+        SensorAPIMsgHeader(name, E_SENSORAPI_START_TRACKING_MSG_ID) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_DATA_READ_MSG_ID
+struct SensorAPIDataIndMsg: SensorAPIMsgHeader
+{
+    SensorDataPayload sensorData;
+
+    inline SensorAPIDataIndMsg(const char* name) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_DATA_READ_MSG_ID) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_MLC_CASE_LIST_MSG_ID
+struct SensorMlcCaseListIndMsg : SensorAPIMsgHeader
+{
+    SensorMlcCaseList sensorMlcCaseList;
+
+    inline SensorMlcCaseListIndMsg(const char* name) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_MLC_CASE_LIST_MSG_ID) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID
+struct SensorAPIMLCCaseEnableMsg: SensorAPIMsgHeader
+{
+    char mlc_case_name[100];
+    bool enable;
+
+    inline SensorAPIMLCCaseEnableMsg(const char* name, char *case_name, bool enable) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID),
+	enable(enable) {
+		memset(mlc_case_name, 0, 100);
+		strlcpy(mlc_case_name, case_name, 100);
+	}
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_MLC_EVENT_IND_MSG_ID
+struct SensorAPIMLCEventIndMsg: SensorAPIMsgHeader
+{
+    SensorMlcEventData mlcEventData;
+
+    inline SensorAPIMLCEventIndMsg(const char* name, char *case_name, struct mlc_event_data *event) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_MLC_EVENT_IND_MSG_ID) {
+                memset(&mlcEventData.name[0], 0, 100);
+                strlcpy(&mlcEventData.name[0], case_name, 100);
+                memcpy(&mlcEventData.event[0], event, sizeof(struct mlc_event_data));
+        }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_TEMP_REQ_MSG_ID
+struct SensorAPITempReqMsg: SensorAPIMsgHeader
+{
+    inline SensorAPITempReqMsg(const char* name) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_TEMP_REQ_MSG_ID) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_TEMP_IND_MSG_ID
+struct SensorAPITempIndMsg: SensorAPIMsgHeader
+{
+    float temperature;
+
+    inline SensorAPITempIndMsg(const char* name, float Temperature) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_TEMP_IND_MSG_ID),
+	temperature(Temperature) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID
+struct SensorAPIBufferDataReqMsg: SensorAPIMsgHeader
+{
+    bool enable;
+
+    inline SensorAPIBufferDataReqMsg(const char* name, bool Enable) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID),
+        enable(Enable) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID
+struct SensorAPIBufferDataIndMsg: SensorAPIMsgHeader
+{
+    SensorDataPayload sensorData;
+
+    inline SensorAPIBufferDataIndMsg(const char* name) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID) { }
+};
+
+//To Dump the Senor Events.
+inline void dump_event(const struct sensors_event_t *e)
+{
+    switch (e->type) {
+    case SENSOR_TYPE_ACCELEROMETER:
+        SENSOR_LOGD(LOG_TAG "ACC event: x=%f y=%f z=%f timestamp=%lld\n",
+            e->acceleration.x, e->acceleration.y, e->acceleration.z,
+            e->timestamp);
+        break;
+    case SENSOR_TYPE_MAGNETIC_FIELD:
+        SENSOR_LOGD(LOG_TAG "MAG event: x=%f y=%f z=%f timestamp=%lld\n",
+            e->magnetic.x, e->magnetic.y, e->magnetic.z,
+            e->timestamp);
+        break;
+    case SENSOR_TYPE_GYROSCOPE:
+        SENSOR_LOGD(LOG_TAG "GYRO event: x=%f y=%f z=%f timestamp=%lld\n",
+            e->gyro.x, e->gyro.y, e->gyro.z, e->timestamp);
+        break;
+    case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
+        SENSOR_LOGD(LOG_TAG "ACC event: x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld HZ=%f\n",
+            e->uncalibrated_accelerometer.x_uncalib, e->uncalibrated_accelerometer.y_uncalib,
+            e->uncalibrated_accelerometer.z_uncalib, e->uncalibrated_accelerometer.x_bias,
+            e->uncalibrated_accelerometer.y_bias, e->uncalibrated_accelerometer.z_bias);
+        break;
+    case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
+        SENSOR_LOGD(LOG_TAG "GYRO event x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld HZ=%f\n",
+            e->uncalibrated_gyro.x_uncalib, e->uncalibrated_gyro.y_uncalib,
+            e->uncalibrated_gyro.z_uncalib, e->uncalibrated_gyro.x_bias,
+            e->uncalibrated_gyro.y_bias, e->uncalibrated_gyro.z_bias);
+        break;
+    default:
+        SENSOR_LOGD(LOG_TAG "Unknown sensor_id events %d\n", e->type);
+        break;
+    }
+}
+#endif /* SENSORAPIMSG_H */

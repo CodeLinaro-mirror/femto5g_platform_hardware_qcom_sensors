@@ -1,0 +1,1103 @@
+/* Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation, nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include <stdint.h>
+#include <sys/stat.h>
+#include <dlfcn.h>
+#include <memory>
+#include <algorithm>
+#include <SensorApiMsg.h>
+#include <SensorList.h>
+#include <math.h>
+#include <SensorHalDaemonIPCReceiver.h>
+#include <SensorHalDaemonIPCSender.h>
+#include <SensorHalDaemonClientHandler.h>
+#include <SensorApiService.h>
+
+using namespace std;
+
+/******************************************************************************
+SensorApiService - static members
+******************************************************************************/
+SensorApiService* SensorApiService::mInstance = nullptr;
+std::mutex SensorApiService::mMutex;
+/******************************************************************************
+SensorApiService - constructors
+******************************************************************************/
+SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
+    mSensorCount(0),
+    mSensorList(nullptr),
+    mSensorMlcCaseCount(0),
+    mSesnorMlcCaseList(nullptr),
+    mSensorClient(0),
+    mSensor(nullptr),
+    mSensorType(configParamRead.SensorType),
+    mDynamicConfigEnabled(configParamRead.DynamicConfigEnabled),
+    mMaxAccSampleRate(configParamRead.MaxAccSampleRate),
+    mMaxGyroSampleRate(configParamRead.MaxGyroSampleRate),
+    mMinAccBatchCount(configParamRead.MinAccBatchCount),
+    mMinGyroBatchCount(configParamRead.MinGyroBatchCount),
+    mAccRange(configParamRead.AccRange),
+    mGyroRange(configParamRead.GyroRange),
+    mhmi(nullptr),
+    mdev(nullptr),
+    mpoll_dev_v0(nullptr),
+    mpoll_dev(nullptr),
+    mBufferSupported(false),
+    mTempSupported(false),
+    mBufferDeleted(false),
+    mMlcSupported(false)
+{
+    SENSOR_LOGI(LOG_TAG "SensorApiService constructor is called\n");
+
+    //Check Sensor Availability
+    if(!open_sensor(configParamRead)) {
+	SENSOR_LOGE(LOG_TAG "no sensor supported \n");
+	return;
+    }
+
+    // create IPC receiver
+    mIpcReceiver = new SensorHalDaemonIPCReceiver(this);
+    if (nullptr == mIpcReceiver) {
+        SENSOR_LOGE(LOG_TAG "Failed to create SensorHalDaemonIPCReceiver\n");
+        return;
+    }
+
+    // start receiver - never return
+    SENSOR_LOGI(LOG_TAG "Ready, start Ipc Receiver\n");
+    // blocking: set to true
+    mIpcReceiver->start(true);
+}
+
+/******************************************************************************
+SensorApiService - Destructors
+******************************************************************************/
+SensorApiService::~SensorApiService() {
+
+    // stop ipc receiver thread
+    if (nullptr != mIpcReceiver) {
+        mIpcReceiver->stop();
+        delete mIpcReceiver;
+    }
+
+    //Delete mSensor memory
+    if (nullptr != mSensor) {
+	delete mSensor;
+	mSensor = nullptr;
+    }
+
+    //Delete mSensorList memory
+    if (nullptr != mSensorList) {
+	delete mSensorList;
+	mSensorList = nullptr;
+    }
+
+    //Delete mSesnorMlcCaseList memory
+    if (nullptr != mSesnorMlcCaseList) {
+        delete mSesnorMlcCaseList;
+        mSesnorMlcCaseList = nullptr;
+    }
+
+    // free resource associated with the client
+    for (auto each : mClients) {
+	    SENSOR_LOGI(LOG_TAG ">-- deleted client [%s]", each.first.c_str());
+	    each.second->cleanup();
+    }
+    SENSOR_LOGI(LOG_TAG "SensorApiService destructor is called\n");
+}
+
+/******************************************************************************
+SensorApiService - onListenerReady send HAL READY message to all clients.
+******************************************************************************/
+void SensorApiService::onListenerReady() {
+
+    // traverse client sockets directory - then broadcast READY message
+    SENSOR_LOGV(LOG_TAG ">-- onListenerReady Finding client sockets...\n");
+
+    DIR *dirp = opendir(SOCKET_SENSOR_CLIENT_DIR);
+    if (!dirp) {
+        return;
+    }
+
+    struct dirent *dp = nullptr;
+    struct stat sbuf = {0};
+    const std::string fnamebase = SOCKET_TO_SENSOR_CLIENT_BASE;
+    while (nullptr != (dp = readdir(dirp))) {
+        std::string fname = SOCKET_SENSOR_CLIENT_DIR;
+        fname += dp->d_name;
+        if (-1 == lstat(fname.c_str(), &sbuf)) {
+            continue;
+        }
+        if ('.' == (dp->d_name[0])) {
+            continue;
+        }
+        const char* clientName = NULL;
+	if (0 == fname.compare(0, fnamebase.size(), fnamebase)) {
+            clientName = fname.c_str();
+            SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s, size %d\n", clientName);
+        }
+        if (NULL != clientName) {
+            SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName);
+            SensorAPIHalReadyIndMsg msg(SERVICE_NAME);
+            SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s, msg size %d\n", clientName, sizeof(msg));
+            pIpcSender->send(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
+            delete pIpcSender;
+        }
+    }
+    closedir(dirp);
+}
+
+/******************************************************************************
+SensorApiService - Print sensor List
+******************************************************************************/
+static void PrintSensorList(struct sensor_list *sensor, int sensor_count)
+{
+   SENSOR_LOGD(LOG_TAG "sensor_count %d\n", sensor_count);
+   for (int i=0 ; i< sensor_count ; i++) {
+           SENSOR_LOGD(LOG_TAG"%s\n",sensor[i].name);
+           SENSOR_LOGD(LOG_TAG"\tvendor: %s\n",sensor[i].vendor);
+           SENSOR_LOGD(LOG_TAG"\tsensor_id: %d\n",sensor[i].sensor_id);
+           SENSOR_LOGD(LOG_TAG"\ttype: %d\n",sensor[i].type);
+           SENSOR_LOGD(LOG_TAG"\trange: %d\n",sensor[i].range);
+           SENSOR_LOGD(LOG_TAG"\tmaxSamplingRate: %d\n",sensor[i].maxSamplingRate);
+           SENSOR_LOGD(LOG_TAG"\tminBatchCount: %d\n",sensor[i].minBatchCount);
+           SENSOR_LOGD(LOG_TAG"\tmaxBatchCount: %d\n",sensor[i].maxBatchCount);
+           SENSOR_LOGD(LOG_TAG"\todr rate: %fHZ %fHZ %fHZ %fHZ %fHZ %fHZ\n",
+                           sensor[i].odr[0],sensor[i].odr[1],sensor[i].odr[2],
+                           sensor[i].odr[3],sensor[i].odr[4],sensor[i].odr[5]);
+   }
+}
+
+/******************************************************************************
+SensorApiService - open_sensor to check sensor supported by device
+******************************************************************************/
+bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
+{
+
+   void *hal;
+   int err;
+   const struct sensor_t *s;
+
+   //Open sensor Lib
+   hal = dlopen(configParamRead.SensorHalLibPath, RTLD_NOW);
+   if (!hal) {
+	   SENSOR_LOGE(LOG_TAG "ERROR: unable to load HAL %s: %s\n", configParamRead.SensorHalLibPath,
+			   dlerror());
+	   return false;
+   }
+
+   mhmi = (struct sensors_module_t *)dlsym(hal, HAL_MODULE_INFO_SYM_AS_STR);
+   if (!mhmi) {
+	   SENSOR_LOGE(LOG_TAG "ERROR: unable to find %s entry point in HAL\n",
+			   HAL_MODULE_INFO_SYM_AS_STR);
+	   return false;
+   }
+
+   SENSOR_LOGI(LOG_TAG "HAL loaded: name %s vendor %s version %d.%d id %s\n",
+		   mhmi->common.name, mhmi->common.author,
+		   mhmi->common.version_major, mhmi->common.version_minor,
+		   mhmi->common.id);
+
+   err = mhmi->common.methods->open((struct hw_module_t *)mhmi,
+		   SENSORS_HARDWARE_POLL, &mdev);
+   if (err) {
+	   SENSOR_LOGE(LOG_TAG "ERROR: failed to initialize HAL: %d\n", err);
+	   return false;
+   }
+
+   mpoll_dev = (struct sensors_poll_device_1 *)mdev;
+   mpoll_dev_v0 = (struct sensors_poll_device_t *)mdev;
+
+
+   //Get Sensor List Supported by HAL
+   mSensorCount = get_sensor_list(&s);
+   if (mSensorCount <= 0 ){
+	   mSensorCount = 0;
+	   return false;
+   }
+
+   //Copy data to mSensor to track the sensor configuration parameters till last client deregistered.
+   mSensor = new (std::nothrow) SensorConfig[mSensorCount];
+   for(int i=0; i < mSensorCount; i++) {
+     mSensor[i].sensor_id    = s[i].handle;
+     mSensor[i].type         = s[i].type;
+     mSensor[i].Activate     = 0;
+     mSensor[i].SamplingRate = 0;
+     mSensor[i].BatchCount   = 0;
+   }
+
+   //Create Sensor List to send to all Clients.
+   mSensorList = new (std::nothrow) struct sensor_list[mSensorCount];
+   for(int i= 0; i< mSensorCount; i++) {
+     if (s[i].type == SENSOR_TYPE_ACCELEROMETER) {
+	     strlcpy(&mSensorList[i].name[0], configParamRead.AccelName, MAX_PATH_SIZE);
+	     mSensorList[i].type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
+     }
+     if (s[i].type == SENSOR_TYPE_GYROSCOPE || s[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED) {
+	     strlcpy(&mSensorList[i].name[0], configParamRead.GyroName, MAX_PATH_SIZE);
+	     mSensorList[i].type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
+     }
+     strlcpy(&mSensorList[i].vendor[0], s[i].vendor, MAX_PATH_SIZE);
+     mSensorList[i].sensor_id = s[i].handle;
+     mSensorList[i].maxBatchCount = MAX_BATCH_COUNT;
+     GetSupportedSamplingRateAndRange(&mSensorList[i]);
+   }
+   //Print sensor list for debug
+   PrintSensorList(mSensorList, mSensorCount);
+
+   //Initialize Temp Sensor
+   if (tempSensorDataInit())
+     mTempSupported = true;
+
+   //Check Buffer support
+   if (CheckBufferReadFile())
+     mBufferSupported = true;
+
+   //Load MLC firmware if available in /lib/firmware folder
+   if (LoadMLC(PATH_MLC_BINARY))
+     mMlcSupported = true;
+
+   //Create the thread to send data to all clients.
+   if (!Sensor_ThreadCreate(&mSensorThreadtid, send_sensor_data_to_clients, this, "SensorPoll-")) {
+      SENSOR_LOGE(LOG_TAG "Sensor Poll Data thread failed \n");
+      return false;
+   }
+
+   //Create the thread to send buffer data to all clients if buffering supported by sensor.
+   if(mBufferSupported == true) {
+      if (!Sensor_ThreadCreate(&mBufferThreadtid, bufferDataprocessTask, this, "SensorBufferRead-")) {
+	     SENSOR_LOGE(LOG_TAG "Sensor Buffer Data read thread failed \n");
+	     return false;
+     }
+   }
+
+   return true;
+}
+
+/******************************************************************************
+SensorApiService - sensor_activate to actiate/deactivate the sensor
+******************************************************************************/
+int SensorApiService::sensor_activate(int sensor_id , int enable)
+{
+   return mpoll_dev->activate(mpoll_dev_v0, sensor_id, enable);
+}
+
+/******************************************************************************
+SensorApiService - sensor_set_batch to configure the sensor
+******************************************************************************/
+int SensorApiService::sensor_set_batch(int sensor_id, int64_t delay, int64_t latency)
+{
+   return mpoll_dev->batch(mpoll_dev, sensor_id, 0, delay, latency);
+}
+
+/******************************************************************************
+SensorApiService - get_sensor_list to get the sensor list supported by device
+******************************************************************************/
+int SensorApiService::get_sensor_list(struct sensor_t const **s)
+{
+  int sensor_num = 0;
+  struct sensor_t const* list;
+  sensor_num = mhmi->get_sensors_list(mhmi, &list);
+  *s= (struct sensor_t const *)list;
+
+  //Print Sensor Info
+  SENSOR_LOGD(LOG_TAG "%d sensors found:\n", sensor_num);
+  for (int i=0 ; i< sensor_num ; i++) {
+        SENSOR_LOGD(LOG_TAG "%s\n"
+                "\tvendor: %s\n"
+                "\tversion: %d\n"
+                "\tsensor_id: %d\n"
+                "\ttype: %d\n"
+                "\tmaxRange: %f\n"
+                "\tresolution: %f\n"
+                "\tpower: %f mA\n",
+                list[i].name,
+                list[i].vendor,
+                list[i].version,
+                list[i].handle,
+                list[i].type,
+                list[i].maxRange,
+                list[i].resolution,
+                list[i].power);
+  }
+
+  return sensor_num;
+}
+
+/******************************************************************************
+SensorApiService - send_sensor_data_to_clients thread to process sensor data
+******************************************************************************/
+void* SensorApiService::send_sensor_data_to_clients(void *arg)
+{
+  SensorApiService* mSensorService = (SensorApiService*)(arg);
+  int count = 0;
+  sensors_event_t events[BUFFER_EVENT];
+  while(1)
+  {
+     count = mSensorService->mpoll_dev->poll(mSensorService->mpoll_dev_v0,
+		     events, sizeof(events)/sizeof(sensors_event_t));
+     SENSOR_LOGV(LOG_TAG "read events = %d \n",count);
+     std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+     for (auto each : mSensorService->mClients) {
+	     if (each.second && each.second->mTracking)
+		     if (each.second->mAccTracking || each.second->mGyroTracking)
+			     each.second->onSensorDataReadCb(events, count);
+     }
+  }
+}
+
+/******************************************************************************
+SensorApiService - bufferDataprocessTask thread to process buffer data
+******************************************************************************/
+void* SensorApiService::bufferDataprocessTask(void * arg)
+{
+  SensorApiService* mSensorService = (SensorApiService*)(arg);
+  mSensorService->SensorBuffread();
+}
+
+
+/******************************************************************************
+  SensorApiService - processClientMsg recieved from clients
+******************************************************************************/
+void SensorApiService::processClientMsg(const std::string& data) {
+
+    SensorAPIMsgHeader* pMsg = (SensorAPIMsgHeader*)(data.data());
+    uint32_t length = data.length();
+
+    switch (pMsg->msgId) {
+        case E_SENSORAPI_CLIENT_REGISTER_MSG_ID: {
+            // new client
+            if (sizeof(SensorAPIClientRegisterReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            newClient(reinterpret_cast<SensorAPIClientRegisterReqMsg*>(pMsg));
+            break;
+        }
+        case E_SENSORAPI_CLIENT_DEREGISTER_MSG_ID: {
+            // delete client
+            if (sizeof(SensorAPIClientDeregisterReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            deleteClient(reinterpret_cast<SensorAPIClientDeregisterReqMsg*>(pMsg));
+            break;
+        }
+        case E_SENSORAPI_GET_SENSOR_LIST_MSG_ID: {
+            // List
+            if (sizeof(SensorAPIListReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            getSensorList(reinterpret_cast<SensorAPIListReqMsg*>(pMsg));
+            break;
+        }
+        case E_SENSORAPI_SENSOR_ENABLE_MSG_ID: {
+            // Enable
+            if (sizeof(SensorAPIEnableReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+	    activateSensor(reinterpret_cast<SensorAPIEnableReqMsg*>(pMsg));
+            break;
+        }
+        case E_SENSORAPI_START_BATCHING_MSG_ID: {
+            // start batching
+            if (sizeof(SensorAPIStartBatchingReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            startBatching(reinterpret_cast<SensorAPIStartBatchingReqMsg*>(pMsg));
+            break;
+        }
+        case E_SENSORAPI_START_TRACKING_MSG_ID: {
+            // start tracking
+            if (sizeof(SensorAPIStartTrackingReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            startTracking(reinterpret_cast<SensorAPIStartTrackingReqMsg*>(pMsg));
+            break;
+        }
+        case E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID: {
+            // Sensor MLC case enabel/disable request
+            if (sizeof(SensorAPIMLCCaseEnableMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+	    SensorEnableMLCCase(reinterpret_cast<SensorAPIMLCCaseEnableMsg*>(pMsg));
+            break;
+        }
+        case E_SENSORAPI_SENSOR_TEMP_REQ_MSG_ID: {
+            // Sensor Temperature
+            if (sizeof(SensorAPITempReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            getSensorTemp(reinterpret_cast<SensorAPITempReqMsg*>(pMsg));
+            break;
+        }
+        case E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID: {
+            // Sensor buffer Data
+            if (sizeof(SensorAPIBufferDataReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            getSensorBufferData(reinterpret_cast<SensorAPIBufferDataReqMsg*>(pMsg));
+            break;
+        }
+        default: {
+            SENSOR_LOGE(LOG_TAG "Unknown message with id: %d\n", pMsg->msgId);
+            break;
+        }
+    }
+}
+
+/******************************************************************************
+SensorApiService - implementation - registration
+******************************************************************************/
+void SensorApiService::newClient(SensorAPIClientRegisterReqMsg *pMsg) {
+
+    std::lock_guard<std::mutex> lock(mMutex);
+    std::string clientname(pMsg->mSocketName);
+
+    // if this name is already used return error
+    if (mClients.find(clientname) != mClients.end()) {
+        SENSOR_LOGE(LOG_TAG "invalid client=%s already existing\n", clientname.c_str());
+        return;
+    }
+
+    // store it in client property database
+    SensorHalDaemonClientHandler *pClient =
+            new SensorHalDaemonClientHandler(this, clientname, pMsg->mClientType, mSensorCount);
+    if (!pClient) {
+        SENSOR_LOGE(LOG_TAG "failed to register client=%s\n", clientname.c_str());
+        return;
+    }
+
+    //Send Sensor List to client
+    if(mSensorCount > 0)
+	    pClient->onSensorListCb(mSensorList, mSensorCount);
+    if (mSensorMlcCaseCount > 0)
+	    pClient->onSensorMlcCaseListCb(mSesnorMlcCaseList, mSensorMlcCaseCount);
+
+    mSensorClient++;
+    mClients.emplace(clientname, pClient);
+    SENSOR_LOGI(LOG_TAG ">-- registered new client=%s\n", clientname.c_str());
+}
+
+/******************************************************************************
+SensorApiService - implementation - deregistration
+******************************************************************************/
+void SensorApiService::deleteClient(SensorAPIClientDeregisterReqMsg *pMsg) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    SENSOR_LOGI(LOG_TAG ">-- deleteClient\n");
+    std::string clientname(pMsg->mSocketName);
+
+    deleteClientbyName(clientname);
+}
+
+void SensorApiService::deleteClientbyName(const std::string clientname) {
+    // We shall not hold the lock, as lock already held by the caller
+    //
+    mSensorClient--;
+    /*Deactivate the Sensor when last client deregistered*/
+    if(mSensorClient <= 0) {
+        for(int i=0; i < mSensorCount; i++) {
+                sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE);
+                mSensor[i].Activate = 0;
+                mSensor[i].SamplingRate = 0;
+                mSensor[i].BatchCount = 0;
+        }
+    }
+    // remove the client from the config request map
+    for (auto it = mConfigReqs.begin(); it != mConfigReqs.end();) {
+     if (strncmp(it->second.clientName.c_str(), clientname.c_str(),
+			     strlen (clientname.c_str())) == 0) {
+	     it = mConfigReqs.erase(it);
+     } else {
+	     ++it;
+     }
+    }
+    // delete this client from property db
+    SensorHalDaemonClientHandler* pClient = getClient(clientname);
+
+    if (!pClient) {
+        SENSOR_LOGE(LOG_TAG ">-- deleteClient invlalid client=%s\n", clientname.c_str());
+        return;
+    }
+    mClients.erase(clientname);
+    pClient->cleanup();
+
+    SENSOR_LOGI(LOG_TAG ">-- deleteClient client=%s\n", clientname.c_str());
+}
+
+/******************************************************************************
+SensorApiService - implementation - StartTracking
+******************************************************************************/
+void SensorApiService::startTracking(SensorAPIStartTrackingReqMsg *pMsg) {
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    int ret = 0;
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+    if (!pClient) {
+        SENSOR_LOGE(LOG_TAG ">-- start invlalid client=%s\n", pMsg->mSocketName);
+        return;
+    }
+
+    pClient->mTracking = true;
+    pClient->mPendingMessages.push(E_SENSORAPI_START_TRACKING_MSG_ID);
+    pClient->onResponseCb(ret, E_SENSORAPI_START_TRACKING_MSG_ID);
+
+    SENSOR_LOGI(LOG_TAG ">-- star session AccTracking %d GyroTracking %d\n",
+		    pClient->mAccTracking, pClient->mGyroTracking);
+
+    return;
+}
+
+/******************************************************************************
+SensorApiService - implementation - StartBatching
+******************************************************************************/
+int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
+    int ret = 0;
+    int64_t SamplingRate = 0;
+    int64_t BatchingRate = 0;
+
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+
+    for (int i=0 ; i < mSensorCount; i++)  {
+         //Check for proper sensor_id
+         if (pMsg->sensor_id == mSensor[i].sensor_id) {
+           //Store requested sampling rate and batch count to client variables
+           pClient->mSampleRate[i] = pMsg->samplingRate;
+	   pClient->mBatchCount[i] = pMsg->batchCount;
+	   //Check for Accel Parameteters
+           if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
+	     //Return error if requested sampling rate is more than config file parameters.
+             if (pMsg->samplingRate > mMaxAccSampleRate) {
+		     pClient->mSampleRate[i] = 0;
+                     ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+                     break;
+             }
+	     //Configure sensor to parameters defined in /etc/sensors.conf file , config only once
+             if (mSensor[i].SamplingRate != mMaxAccSampleRate) {
+                     mSensor[i].SamplingRate = mMaxAccSampleRate;
+                     mSensor[i].BatchCount = mMinAccBatchCount;
+                     SamplingRate = FREQUENCY_TO_NS(mMaxAccSampleRate);
+                     BatchingRate = mMinAccBatchCount * SamplingRate  * mBatchConst;
+                     SENSOR_LOGI(LOG_TAG ">-- Configure sensor Acc sensor_id %d sampling Rate %lld BatchingRate %lld\n",
+                                     pMsg->sensor_id, SamplingRate, BatchingRate);
+                     ret = sensor_set_batch(pMsg->sensor_id, SamplingRate, BatchingRate);
+                     if (ret != 0) {
+			  pClient->mSampleRate[i] = 0;
+                          ret = SENSOR_ERROR_CONFIG_FAILED;
+                          break;
+		     }
+             }
+	     //Calcualate the client config parameters based on sensor physical configuration
+	     pMsg->batchCount = NearByBatchCount(mMinAccBatchCount, pMsg->batchCount);
+	     pClient->mAccFactor = lroundf(mSensor[i].SamplingRate / pMsg->samplingRate);
+	     pClient->mAccBatchCount = pMsg->batchCount;
+	     pClient->mAccCount = 0;
+	     pClient->mAccMovingCount = 0;
+	     pClient->mAccTracking = false;
+	     //Allocate memory to store acc events based on requested batch count by client
+	     if (pClient->mAccEvents) {
+		     delete pClient->mAccEvents;
+		     pClient->mAccEvents = nullptr;
+             }
+	     pClient->mAccEvents = new (std::nothrow) sensors_event_t [pClient->mAccBatchCount];
+	     memset(pClient->mAccEvents, 0, sizeof(sensors_event_t) * pClient->mAccBatchCount);
+           }
+
+	   ////Check for Gyro Parameteters////
+           if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE || mSensor[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED) {
+	     //Return error if requested sampling rate is more than config file parameters.
+             if (pMsg->samplingRate > mMaxGyroSampleRate) {
+		     pClient->mSampleRate[i] = 0;
+                     ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+		     break;
+             }
+	     //Configure sensor to parameters defined in /etc/sensors.conf file , config only once
+             if (mSensor[i].SamplingRate != mMaxGyroSampleRate) {
+                     mSensor[i].SamplingRate = mMaxGyroSampleRate;
+                     mSensor[i].BatchCount = mMinGyroBatchCount;
+                     SamplingRate = FREQUENCY_TO_NS(mMaxGyroSampleRate);
+                     BatchingRate = mMinGyroBatchCount * SamplingRate  * mBatchConst;
+                     SENSOR_LOGI(LOG_TAG ">--Configure sensor Gyro sensor_id %d sampling Rate %lld BatchingRate %lld\n",
+                                     pMsg->sensor_id, SamplingRate, BatchingRate);
+                     ret = sensor_set_batch(pMsg->sensor_id, SamplingRate, BatchingRate);
+                     if (ret != 0) {
+			  pClient->mSampleRate[i] = 0;
+                          ret = SENSOR_ERROR_CONFIG_FAILED;
+                          break;
+		     }
+	     }
+	     //Calcualate the client config parameters based on sensor physical configuration
+	     pMsg->batchCount = NearByBatchCount(mMinGyroBatchCount, pMsg->batchCount);
+	     pClient->mGyroFactor = lroundf(mSensor[i].SamplingRate / pMsg->samplingRate);
+	     pClient->mGyroBatchCount = pMsg->batchCount;
+	     pClient->mGyroCount = 0;
+	     pClient->mGyroMovingCount = 0;
+	     pClient->mGyroTracking = false;
+	     //Allocate memory to store Gyro events based on requested batch count by client
+	     if (pClient->mGyroEvents) {
+		     delete pClient->mGyroEvents;
+		     pClient->mGyroEvents = nullptr;
+	     }
+	     pClient->mGyroEvents = new (std::nothrow) sensors_event_t [pClient->mGyroBatchCount];
+	     memset(pClient->mGyroEvents, 0, sizeof(sensors_event_t) * pClient->mGyroBatchCount);
+	   }
+	 }
+    }
+
+    SENSOR_LOGI(LOG_TAG ">-- start batching session AccFactor %d AccBatchcount %d GyroFactor %d GyroBatchCount %d \
+		    AccTracking %d GyroTracking %d\n", pClient->mAccFactor, pClient->mAccBatchCount, pClient->mGyroFactor,
+		    pClient->mGyroBatchCount, pClient->mAccTracking, pClient->mGyroTracking);
+    return ret;
+}
+
+void SensorApiService::startBatching(SensorAPIStartBatchingReqMsg *pMsg) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    int ret = 0;
+    bool SensorId = false;
+
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+    if (!pClient) {
+	    SENSOR_LOGE(LOG_TAG ">-- start invalid client=%s\n", pMsg->mSocketName);
+	    return;
+    }
+
+    SENSOR_LOGI(LOG_TAG ">-- SensorId %d SampleRate %f BatchCount %d\n",
+		    pMsg->sensor_id, pMsg->samplingRate, pMsg->batchCount);
+
+    //Input parameter check
+    if (mSensorCount != 0) {
+      for (int i=0; i < mSensorCount; i++) {
+	      if (mSensorList[i].sensor_id == pMsg->sensor_id) {
+		      SensorId = true;
+		      if (pMsg->batchCount > mSensorList[i].maxBatchCount || pMsg->batchCount <= 0  || pMsg->samplingRate <=0 ) {
+			      ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+			      goto fail;
+		      }
+		      else {
+			      pMsg->samplingRate = NearBySamplingRate(pMsg->samplingRate, &mSensorList[i]);
+                      }
+		      break;
+	      }
+      }
+      if (SensorId != true ) {
+	      ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+	      goto fail;
+      }
+    }
+    else {
+	    ret = SENSOR_ERROR_NO_SENSORS_FOUND;
+	    goto fail;
+    }
+
+    //Configure the sensor to parameters defined in /etc/sensors.conf file.
+    ret = SensorCofig(pMsg);
+
+fail:
+    pClient->mPendingMessages.push(E_SENSORAPI_START_BATCHING_RES_ID);
+    pClient->onResponseCb(ret, E_SENSORAPI_START_BATCHING_RES_ID);
+    if(ret == 0)
+	    pClient->onSensorBatchingCb(pMsg->sensor_id, pMsg->samplingRate,  pMsg->batchCount);
+
+    return;
+}
+
+/******************************************************************************
+SensorApiService - implementation - Activate/Deactivate Sensor
+******************************************************************************/
+void SensorApiService::activateSensor(SensorAPIEnableReqMsg* pMsg) {
+   std::lock_guard<std::mutex> lock(mMutex);
+   int ret = 0;
+   int enable = 0;
+   bool SensorId = false;
+
+   SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+   if (!pClient) {
+	   SENSOR_LOGI(LOG_TAG ">-- start invlalid client=%s\n", pMsg->mSocketName);
+	   return;
+   }
+   SENSOR_LOGI(LOG_TAG "<-- sensor sensor_id %d sensor enable %d \n", pMsg->sensor_id, pMsg->enable);
+
+   //Input parameter check
+   if (pMsg->enable < SENSOR_DISABLE  || pMsg->enable > SENSOR_HPM) {
+	   ret=SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+	   goto fail;
+   }
+
+   if (mSensorCount != 0) {
+	   for (int i=0; i < mSensorCount; i++) {
+		   if (mSensorList[i].sensor_id == pMsg->sensor_id) {
+			   SensorId = true;
+			   break;
+		   }
+	    }
+	    if (SensorId != true ) {
+		    ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+		    goto fail;
+	    }
+   }
+   else {
+	   ret = SENSOR_ERROR_NO_SENSORS_FOUND;
+	   goto fail;
+   }
+
+
+   //Set Sensor LPM or HPM mode based on mode
+   if ( pMsg->enable == SENSOR_LPM || pMsg->enable == SENSOR_HPM) {
+	   ret = SetPowerMode(pMsg->sensor_id, pMsg->enable);
+	   goto fail;
+   }
+
+   //Activating/Deactivating the sensor
+   for (int i=0 ; i < mSensorCount; i++) {
+     if (pMsg->sensor_id == mSensor[i].sensor_id) {
+	pClient->mActivate[i] = pMsg->enable;
+	if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER)
+		pClient->mAccTracking = pMsg->enable;
+	if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE || mSensor[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED)
+		pClient->mGyroTracking = pMsg->enable;
+        //Check the enable request of all clients
+	for (auto each : mClients) {
+	   enable = max(enable, each.second->mActivate[i]);
+	   SENSOR_LOGD(LOG_TAG "<-- enable %d each.second->mActivate[i] %d \n",enable,each.second->mActivate[i]);
+	}
+        // activate or deactivate the sensor
+	if(enable != mSensor[i].Activate) {
+           SENSOR_LOGI(LOG_TAG "<-- calling sensor_activate sensor_id %d  enable %d \n",pMsg->sensor_id, enable);
+	   ret = sensor_activate(pMsg->sensor_id , enable);
+	   mSensor[i].Activate = enable;
+	   //reset Sensor config parameters to zero once it deactivated.
+	   if(enable == 0 && ret == 0) {
+		   mSensor[i].SamplingRate = 0;
+		   mSensor[i].BatchCount = 0;
+	   }
+	}
+     }
+   }
+
+   SENSOR_LOGI(LOG_TAG ">-- sensor activation AccTracking %d GyroTracking %d\n",
+		   pClient->mAccTracking, pClient->mGyroTracking);
+fail:
+   pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_ENABLE_MSG_ID);
+   pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_ENABLE_MSG_ID);
+   return;
+}
+
+/******************************************************************************
+SensorApiService - implementation - getSensorList - to send the sensor list
+******************************************************************************/
+void SensorApiService::getSensorList(SensorAPIListReqMsg* pMsg) {
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    SENSOR_LOGI(LOG_TAG "--<getSensorList\n");
+
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+    if (!pClient) {
+	    SENSOR_LOGE(LOG_TAG ">-- get sensor list invlalid client=%s\n", pMsg->mSocketName);
+	    return;
+    }
+
+    //Send Sensor List to client
+    pClient->onSensorListCb(mSensorList, mSensorCount);
+}
+
+/******************************************************************************
+SensorApiService - implementation - SensorMLCCaseEnable to enable/disable mlc cases
+******************************************************************************/
+void SensorApiService::SensorEnableMLCCase(SensorAPIMLCCaseEnableMsg* pMsg) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    int ret = SENSOR_ERROR_MLC_EVENT_ENABLE_FAILED;
+
+    SENSOR_LOGI(LOG_TAG "--<SensorEnableMLCCase name %s enable %d \n",
+		    pMsg->mlc_case_name, pMsg->enable);
+
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+    if (!pClient) {
+            SENSOR_LOGE(LOG_TAG ">-- SensorEnableMLCCase invlalid client=%s\n", pMsg->mSocketName);
+            return;
+    }
+
+    //Input parameter check
+    if (pMsg->enable != 1 && pMsg->enable != 0) {
+            ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+            goto fail;
+    }
+
+    if (mMlcSupported == true) {
+	    if(SensorMlcEnableEvents(pMsg->mlc_case_name, pMsg->enable)) {
+	      for (int i = 0; i < mSensorMlcCaseCount ; i++) {
+		 if (strcmp(pClient->mMlcCaseList[i].name, pMsg->mlc_case_name) == 0) {
+			 pClient->mMlcCaseList[i].enable = pMsg->enable;
+			 SENSOR_LOGE(LOG_TAG "pClient->mMlcCaseList[i].name %s enable %d\n",
+					 pClient->mMlcCaseList[i].name,pClient->mMlcCaseList[i].enable);
+		 }
+	      }
+	      ret = SENSOR_RESPONSE_SUCCESS;
+	    }
+    }
+fail:
+    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID);
+    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID);
+
+    return;
+}
+
+/******************************************************************************
+SensorApiService - implementation - getSensorTemp to send temperature
+******************************************************************************/
+void SensorApiService::getSensorTemp(SensorAPITempReqMsg* pMsg) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    float temperature = 0;
+
+    SENSOR_LOGI(LOG_TAG "--<getSensorTemp\n");
+
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+    if (!pClient) {
+            SENSOR_LOGE(LOG_TAG ">-- get sensor temperatue invlalid client=%s\n", pMsg->mSocketName);
+            return;
+    }
+    if (mTempSupported)
+	    tempSensorDataPollTask(&temperature);
+    pClient->onSensorTempCb(temperature);
+}
+
+/******************************************************************************
+SensorApiService - implementation - getSensorBufferData to send buffer data
+******************************************************************************/
+void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    int ret = SENSOR_ERROR_BUFFER_NOT_SUPPORTED;
+
+    SENSOR_LOGI(LOG_TAG "--<getSensorBufferData\n");
+
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+    if (!pClient) {
+            SENSOR_LOGE(LOG_TAG ">-- get sensor buffer data invlalid client=%s\n", pMsg->mSocketName);
+            return;
+    }
+
+    //Input parameter check
+    if (pMsg->enable != 1 && pMsg->enable != 0) {
+	    ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+	    goto fail;
+    }
+
+    if (mBufferSupported == true) {
+	    pClient->mBufferRead = pMsg->enable;
+	    if (mBufferDeleted == true && pClient->mBufferRead == true)
+		    ret = SENSOR_ERROR_BUFFER_DELETED;
+	    else {
+		    pthread_mutex_lock (&mHalBuffMutex);
+		    pthread_cond_signal (&mHalBuffCond);
+		    pthread_mutex_unlock (&mHalBuffMutex);
+		    ret = SENSOR_RESPONSE_SUCCESS;
+	    }
+    }
+fail:
+    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
+    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
+
+    return;
+}
+
+/******************************************************************************
+SensorApiService - implementation - NearByBatchCount to check nearby batch
+count, return batch count which is multiplication of min batch count defined for
+each sensor in /etc/sensors.conf file and should be less than or equal to
+ReqBatchCount
+******************************************************************************/
+int SensorApiService::NearByBatchCount(int ActualCount, int ReqBatchCount) {
+   int count = 0;
+
+   if ( ActualCount <= 0 || ReqBatchCount <= 0)
+	   return ActualCount;
+
+   //No FIFO support
+   if (mBatchConst == 0)
+	   return ReqBatchCount;
+
+   //minimum batch count supported is ActualCount
+   if (ReqBatchCount < ActualCount)
+	   return ActualCount;
+   else {
+	   for (int i=2 ; count < MAX_BATCH_COUNT; i++) {
+		   count = ActualCount * i;
+		   if (count == ReqBatchCount)
+			   return count;
+		   if (count > ReqBatchCount || count > MAX_BATCH_COUNT)
+			   return ActualCount * (i-1);
+	   }
+   }
+}
+
+/******************************************************************************
+SensorApiService - implementation - NearBySamplingRate
+Find out near by Nearby sampling rate which client requested
+******************************************************************************/
+float SensorApiService::NearBySamplingRate(float ReqSamplingRate, struct sensor_list *s) {
+  for(int i=1; i < 6; i++) {
+	  if (s->odr[i] == ReqSamplingRate)
+		  return s->odr[i];
+	  else if (s->odr[i] > ReqSamplingRate)
+		  return s->odr[i-1];
+  }
+
+  //return max sampling rate supported
+  return s->odr[5];
+}
+
+/******************************************************************************
+SensorApiService - implementation - GetSupportedSamplingRate
+Sampling rate supported by each sensor
+******************************************************************************/
+void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
+  switch(mSensorType) {
+      //Check for ASM330 sensor
+      case SENSOR_TYPE_ASM: {
+	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+		float samplingRate[6] = {12, 26, 52, 104, 208, 416};
+		int acc_range[4] = {2, 4, 8, 16};
+		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
+		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+		s->maxSamplingRate = mMaxAccSampleRate;
+		if (mMinAccBatchCount >= MAX_BATCH_COUNT)
+			mMinAccBatchCount = MAX_BATCH_COUNT;
+		else if (mMinAccBatchCount <= 0)
+			mMinAccBatchCount = 1;
+		s->minBatchCount   = mMinAccBatchCount;
+        }
+	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
+		float samplingRate[6] = {12, 26, 52, 104, 208, 416};
+		int gyro_range[6] = {125, 250, 500, 10000, 2000, 4000};
+		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = (mGyroRange >= 0 && mGyroRange <= 5 ) ? gyro_range[mGyroRange] : gyro_range[5];
+		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+		s->maxSamplingRate = mMaxGyroSampleRate;
+		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+			mMinGyroBatchCount = MAX_BATCH_COUNT;
+		else if (mMinGyroBatchCount <= 0)
+			mMinGyroBatchCount = 1;
+		s->minBatchCount   = mMinGyroBatchCount;
+        }
+	mBatchConst =  3;
+        }
+        break;
+      //Check for BMI160 sensor
+      case SENSOR_TYPE_BMI: {
+	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+		float samplingRate[6] = {25, 50, 100, 200, 400};
+		int acc_range[1] = {2};
+		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = acc_range[0];
+		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+		s->maxSamplingRate = mMaxAccSampleRate;
+		s->minBatchCount   = 1;
+        }
+	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
+		float samplingRate[6] = {25, 50, 100, 200, 400};
+		int gyro_range[1] = {250};
+		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = gyro_range[0];
+		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+		s->maxSamplingRate = mMaxGyroSampleRate;
+		s->minBatchCount   = 1;
+        }
+        mBatchConst =  0;
+        }
+        break;
+      //Check for IAM20680 sensor
+      case SENSOR_TYPE_IAM: {
+	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+		float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
+		int acc_range[4] = {2, 4, 8, 16};
+		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
+		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+		s->maxSamplingRate = mMaxAccSampleRate;
+		if (mMinAccBatchCount >= MAX_BATCH_COUNT)
+			mMinAccBatchCount = MAX_BATCH_COUNT;
+		else if (mMinAccBatchCount <= 0)
+			mMinAccBatchCount = 1;
+		s->minBatchCount   = mMinAccBatchCount;
+	}
+	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
+		float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
+		int gyro_range[4] = {250, 500, 10000, 2000};
+		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = (mGyroRange >= 0 && mGyroRange <= 3 ) ? gyro_range[mGyroRange] : gyro_range[3];
+		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+		s->maxSamplingRate = mMaxGyroSampleRate;
+		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+			mMinGyroBatchCount = MAX_BATCH_COUNT;
+		else if (mMinGyroBatchCount <= 0)
+			mMinGyroBatchCount = 1;
+		s->minBatchCount   = mMinGyroBatchCount;
+        }
+        mBatchConst =  1;
+        }
+        break;
+      //Check for SMI130 sensor
+      case SENSOR_TYPE_SMI: {
+	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+		float samplingRate[6] = {15.63, 31.25, 62.50, 125, 250};
+		int acc_range[1] = {2};
+		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = acc_range[0];
+		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+		s->maxSamplingRate = mMaxAccSampleRate;
+		s->minBatchCount   = 1;
+	}
+	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
+		float samplingRate[6] = {100, 200};
+		int gyro_range[1] = {250};
+		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = gyro_range[0];
+		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+		s->maxSamplingRate = mMaxGyroSampleRate;
+		s->minBatchCount   = 1;
+	}
+	mBatchConst =  0;
+	}
+        break;
+      //default
+      default: {
+        float samplingRate[6] = {0};
+	memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+	mBatchConst =  0;
+	s->range = 0;
+        }
+        break;
+  }
+}
