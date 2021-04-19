@@ -1,13 +1,13 @@
-# configure.ac -- Autoconf script for gps sensors
+# configure.ac -- Autoconf script for sensor-client-api
 #
 # Process this file with autoconf to produce a configure script
 
 # Requires autoconf tool later than 2.61
 AC_PREREQ(2.61)
-# Initialize the gps sensors package version 1.0.0
-AC_INIT([libsensors],1.0.0)
+# Initialize the sensor_client_api package version 1.0.0
+AC_INIT([sensor-client-api],1.0.0)
 # Does not strictly follow GNU Coding standards
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 # Disables auto rebuilding of configure, Makefile.ins
 AM_MAINTAINER_MODE
 # Verifies the --srcdir is correct by checking for the path
@@ -28,8 +28,23 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 PKG_PROG_PKG_CONFIG
 
-# Checks for libraries.
-AC_SUBST([CPPFLAGS])
+PKG_CHECK_MODULES([SENSORS], [libsensors])
+AC_SUBST([SENSORS_CFLAGS])
+AC_SUBST([SENSORS_LIBS])
+
+PKG_CHECK_MODULES([SENSORSOCKET], [sensor-socket])
+AC_SUBST([SENSORSOCKET_CFLAGS])
+AC_SUBST([SENSORSOCKET_LIBS])
+
+AC_ARG_WITH([core_includes],
+      AC_HELP_STRING([--with-core-includes=@<:@dir@:>@],
+         [Specify the sensor of the core headers]),
+      [core_incdir=$withval],
+      with_core_includes=no)
+
+if (test "x$with_core_includes" != "xno"); then
+   CPPFLAGS="${CPPFLAGS} -I${core_incdir}"
+fi
 
 AC_ARG_WITH([glib],
       AC_HELP_STRING([--with-glib],
@@ -49,15 +64,10 @@ if (test "x${with_glib}" = "xyes"); then
 fi
 
 AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
-AM_CONDITIONAL(CONFIG_ST_HAL_HAS_SELFTEST_FUNCTIONS, test "x${with_st}" = "xyes")
 
 AC_CONFIG_FILES([ \
         Makefile \
-        bmi160/Makefile \
-        iam20680/Makefile \
-        st/Makefile \
-        smi130/HAL_DataReady/Makefile \
-        libsensors.pc \
+        sensor-client-api.pc
         ])
 
 AC_OUTPUT
