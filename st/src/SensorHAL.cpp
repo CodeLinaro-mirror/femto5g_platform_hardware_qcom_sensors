@@ -74,35 +74,54 @@ static const struct ST_sensors_supported {
 	device_iio_chan_type_t device_iio_sensor_type;
 	float power_consumption;
 } ST_sensors_supported[] = {
-/**************** Accelerometer sensors ****************/
-#ifdef CONFIG_ST_HAL_ACCEL_ENABLED
-#ifdef CONFIG_ST_HAL_ASM330LHH_ENABLED
+	/**************** Accelerometer sensors ****************/
 	ST_HAL_NEW_SENSOR_SUPPORTED(CONCATENATE_STRING(ST_SENSORS_LIST_1,
 				    ACCEL_NAME_SUFFIX_IIO),
 				    SENSOR_TYPE_ACCELEROMETER,
 				    DEVICE_IIO_ACC,
 				    "ASM330LHH Accelerometer Sensor",
-				    0.0f)
-#endif /* CONFIG_ST_HAL_ASM330LHH_ENABLED */
-#endif /* CONFIG_ST_HAL_ACCEL_ENABLED */
+				    0.01f)
+	ST_HAL_NEW_SENSOR_SUPPORTED(CONCATENATE_STRING(ST_SENSORS_LIST_2,
+				    ACCEL_NAME_SUFFIX_IIO),
+				    SENSOR_TYPE_ACCELEROMETER,
+				    DEVICE_IIO_ACC,
+				    "ASM330LHHX Accelerometer Sensor",
+				    0.01f)
 
-/**************** Gyroscope sensors ****************/
-#ifdef CONFIG_ST_HAL_GYRO_ENABLED
-#ifdef CONFIG_ST_HAL_ASM330LHH_ENABLED
+	/**************** Gyroscope sensors ****************/
 	ST_HAL_NEW_SENSOR_SUPPORTED(CONCATENATE_STRING(ST_SENSORS_LIST_1,
 				    GYRO_NAME_SUFFIX_IIO),
 				    SENSOR_TYPE_GYROSCOPE,
 				    DEVICE_IIO_GYRO,
 				    "ASM330LHH Gyroscope Sensor",
-				    0.0f)
-#endif /* CONFIG_ST_HAL_ASM330LHH_ENABLED */
-#endif /* CONFIG_ST_HAL_GYRO_ENABLED */
+				    0.01f)
+	ST_HAL_NEW_SENSOR_SUPPORTED(CONCATENATE_STRING(ST_SENSORS_LIST_2,
+				    GYRO_NAME_SUFFIX_IIO),
+				    SENSOR_TYPE_GYROSCOPE,
+				    DEVICE_IIO_GYRO,
+				    "ASM330LHHX Gyroscope Sensor",
+				    0.01f)
+};
+
+/*
+ * ST_virtual_sensors_list: ST virtual sensors available
+ * @sensor_type: Android sensor type.
+ */
+static const struct ST_virtual_sensors_list {
+	int android_sensor_type;
+} ST_virtual_sensors_list[] = {
+#if defined(CONFIG_ST_HAL_GYRO_UNCALIB_AP_EMULATED)
+	{ .android_sensor_type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED },
+#endif /* CONFIG_ST_HAL_GYRO_UNCALIB_AP_EMULATED */
+#if defined(CONFIG_ST_HAL_ACCEL_UNCALIB_AP_EMULATED)
+	{ .android_sensor_type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED },
+#endif /* CONFIG_ST_HAL_ACCEL_UNCALIB_AP_EMULATED */
 };
 
 #ifdef CONFIG_ST_HAL_FACTORY_CALIBRATION
 #define ST_HAL_PRIVATE_DATA_CALIBRATION_LM_ACCEL_ID	(0)
-#define ST_HAL_PRIVATE_DATA_CALIBRATION_LM_GYRO_ID	(2)
-#define ST_HAL_PRIVATE_DATA_CALIBRATION_LM_MAX_ID	(3)
+#define ST_HAL_PRIVATE_DATA_CALIBRATION_LM_GYRO_ID	(1)
+#define ST_HAL_PRIVATE_DATA_CALIBRATION_LM_MAX_ID	(2)
 
 /*
  * st_hal_private_data: private data structure
@@ -117,6 +136,36 @@ struct st_hal_private_data {
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_MARSHMALLOW_VERSION)
 static int st_hal_set_operation_mode(unsigned int mode);
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
+
+/*
+ * st_hal_create_virtual_class_sensor - Istance virtual sensor class
+ * @sensor_type: Android sensor type.
+ * @handle: android handle number.
+ *
+ * Return value: sensor class pointer on success, NULL pointer on fail.
+ */
+static SensorBase* st_hal_create_virtual_class_sensor(int sensor_type, int handle)
+{
+	SensorBase *sb = NULL;
+
+	switch (sensor_type) {
+#if defined(CONFIG_ST_HAL_GYRO_UNCALIB_AP_EMULATED)
+	case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
+		sb = new SWGyroscopeUncalibrated("Gyroscope Uncalibrated Sensor", handle);
+		break;
+#endif /* CONFIG_ST_HAL_GYRO_UNCALIB_AP_EMULATED */
+#if defined(CONFIG_ST_HAL_ACCEL_UNCALIB_AP_EMULATED)
+	case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
+		sb = new SWAccelerometerUncalibrated("Accelerometer Uncalibrated Sensor", handle);
+		break;
+#endif /* CONFIG_ST_HAL_ACCEL_UNCALIB_AP_EMULATED */
+	default:
+		(void)handle;
+		return NULL;
+	}
+
+	return sb->IsValidClass() ? sb : NULL;
+}
 
 /*
  * st_hal_create_class_sensor() - Istance hardware sensor class
@@ -223,8 +272,8 @@ void SENSOR_READ_CONF(char *file_name, int *acc_range, int *gyro_range)
 
     file = fopen(file_name, "r");
     if (file == NULL) {
-	ALOGE("open failed: %s: %s\n", file_name, strerror(errno));
-	return;
+        ALOGE("open failed: %s: %s\n", file_name, strerror(errno));
+        return;
     }
 
     while(fgets(buffer, sizeof(buffer), file) != NULL) {
@@ -274,12 +323,12 @@ static int st_hal_set_fullscale(char *device_iio_sysfs_path, int sensor_type,
 		return -EINVAL;
 	}
 
-	for (i = 0; i < (int)sa->length; i++) {
-		if (channels[0].sign)
-			max_number = (pow(2, channels[0].bits_used - 1) - 1);
-		else
-			max_number = (pow(2, channels[0].bits_used) - 1);
+	if (channels[0].sign)
+		max_number = pow(2, channels[0].bits_used - 1) - 1;
+	else
+		max_number = pow(2, channels[0].bits_used) - 1;
 
+	for (i = 0; i < (int)sa->length; i++) {
 		if ((sa->scales[i] * max_number) >= max_value)
 			break;
 	}
@@ -339,17 +388,6 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 
 	data->power_consumption = stsensor->power_consumption;
 
-	err = asprintf(&data->device_iio_sysfs_path,
-		       "/sys/bus/iio/devices/iio:device%d",
-		       gyro_num);
-	if (err < 0) {
-		ALOGE("Unable to allocate sysfs path.");
-
-		return 0;
-	}
-
-	data->power_consumption = stsensor->power_consumption;
-
 	/* Add channels to Gyroscope */
 	data->num_channels = 4;
 	data->channels =
@@ -375,7 +413,7 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 	if (err < 0) {
 		ALOGE("Unable to disable sensor.");
 
-		return 0;
+		goto st_hal_load_free_device_iio_channels;
 	}
 
 	err = device_iio_utils::get_sampling_frequency_available(data->device_iio_sysfs_path,
@@ -383,7 +421,7 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 	if (err < 0) {
 		ALOGE("Unable to get sampling frequency availability. (errno: %d)", err);
 
-		return 0;
+		goto st_hal_load_free_device_iio_channels;
 	}
 
 	err = device_iio_utils::get_scale_available(data->device_iio_sysfs_path, &data->sa,
@@ -403,7 +441,7 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 		if (err < 0) {
 			ALOGE("\"%s\": failed to set device full-scale. (errno: %d)",
 			      stsensor->driver_name, err);
-			goto st_hal_load_free_device_iio_sysfs_path;
+			goto st_hal_load_free_device_iio_channels;
 		}
 	}
 
@@ -417,6 +455,7 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 
 
 	data->hw_fifo_len = device_iio_utils::get_fifo_length(data[0].device_iio_sysfs_path);
+
 	data->sensor_type = stsensor->android_sensor_type;
 	data->dev_id = gyro_num;
 	data->wake_up_sensor = 0;
@@ -428,8 +467,6 @@ st_hal_load_free_device_name:
 
 st_hal_load_free_device_iio_channels:
 	free(data->channels);
-
-st_hal_load_free_device_iio_sysfs_path:
 	free(data->device_iio_sysfs_path);
 
 	return 0;
@@ -498,7 +535,7 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 	if (err < 0) {
 		ALOGE("Unable to disable sensor.");
 
-		return 0;
+		goto st_hal_load_free_device_iio_channels;
 	}
 
 	err = device_iio_utils::get_sampling_frequency_available(data->device_iio_sysfs_path,
@@ -507,7 +544,7 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 		ALOGE("Unable to get sampling frequency availability for accel. (errno: %d)",
 		      err);
 
-		return 0;
+		goto st_hal_load_free_device_iio_channels;
 	}
 
 	err = device_iio_utils::get_scale_available(data->device_iio_sysfs_path,
@@ -529,7 +566,7 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 			ALOGE("\"%s\": failed to set device full-scale. (errno: %d)",
 			      stsensor->driver_name, err);
 
-			goto st_hal_load_free_device_iio_sysfs_path;
+			goto st_hal_load_free_device_iio_channels;
 		}
 	}
 
@@ -543,6 +580,7 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 
 	data[0].hw_fifo_len =
 		device_iio_utils::get_fifo_length(data[0].device_iio_sysfs_path);
+
 	data[0].sensor_type = stsensor->android_sensor_type;
 	data[0].dev_id = acc_num;
 	data[0].wake_up_sensor = 0;
@@ -554,8 +592,6 @@ st_hal_load_free_device_name:
 
 st_hal_load_free_device_iio_channels:
 	free(data[0].channels);
-
-st_hal_load_free_device_iio_sysfs_path:
 	free(data[0].device_iio_sysfs_path);
 
 	return 0;
@@ -616,6 +652,10 @@ static int st_hal_dev_inject_sensor_data(struct sensors_poll_device_1 *dev,
 {
 	STSensorHAL_data *hal_data = (STSensorHAL_data *)dev;
 
+	/* check for operational parameter */
+	if (data->sensor == -1)
+		return -EINVAL;
+
 	return hal_data->sensor_classes[data->sensor]->InjectSensorData(data);
 }
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
@@ -648,9 +688,11 @@ static int st_hal_dev_batch(struct sensors_poll_device_1 *dev, int handle,
 	(void)flags;
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
 
+#if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
 	ALOGD("changed timeout=%" PRIu64 "ms pollrate_ns=%" PRIu64 "ms",
 	      timeout,
 	      period_ns);
+#endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 
 	return hal_data->sensor_classes[index]->SetDelay(handle,
 							 period_ns,
@@ -712,6 +754,10 @@ static int st_hal_dev_setDelay(struct sensors_poll_device_t *dev,
 	STSensorHAL_data *hal_data = (STSensorHAL_data *)dev;
 	unsigned int index;
 
+#if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
+	ALOGD("%s: handle %d poll rate %" PRIu64 " ns", __FUNCTION__, handle, ns);
+#endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
+
 	index = st_hal_get_handle(hal_data, handle);
 	return hal_data->sensor_classes[index]->SetDelay(handle, ns, 0, true);
 }
@@ -730,8 +776,11 @@ static int st_hal_dev_activate(struct sensors_poll_device_t *dev,
 	STSensorHAL_data *hal_data = (STSensorHAL_data *)dev;
 	unsigned int index;
 
+#if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
+	ALOGD("%s: handle %d enabled %d", __FUNCTION__, handle, enabled);
+#endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
+
 	index = st_hal_get_handle(hal_data, handle);
-	ALOGD("Activating sensor index = %d\n", index);
 
 	return  hal_data->sensor_classes[index]->Enable(handle, (bool)enabled, true);
 }
@@ -855,7 +904,8 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 		return -ENOMEM;
 
 	memset(hal_data, 0, sizeof(STSensorHAL_data));
-	hal_data->sensor_available = 0;
+	memset(device_iio_devices_data, 0, sizeof(device_iio_devices_data));
+
 	hal_data->poll_device.common.tag = HARDWARE_DEVICE_TAG;
 	hal_data->poll_device.common.version = ST_HAL_IIO_DEVICE_API_VERSION;
 	hal_data->poll_device.common.module = const_cast<hw_module_t*>(module);
@@ -884,15 +934,19 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 
 	device_found_num = st_hal_load_acc_data(&ST_sensors_supported[0],
 						&device_iio_devices_data[0]);
-	device_found_num += st_hal_load_gyro_data(&ST_sensors_supported[1],
+	device_found_num += st_hal_load_acc_data(&ST_sensors_supported[1],
+						&device_iio_devices_data[0]);
+	device_found_num += st_hal_load_gyro_data(&ST_sensors_supported[2],
+						  &device_iio_devices_data[1]);
+	device_found_num += st_hal_load_gyro_data(&ST_sensors_supported[3],
 						  &device_iio_devices_data[1]);
 	if (device_found_num < 0) {
 		err = device_found_num;
+
 		goto free_hal_data;
 	}
 
 	for (i = 0; i < device_found_num; i++) {
-
 #ifdef CONFIG_ST_HAL_FACTORY_CALIBRATION
 		sensor_class = st_hal_create_class_sensor(&device_iio_devices_data[i],
 							  classes_available + 1,
@@ -902,7 +956,6 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 							  classes_available + 1,
 							  NULL);
 #endif /* CONFIG_ST_HAL_FACTORY_CALIBRATION */
-
 		if (!sensor_class) {
 			ALOGE("\"%s\": failed to create HW sensor class.",
 			      device_iio_devices_data[i].device_name);
@@ -921,8 +974,10 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 		sensor_class_valid_num++;
 		if (sensor_class->hasDataChannels())
 			sensor_class_num_data++;
+
 		if (sensor_class->hasEventChannels())
 			sensor_class_num_event++;
+
 		classes_available++;
 	}
 
@@ -931,6 +986,30 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 	if (err < 0)
 		ALOGE("Failed to write private data.");
 #endif /* CONFIG_ST_HAL_FACTORY_CALIBRATION */
+
+	for (i = 0; i < (int)ARRAY_SIZE(ST_virtual_sensors_list); i++) {
+		sensor_class = st_hal_create_virtual_class_sensor(ST_virtual_sensors_list[i].android_sensor_type, classes_available + 1);
+		if (!sensor_class) {
+			ALOGE("Failed to create SW sensor class (sensor type: %d).", ST_virtual_sensors_list[i].android_sensor_type);
+			continue;
+		}
+
+#if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_VERBOSE)
+		if (sensor_class->GetType() < SENSOR_TYPE_ST_CUSTOM_NO_SENSOR)
+			ALOGD("\"%s\": created SW class instance, handle: %d (sensor type: %d).", sensor_class->GetName(), sensor_class->GetHandle(), sensor_class->GetType());
+#endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
+
+		temp_sensor_class[classes_available] = sensor_class;
+		sensor_class_valid[classes_available] = true;
+		sensor_class_valid_num++;
+		if (sensor_class->hasDataChannels())
+			sensor_class_num_data++;
+
+		if (sensor_class->hasEventChannels())
+			sensor_class_num_event++;
+
+		classes_available++;
+	}
 
 	for (i = 0; i < classes_available; i++) {
 		temp_sensor_class[i]->GetDepenciesTypeList(type_dependencies);
@@ -947,6 +1026,7 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 					break;
 				}
 			}
+
 			if ((c == classes_available) || (err < 0)) {
 				ALOGE("\"%s\": failed to add dependency (sensor type dependency: %d).",
 				      temp_sensor_class[i]->GetName(),
@@ -1108,7 +1188,7 @@ struct sensors_module_t HAL_MODULE_INFO_SYM = {
 	.common = {
 		.tag = HARDWARE_MODULE_TAG,
 		.module_api_version = SENSORS_MODULE_API_VERSION_0_1,
-		.hal_api_version = 0,
+		.hal_api_version = HARDWARE_HAL_API_VERSION,
 		.id = SENSORS_HARDWARE_MODULE_ID,
 		.name = "STMicroelectronics Sensors Module",
 		.author = "STMicroelectronics",
@@ -1166,4 +1246,3 @@ rollback_operation_mode:
 	return -EINVAL;
 }
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
-

@@ -55,7 +55,7 @@ AC_CONFIG_FILES([ \
         Makefile \
         bmi160/Makefile \
         iam20680/Makefile \
-        st/asm330lhh/Makefile \
+        st/Makefile \
         smi130/HAL_DataReady/Makefile \
         libsensors.pc \
         ])
