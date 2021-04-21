@@ -1000,7 +1000,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
         }
 	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
 		float samplingRate[6] = {12, 26, 52, 104, 208, 416};
-		int gyro_range[6] = {125, 250, 500, 10000, 2000, 4000};
+		int gyro_range[6] = {125, 250, 500, 1000, 2000, 4000};
 		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
 		s->range = (mGyroRange >= 0 && mGyroRange <= 5 ) ? gyro_range[mGyroRange] : gyro_range[5];
 		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
@@ -1054,7 +1054,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 	}
 	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
 		float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
-		int gyro_range[4] = {250, 500, 10000, 2000};
+		int gyro_range[4] = {250, 500, 1000, 2000};
 		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
 		s->range = (mGyroRange >= 0 && mGyroRange <= 3 ) ? gyro_range[mGyroRange] : gyro_range[3];
 		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
