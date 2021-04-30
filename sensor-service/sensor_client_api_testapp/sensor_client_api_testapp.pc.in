@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: sensor_client_api_testapp
+Description: sensor_client_api_tesetapp
+Version: @VERSION@
+Libs: -L${libdir} -lsensor_client_api
+Cflags: -I${includedir}
