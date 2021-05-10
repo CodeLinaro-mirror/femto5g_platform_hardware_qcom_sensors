@@ -563,6 +563,14 @@ static int st_hal_dev_flush(struct sensors_poll_device_1 *dev, int handle)
 }
 
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_MARSHMALLOW_VERSION)
+/*
+* Inject a single sensor sample to be to this device.
+* data points to the sensor event to be injected
+* return 0 on success
+* -EPERM if operation is not allowed
+* -EINVAL if sensor event cannot be injected
+*/
+
 /**
  * st_hal_dev_inject_sensor_data() - Sensor data injection
  * @dev: sensors device.
@@ -573,9 +581,15 @@ static int st_hal_dev_flush(struct sensors_poll_device_1 *dev, int handle)
 static int st_hal_dev_inject_sensor_data(struct sensors_poll_device_1 *dev,
 					 const sensors_event_t *data)
 {
-	STSensorHAL_data *hal_data = (STSensorHAL_data *)dev;
+	if (dev == NULL)
+		ALOGE("ASM330 dev is null\n");
+	if (data == NULL)
+		ALOGE("ASM330 data is null\n");
+	//STSensorHAL_data *hal_data = (STSensorHAL_data *)dev;
 
-	return hal_data->sensor_classes[data->sensor]->InjectSensorData(data);
+	//return hal_data->sensor_classes[data->sensor]->InjectSensorData(data);
+
+	return -EPERM;
 }
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
 
@@ -1083,6 +1097,17 @@ struct sensors_module_t HAL_MODULE_INFO_SYM = {
 
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_MARSHMALLOW_VERSION)
 /**
+* Place the module in a specific mode. The following modes are defined
+*
+* 0 - Normal operation. Default state of the module.
+* 1 - Loopback mode. Data is injected for the supported
+* sensors by the sensor service in this mode.
+* return 0 on success
+* -EINVAL if requested mode is not supported
+* -EPERM if operation is not allowed
+*/
+
+/**
  * st_hal_set_operation_mode() - Set HAL mode
  * @mode: HAL mode.
  *
@@ -1090,6 +1115,11 @@ struct sensors_module_t HAL_MODULE_INFO_SYM = {
  */
 static int st_hal_set_operation_mode(unsigned int mode)
 {
+	if (mode == SENSOR_HAL_NORMAL_MODE)
+		return 0;
+
+	return -EINVAL;
+
 	int err, i;
 	bool enable_injection = false;
 	STSensorHAL_data *hal_data =
