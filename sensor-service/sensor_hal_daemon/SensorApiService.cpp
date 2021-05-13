@@ -783,6 +783,10 @@ void SensorApiService::activateSensor(SensorAPIEnableReqMsg* pMsg) {
    //Activating/Deactivating the sensor
    for (int i=0 ; i < mSensorCount; i++) {
      if (pMsg->sensor_id == mSensor[i].sensor_id) {
+        if (pClient->mActivate[i] == pMsg->enable) {
+             ret =  SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
+             goto fail;
+        }
 	pClient->mActivate[i] = pMsg->enable;
 	if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER)
 		pClient->mAccTracking = pMsg->enable;
@@ -857,14 +861,16 @@ void SensorApiService::SensorEnableMLCCase(SensorAPIMLCCaseEnableMsg* pMsg) {
 
     if (mMlcSupported == true) {
 	    if(SensorMlcEnableEvents(pMsg->mlc_case_name, pMsg->enable)) {
+	      ret = SENSOR_RESPONSE_SUCCESS;
 	      for (int i = 0; i < mSensorMlcCaseCount ; i++) {
 		 if (strcmp(pClient->mMlcCaseList[i].name, pMsg->mlc_case_name) == 0) {
+                         if (pClient->mMlcCaseList[i].enable == pMsg->enable)
+				 ret = SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
 			 pClient->mMlcCaseList[i].enable = pMsg->enable;
 			 SENSOR_LOGE(LOG_TAG "pClient->mMlcCaseList[i].name %s enable %d\n",
 					 pClient->mMlcCaseList[i].name,pClient->mMlcCaseList[i].enable);
 		 }
 	      }
-	      ret = SENSOR_RESPONSE_SUCCESS;
 	    }
     }
 fail:
