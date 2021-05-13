@@ -206,7 +206,7 @@ int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batc
       for (int i=0; i < mSensorCount; i++) {
          if (mSensorList[i].sensor_id == sensor_id) {
             SensorId = true;
-	    if (batch_count > mSensorList[i].maxBatchCount || batch_count <= 0)
+	    if (batch_count > mSensorList[i].maxBatchCount || batch_count < mSensorList[i].minBatchCount)
 		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 	    if (sampling_rate <=0)
 		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;

@@ -701,7 +701,8 @@ void SensorApiService::startBatching(SensorAPIStartBatchingReqMsg *pMsg) {
       for (int i=0; i < mSensorCount; i++) {
 	      if (mSensorList[i].sensor_id == pMsg->sensor_id) {
 		      SensorId = true;
-		      if (pMsg->batchCount > mSensorList[i].maxBatchCount || pMsg->batchCount <= 0  || pMsg->samplingRate <=0 ) {
+                     if (pMsg->batchCount > mSensorList[i].maxBatchCount || pMsg->batchCount < mSensorList[i].minBatchCount
+                                     || pMsg->samplingRate <=0 ) {
 			      ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 			      goto fail;
 		      }
