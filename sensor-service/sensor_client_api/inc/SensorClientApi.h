@@ -74,8 +74,6 @@ typedef enum {
         SENSOR_ERROR_MLC_EVENT_ENABLE_FAILED=-14,
         /** NO MLC case found**/
         SENSOR_ERROR_NO_MLC_CASE_FOUND=-15,
-	/**Sensor in requested state*/
-	SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE = -16,
 }SensorRet;
 
 typedef enum {

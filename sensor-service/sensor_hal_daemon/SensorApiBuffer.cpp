@@ -856,7 +856,6 @@ void SensorApiService::SensorBuffread() {
   FILE *mfdBuffGyro   = NULL;
   bool accelBuffDataTxProgress = false;
   bool gyroBuffDataTxProgress = false;
-
   while(mBufferSupported) {
     pthread_mutex_lock (&mHalBuffMutex);
     pthread_cond_wait (&mHalBuffCond, &mHalBuffMutex);
@@ -913,14 +912,17 @@ void SensorApiService::SensorBuffread() {
 		 }
 	      }
 	      if (count >= 50) {
+		      usleep(1*1000);
 		      each.second->onSensorBufferDataReadCb(events, count);
+		      usleep(1*1000);
 		      count = 0;
 	      }
 	   }
 	   SENSOR_LOGV(LOG_TAG "End of buffer data acccount %d gyrocount %d remaining packets %d\n",acccount, gyrocount, count);
 	   /***Send remainging packets**/
-	   if (count != 0)
+	   if (count != 0) {
 		   each.second->onSensorBufferDataReadCb(events, count);
+	   }
 	   /***Send BUFFER END PACKET*/
 	   memset(&events[0], 0, sizeof(sensors_event_t));
 	   events[0].type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
