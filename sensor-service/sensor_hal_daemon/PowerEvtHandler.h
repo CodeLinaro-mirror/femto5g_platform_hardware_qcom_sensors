@@ -24,63 +24,27 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
-#include <ctype.h>
-#include <stdio.h>
-#include <stdarg.h>
+
+#ifndef _POWER_EVENT_HANDLER_H_
+#define _POWER_EVENT_HANDLER_H_
+
+#include <power_state.h>
 #include <SensorLog.h>
-#include <errno.h>
 
-#ifdef LOG_TAG
-#undef LOG_TAG
-#endif
-#define LOG_TAG "SensorSvc_SensorLog:"
+class SensorApiService;
 
-//Config file
-#define SENSOR_CONF_PATH "/etc/sensors.conf"
+class PowerEvtHandler
+{
+public:
+    static PowerEvtHandler* getPwrEvtHandler(SensorApiService*);
+    ~PowerEvtHandler();
+    static int pwrStateCb(power_state_t pwr_state);
 
-int DEBUG_LEVEL = 0;
+private:
+    PowerEvtHandler();
+    static SensorApiService* mSensorApiService;
+};
 
-//Read DEBUG_LEVEL defined /etc/sensors.conf
-static void Sensor_Read_Debug_Level(char *file_name) {
+#endif //_POWER_EVENT_HANDLER_H_
 
-    FILE *file;
-    char buffer[BUFSIZ];
-    char *line;
-    int i;
-
-    file = fopen(file_name, "r");
-    if (file == NULL) {
-	SENSOR_LOGE(LOG_TAG "open failed: %s: %s\n", file_name, strerror(errno));
-	return;
-    }
-
-    while(fgets(buffer, sizeof(buffer), file) != NULL) {
-       for(i = 0; i < strlen(buffer); i++) { // iterate through the chars in a line
-         if(buffer[i] == '#') { // if char is a #, stop processing chars on this line
-                 break;
-         } else if(buffer[i] == ' ') { // if char is whitespace, continue until something is found
-                 continue;
-         }
-         else if(strstr(buffer, "DEBUG_LEVEL=")) {
-                 line = strstr(buffer, "=");
-                 sscanf(&line[1], "%d", &DEBUG_LEVEL);
-                 break;
-         }
-       }
-    }
-    fclose(file);
-}
-
-int SensorReadDebugLevel() {
-
-   Sensor_Read_Debug_Level(SENSOR_CONF_PATH);
-
-   return DEBUG_LEVEL;
-}
-
-void SetSensorDebugLevel(int debug_level) {
-
-    DEBUG_LEVEL = debug_level;
-}

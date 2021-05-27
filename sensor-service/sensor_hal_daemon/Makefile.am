@@ -25,6 +25,12 @@ c_sources = \
     SensorHalDaemonIPCReceiver.cpp \
     SensorHalDaemonIPCSender.cpp
 
+if POWERMANAGER_ENABLED
+AM_CFLAGS += $(PM_CFLAGS) -DPOWERMANAGER_ENABLED
+c_sources += PowerEvtHandler.cpp
+requiredlibs += $(PM_LIBS)
+endif
+
 sensor_hal_daemon_SOURCES = \
     $(c_sources) $(h_sources)
 
