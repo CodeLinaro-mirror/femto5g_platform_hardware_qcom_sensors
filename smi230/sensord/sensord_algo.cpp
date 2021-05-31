@@ -34,8 +34,8 @@
 #include "util_misc.h"
 
 
-#define CONVERT_ACC (0.0098) //library output is in mg = 0.0098 m/s^2
-#define CONVERT_GYRO (0.001065)
+#define CONVERT_ACC (0.000598755) //library output is in mg = 0.0098 m/s^2
+#define CONVERT_GYRO (0.0038147)
 #define CONVERT_MAG (0.1)
 #define CONVERT_ORI (57.2958)
 

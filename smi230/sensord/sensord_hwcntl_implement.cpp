@@ -1316,17 +1316,18 @@ static void ap_hw_poll_smi230acc(BoschSimpleList *dest_list_acc, BoschSimpleList
 static void ap_hw_poll_smi230acc(BoschSimpleList *dest_list_acc)
 {
     int32_t ret;
-    struct input_event event[4];
+    struct input_event event[6];
     HW_DATA_UNION *p_hwdata;
-
     while( (ret = read(acc_input_fd, event, sizeof(event))) > 0)
     {
-        if(EV_SYN != event[3].type)
+        if(EV_SYN != event[5].type)
         {
             PWARN("0: %d, %d, %d;", event[0].type, event[0].code, event[0].value);
             PWARN("1: %d, %d, %d;", event[1].type, event[1].code, event[1].value);
             PWARN("2: %d, %d, %d;", event[2].type, event[2].code, event[2].value);
             PWARN("3: %d, %d, %d;", event[3].type, event[3].code, event[3].value);
+            PWARN("4: %d, %d, %d;", event[4].type, event[4].code, event[4].value);
+            PWARN("5: %d, %d, %d;", event[5].type, event[5].code, event[5].value);
             continue;
         }
 
@@ -1338,12 +1339,12 @@ static void ap_hw_poll_smi230acc(BoschSimpleList *dest_list_acc)
         }
 
         p_hwdata->id = SENSOR_TYPE_ACCELEROMETER;
-        p_hwdata->x = event[0].value;
-        p_hwdata->y = event[1].value;
-        p_hwdata->z = event[2].value;
-	//use sync event timestamp for all data
-        p_hwdata->timestamp = event[3].time.tv_sec * 1000000LL +  event[3].time.tv_usec;
-
+        p_hwdata->timestamp = event[0].value * 1000000000LL +  event[1].value;
+        p_hwdata->x = event[2].value;
+        p_hwdata->y = event[3].value;
+        p_hwdata->z = event[4].value;
+        //use sync event timestamp for all data
+        //p_hwdata->timestamp = event[3].time.tv_sec * 1000000LL +  event[3].time.tv_usec;
         ret = dest_list_acc->list_add_rear((void *) p_hwdata);
         if (ret)
         {
@@ -1363,18 +1364,20 @@ static void ap_hw_poll_smi230gyro(BoschSimpleList *dest_list)
 {
     int32_t i;
     int32_t ret;
-    struct input_event event[4];
+    struct input_event event[6];
     struct timespec tmspec;
     HW_DATA_UNION *p_hwdata;
 
     while( (ret = read(gyr_input_fd, event, sizeof(event))) > 0)
     {
-        if(EV_SYN != event[3].type)
+        if(EV_SYN != event[5].type)
         {
             PWARN("0: %d, %d, %d;", event[0].type, event[0].code, event[0].value);
             PWARN("1: %d, %d, %d;", event[1].type, event[1].code, event[1].value);
             PWARN("2: %d, %d, %d;", event[2].type, event[2].code, event[2].value);
             PWARN("3: %d, %d, %d;", event[3].type, event[3].code, event[3].value);
+            PWARN("4: %d, %d, %d;", event[4].type, event[4].code, event[4].value);
+            PWARN("5: %d, %d, %d;", event[5].type, event[5].code, event[5].value);
             continue;
         }
 
@@ -1386,10 +1389,11 @@ static void ap_hw_poll_smi230gyro(BoschSimpleList *dest_list)
         }
 
         p_hwdata->id = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
-        p_hwdata->x_uncalib = event[0].value;
-        p_hwdata->y_uncalib = event[1].value;
-        p_hwdata->z_uncalib = event[2].value;
-        p_hwdata->timestamp = event[3].time.tv_sec * 1000000LL +  event[3].time.tv_usec;
+        p_hwdata->timestamp = event[0].value * 1000000000LL +  event[1].value;
+        p_hwdata->x_uncalib = event[2].value;
+        p_hwdata->y_uncalib = event[3].value;
+        p_hwdata->z_uncalib = event[4].value;
+        //p_hwdata->timestamp = event[3].time.tv_sec * 1000000LL +  event[3].time.tv_usec;
 
         hw_remap_sensor_data(&(p_hwdata->x_uncalib), &(p_hwdata->y_uncalib), &(p_hwdata->z_uncalib), g_place_g);
 
