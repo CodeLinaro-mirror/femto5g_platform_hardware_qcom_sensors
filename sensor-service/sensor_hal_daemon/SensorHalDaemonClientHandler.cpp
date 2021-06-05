@@ -346,9 +346,8 @@ void SensorHalDaemonClientHandler::onSensorMlcCaseEventCb(char *name , struct ml
 SensorHalDaemonClientHandler - onSensorTempCb to send temperature to client
 ************************************************************************************/
 void SensorHalDaemonClientHandler::onSensorTempCb(float temperature) {
-   // please do not attempt to hold the lock, as the caller of this function
-   // already holds the lock
-   SENSOR_LOGI(LOG_TAG "--< onSensorTempCb\n");
+   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+   SENSOR_LOGV(LOG_TAG "--< onSensorTempCb temperature %f\n", temperature);
 
    if (nullptr != mIpcSender) {
 	   SensorAPITempIndMsg msg (SERVICE_NAME, temperature);
@@ -367,7 +366,7 @@ SensorHalDaemonClientHandler - onSensorBufferDataReadCb to send buffer data to c
 ************************************************************************************/
 void SensorHalDaemonClientHandler::onSensorBufferDataReadCb(sensors_event_t *events, int count) {
    std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
-   SENSOR_LOGV(LOG_TAG "--< onSensorBufferReadCb\n");
+   SENSOR_LOGV(LOG_TAG "--< onSensorBufferReadCb count %d\n", count);
 
    if (nullptr != mIpcSender) {
 	   size_t msglen = sizeof(SensorAPIBufferDataIndMsg) + sizeof(sensors_event_t) * (count-1);

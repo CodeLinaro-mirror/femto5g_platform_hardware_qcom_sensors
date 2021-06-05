@@ -339,7 +339,6 @@ int SensorApiService::SetPowerMode(int sensor_id, int mode)
 	FILE *power_mode_fd = NULL;
 	char power_mode_file_name[UCF_STR_LEN] = {'\0'};
 	int ret = SENSOR_ERROR_CONTROL_FAILED;
-	int val = -1;
 
 	//Check the sensor for sensor_id
 	for (int i=0 ; i < mSensorCount; i++) {
@@ -374,20 +373,10 @@ int SensorApiService::SetPowerMode(int sensor_id, int mode)
 
 	if (mode == SENSOR_LPM) {
 		SENSOR_LOGI(LOG_TAG "wrting 1 to power mode file\n");
-		fscanf(power_mode_fd, "%d\n", &val);
-		if ( val == 1) {
-			fclose(power_mode_fd);
-			return SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
-		}
 		ret = fprintf(power_mode_fd, "1");
 	}
 	else {
 		SENSOR_LOGI(LOG_TAG "wrting 0 to power mode file\n");
-		fscanf(power_mode_fd, "%d\n", &val);
-		if ( val == 0) {
-			fclose(power_mode_fd);
-			return SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
-		}
 		ret = fprintf(power_mode_fd, "0");
 	}
 

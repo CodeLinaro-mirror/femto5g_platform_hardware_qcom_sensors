@@ -562,6 +562,7 @@ SensorApiService - implementation - StartTracking
 ******************************************************************************/
 void SensorApiService::startTracking(SensorAPIStartTrackingReqMsg *pMsg) {
     std::lock_guard<std::mutex> lock(mMutex);
+    SENSOR_LOGI(LOG_TAG ">-- startTracking\n");
 
     int ret = 0;
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
@@ -783,10 +784,6 @@ void SensorApiService::activateSensor(SensorAPIEnableReqMsg* pMsg) {
    //Activating/Deactivating the sensor
    for (int i=0 ; i < mSensorCount; i++) {
      if (pMsg->sensor_id == mSensor[i].sensor_id) {
-        if (pClient->mActivate[i] == pMsg->enable) {
-             ret =  SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
-             goto fail;
-        }
 	pClient->mActivate[i] = pMsg->enable;
 	if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER)
 		pClient->mAccTracking = pMsg->enable;
@@ -861,16 +858,14 @@ void SensorApiService::SensorEnableMLCCase(SensorAPIMLCCaseEnableMsg* pMsg) {
 
     if (mMlcSupported == true) {
 	    if(SensorMlcEnableEvents(pMsg->mlc_case_name, pMsg->enable)) {
-	      ret = SENSOR_RESPONSE_SUCCESS;
 	      for (int i = 0; i < mSensorMlcCaseCount ; i++) {
 		 if (strcmp(pClient->mMlcCaseList[i].name, pMsg->mlc_case_name) == 0) {
-                         if (pClient->mMlcCaseList[i].enable == pMsg->enable)
-				 ret = SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
 			 pClient->mMlcCaseList[i].enable = pMsg->enable;
 			 SENSOR_LOGE(LOG_TAG "pClient->mMlcCaseList[i].name %s enable %d\n",
 					 pClient->mMlcCaseList[i].name,pClient->mMlcCaseList[i].enable);
 		 }
 	      }
+	      ret = SENSOR_RESPONSE_SUCCESS;
 	    }
     }
 fail:
@@ -884,7 +879,6 @@ fail:
 SensorApiService - implementation - getSensorTemp to send temperature
 ******************************************************************************/
 void SensorApiService::getSensorTemp(SensorAPITempReqMsg* pMsg) {
-    std::lock_guard<std::mutex> lock(mMutex);
     float temperature = 0;
 
     SENSOR_LOGI(LOG_TAG "--<getSensorTemp\n");
@@ -906,7 +900,7 @@ void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
     std::lock_guard<std::mutex> lock(mMutex);
     int ret = SENSOR_ERROR_BUFFER_NOT_SUPPORTED;
 
-    SENSOR_LOGI(LOG_TAG "--<getSensorBufferData\n");
+    SENSOR_LOGI(LOG_TAG "--<getSensorBufferData pMsg->enable %d\n",pMsg->enable);
 
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
     if (!pClient) {
@@ -922,13 +916,17 @@ void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
 
     if (mBufferSupported == true) {
 	    pClient->mBufferRead = pMsg->enable;
-	    if (mBufferDeleted == true && pClient->mBufferRead == true)
+	    if (mBufferDeleted == true && pClient->mBufferRead == true) {
 		    ret = SENSOR_ERROR_BUFFER_DELETED;
+	    }
 	    else {
+		    ret = SENSOR_RESPONSE_SUCCESS;
+		    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
+		    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
 		    pthread_mutex_lock (&mHalBuffMutex);
 		    pthread_cond_signal (&mHalBuffCond);
 		    pthread_mutex_unlock (&mHalBuffMutex);
-		    ret = SENSOR_RESPONSE_SUCCESS;
+		    return;
 	    }
     }
 fail:
