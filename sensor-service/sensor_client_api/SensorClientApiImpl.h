@@ -117,6 +117,10 @@ private:
     volatile int  mRespReturn;
 
     SensorIpcSender*          mIpcSender;
+
+    //To wake up Sensor Api
+    pthread_mutex_t mSensorLibMutex;
+    pthread_cond_t mSensorLibCond;
 };
 
 } // namespace sensor_client
