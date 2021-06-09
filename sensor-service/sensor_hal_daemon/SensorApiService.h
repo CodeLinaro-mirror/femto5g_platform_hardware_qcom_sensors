@@ -1,0 +1,335 @@
+/* Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation, nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#ifndef SENSORAPISERVICE_H
+#define SENSORAPISERVICE_H
+
+#include <string>
+#include <mutex>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <dlfcn.h>
+#include <pthread.h>
+#include <errno.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <sensors.h>
+#include <SensorIpc.h>
+#include <fstream>
+#include <linux/input.h>
+
+#include <SensorLog.h>
+#include <SensorApiMsg.h>
+#include <SensorHalDaemonClientHandler.h>
+
+#ifdef NO_UNORDERED_SET_OR_MAP
+    #include <map>
+#else
+    #include <unordered_map>
+#endif
+
+#undef LOG_TAG
+#define LOG_TAG "SensorSvc_HalDaemon:"
+
+#define SERVICE_NAME "sensorapiservice"
+
+//Config file
+#define SENSOR_CONF_PATH "/etc/sensors.conf"
+//MLC bin path
+#define PATH_MLC_BINARY         "/lib/firmware/st_asm330lhhx_mlc.bin"
+
+typedef enum {
+        /** On Success **/
+        SENSOR_RESPONSE_SUCCESS=0,
+        /** Client is not registered to SHD **/
+        SENSOR_ERROR_CLIENT_REGISTER_FAILED=-1,
+        /** Client is not generated while registering the client **/
+        SENSOR_ERROR_INVALID_CLIENT=-2,
+        /** Invalid input parameteres from respective AP **/
+        SENSOR_ERROR_INVALID_INPUT_PARAMETER=-3,
+        /** Callback is null in respective API **/
+        SENSOR_ERROR_CALLBACK_MISSING=-4,
+        /** Not supported feature of sensor **/
+        SENSOR_ERROR_NOT_SUPPORTED=-5,
+        /** Physical Sensor Enable/Disable failed **/
+        SENSOR_ERROR_CONTROL_FAILED=-6,
+        /** Physical Sensor Config failed **/
+        SENSOR_ERROR_CONFIG_FAILED=-7,
+        /** Socket communication failed b/w SHD and client lib **/
+        SENSOR_ERROR_IPC_FAILED=-8,
+        /** No sensors supported in h/w **/
+        SENSOR_ERROR_NO_SENSORS_FOUND=-9,
+        /**No snesor is activated and configured**/
+        SENSOR_ERROR_TRACKING_FAILED=-10,
+        /** Unknown error **/
+        SENSOR_ERROR_UNKNOWN=-11,
+        /** Buffer is not supported by sensor**/
+        SENSOR_ERROR_BUFFER_NOT_SUPPORTED=-12,
+        /** Buffer is deleted**/
+        SENSOR_ERROR_BUFFER_DELETED=-13,
+        /** MLC Event Enable failed**/
+        SENSOR_ERROR_MLC_EVENT_ENABLE_FAILED=-14,
+        /** NO MLC case found**/
+        SENSOR_ERROR_NO_MLC_CASE_FOUND=-15,
+}SensorRet;
+
+//Type of devices based on sensor driver sysfs path mount.
+typedef enum
+{
+  DYN_IIO_TYPE,
+  DYN_INPUT_TYPE
+} dynDeviceType;
+
+typedef struct {
+    int   SensorType;
+    char  SensorHalLibPath[100];
+    char  AccelName[100];
+    char  GyroName[100];
+    int   DynamicConfigEnabled;
+    float MaxAccSampleRate;
+    float MaxGyroSampleRate;
+    int   MinAccBatchCount;
+    int   MinGyroBatchCount;
+    int   AccRange;
+    int   GyroRange;
+    int   DebugLevel;
+} configParamToRead;
+
+
+//SensorConfig Parameters to track the status of sensor configuration
+typedef struct {
+   int   sensor_id;
+   int   type;
+   int   Activate;
+   int   BatchCount;
+   float SamplingRate;
+} SensorConfig;
+
+
+//To check sensor type defined in config file
+typedef enum
+{
+  SENSOR_TYPE_UNKN = 0,
+  SENSOR_TYPE_ASM,
+  SENSOR_TYPE_BMI,
+  SENSOR_TYPE_IAM,
+  SENSOR_TYPE_SMI
+} sensorType;
+
+typedef struct {
+    // this stores the client name and the command type that client requests
+    // the info will be used to send back command response
+    std::string clientName;
+    ESensorMsgID   configMsgId;
+} ConfigReqClientData;
+
+// forward declaration
+class SensorHalDaemonIPCReceiver;
+
+/******************************************************************************
+SensorApiService
+******************************************************************************/
+class SensorApiService
+{
+public:
+
+    // singleton instance
+    SensorApiService(const SensorApiService&) = delete;
+    SensorApiService& operator = (const SensorApiService&) = delete;
+
+    static SensorApiService* getInstance(
+            const configParamToRead & configParamRead) {
+        if (nullptr == mInstance) {
+            mInstance = new SensorApiService(configParamRead);
+        }
+        return mInstance;
+    }
+
+    static void destroy() {
+        if (nullptr != mInstance) {
+            delete mInstance;
+            mInstance = nullptr;
+        }
+    }
+
+    SensorApiService(const configParamToRead & configParamRead);
+    virtual ~SensorApiService();
+
+    // APIs can be invoked by IPC
+    void processClientMsg(const std::string& data);
+
+
+    // from IPC receiver
+    void onListenerReady();
+
+    // other APIs
+    void deleteClientbyName(const std::string name);
+
+    bool open_sensor(const configParamToRead & configParamRead);
+    int get_sensor_list(const struct sensor_t **s);
+    int sensor_activate(int sensor_id , int enable);
+    int sensor_set_batch(int sensor_id, int64_t delay, int64_t latency);
+    static void* send_sensor_data_to_clients(void *arg);
+    static void* bufferDataprocessTask(void *arg);
+    static std::mutex mMutex;
+    pthread_t mSensorThreadtid;
+    pthread_t mBufferThreadtid;
+    pthread_t mMlcThreadtid;
+    // Client propery database
+    std::unordered_map<std::string, SensorHalDaemonClientHandler*> mClients;
+    std::unordered_map<uint32_t, ConfigReqClientData> mConfigReqs;
+private:
+    void  newClient(SensorAPIClientRegisterReqMsg*);
+    void  deleteClient(SensorAPIClientDeregisterReqMsg*);
+    void  startTracking(SensorAPIStartTrackingReqMsg*);
+    void  startBatching(SensorAPIStartBatchingReqMsg*);
+    void  activateSensor(SensorAPIEnableReqMsg*);
+    void  getSensorList(SensorAPIListReqMsg*);
+    void  getSensorTemp(SensorAPITempReqMsg*);
+    void  getSensorBufferData(SensorAPIBufferDataReqMsg*);
+    int   SensorCofig(SensorAPIStartBatchingReqMsg*);
+    void  GetSupportedSamplingRateAndRange(struct sensor_list *s);
+    int   NearByBatchCount(int ActualCount, int RequestedCount);
+    float NearBySamplingRate(float sampling_rate, struct sensor_list *s);
+    void  findPath(dynDeviceType aeType, char *aPath, std::string aKey, int aLength);
+
+    //MLC API's
+    bool LoadMLC(const char *mcl_fw_name);
+    void SensorEnableMLCCase(SensorAPIMLCCaseEnableMsg*);
+    int  SetPowerMode(int handle, int mode);
+    bool SensorMlcEnableEvents(char *mlc_case_name, int enable);
+    static void* mlcPollEvents(void *arg);
+    void pollEvents(void);
+
+    //Temperature API's
+    int  tempSensorDataPollTask(float* temperature);
+    bool tempSensorDataInit();
+    int  readTempASM(float* temperature);
+    int  readTempBMI(float* temperature);
+    int  readTempIAM(float* temperature);
+    int  readTempSMI(float* temperature);
+
+    //Buffer API's
+    bool CheckBufferReadFile();
+    void SensorBuffread();
+    void bufferDataScaling(int SensorType, sensors_event_t *event);
+    bool getBufferedSample(int SensorType,  FILE* fd, sensors_event_t *event);
+    void WritetoBufferFile(bool enable);
+    // private utilities
+    inline SensorHalDaemonClientHandler* getClient(const std::string& clientname) {
+	    // find client from property db
+	    auto client = mClients.find(clientname);
+	    if (client == std::end(mClients)) {
+		    SENSOR_LOGE(LOG_TAG "Failed to find client %s\n", clientname.c_str());
+		    return nullptr;
+	    }
+	    return client->second;
+    }
+
+    inline SensorHalDaemonClientHandler* getClient(const char* socketName) {
+	    std::string clientname(socketName);
+	    return getClient(clientname);
+    }
+
+    // singleton instance
+    static SensorApiService *mInstance;
+    // IPC interface
+    SensorHalDaemonIPCReceiver* mIpcReceiver;
+
+    struct sensor_list *mSensorList;
+    int mSensorCount;
+    uint32_t mSensorClient;
+    SensorConfig *mSensor;
+    int mSensorType;
+    struct sensors_module_t *mhmi;
+    struct hw_device_t *mdev;
+    struct sensors_poll_device_t *mpoll_dev_v0;
+    struct sensors_poll_device_1 *mpoll_dev;
+
+    //Mlc sesnros list
+    struct sensor_mlc_case_list *mSesnorMlcCaseList;
+    int mSensorMlcCaseCount;
+
+    // Configration
+    float mMaxAccSampleRate;
+    float mMaxGyroSampleRate;
+    int   mMinAccBatchCount;
+    int   mMinGyroBatchCount;
+    int   mAccRange;
+    int   mGyroRange;
+    bool  mBufferSupported;
+    bool  mBufferDeleted;
+    bool  mTempSupported;
+    bool  mMlcSupported;
+    int   mBatchConst;
+    int   mDynamicConfigEnabled;
+
+    //Temperature file pointers
+    struct asmFilePtr
+    {
+      std::ifstream *tScaleFile;
+      std::ifstream *tOffsetFile;
+      std::ifstream *tRawDataFile;
+    };
+    struct smiFilePtr
+    {
+      std::ifstream *tempFile;
+    };
+    struct bmiFilePtr
+    {
+      std::ifstream *tTempFile;
+    };
+    struct iamFilePtr
+    {
+     std::ifstream *dataFile;
+    };
+    union tempFilePtr
+    {
+      asmFilePtr asmTempFile;
+      smiFilePtr smiTempFile;
+      bmiFilePtr bmiTempFile;
+      iamFilePtr iamTempFile;
+    };
+    tempFilePtr mTempFilePtr;
+
+    //To Store Buffer file paths
+    std::string mAccBootSample;
+    std::string mGyroBootSample;
+
+    //To wake up Buffer Thread
+    pthread_mutex_t mHalBuffMutex;
+    pthread_cond_t mHalBuffCond;
+};
+
+#endif //SENSORAPISERVICE_H
