@@ -562,6 +562,7 @@ SensorApiService - implementation - StartTracking
 ******************************************************************************/
 void SensorApiService::startTracking(SensorAPIStartTrackingReqMsg *pMsg) {
     std::lock_guard<std::mutex> lock(mMutex);
+    SENSOR_LOGI(LOG_TAG ">-- startTracking\n");
 
     int ret = 0;
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
@@ -701,7 +702,8 @@ void SensorApiService::startBatching(SensorAPIStartBatchingReqMsg *pMsg) {
       for (int i=0; i < mSensorCount; i++) {
 	      if (mSensorList[i].sensor_id == pMsg->sensor_id) {
 		      SensorId = true;
-		      if (pMsg->batchCount > mSensorList[i].maxBatchCount || pMsg->batchCount <= 0  || pMsg->samplingRate <=0 ) {
+                     if (pMsg->batchCount > mSensorList[i].maxBatchCount || pMsg->batchCount < mSensorList[i].minBatchCount
+                                     || pMsg->samplingRate <=0 ) {
 			      ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 			      goto fail;
 		      }
@@ -877,7 +879,6 @@ fail:
 SensorApiService - implementation - getSensorTemp to send temperature
 ******************************************************************************/
 void SensorApiService::getSensorTemp(SensorAPITempReqMsg* pMsg) {
-    std::lock_guard<std::mutex> lock(mMutex);
     float temperature = 0;
 
     SENSOR_LOGI(LOG_TAG "--<getSensorTemp\n");
@@ -899,7 +900,7 @@ void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
     std::lock_guard<std::mutex> lock(mMutex);
     int ret = SENSOR_ERROR_BUFFER_NOT_SUPPORTED;
 
-    SENSOR_LOGI(LOG_TAG "--<getSensorBufferData\n");
+    SENSOR_LOGI(LOG_TAG "--<getSensorBufferData pMsg->enable %d\n",pMsg->enable);
 
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
     if (!pClient) {
@@ -915,13 +916,17 @@ void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
 
     if (mBufferSupported == true) {
 	    pClient->mBufferRead = pMsg->enable;
-	    if (mBufferDeleted == true && pClient->mBufferRead == true)
+	    if (mBufferDeleted == true && pClient->mBufferRead == true) {
 		    ret = SENSOR_ERROR_BUFFER_DELETED;
+	    }
 	    else {
+		    ret = SENSOR_RESPONSE_SUCCESS;
+		    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
+		    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
 		    pthread_mutex_lock (&mHalBuffMutex);
 		    pthread_cond_signal (&mHalBuffCond);
 		    pthread_mutex_unlock (&mHalBuffMutex);
-		    ret = SENSOR_RESPONSE_SUCCESS;
+		    return;
 	    }
     }
 fail:

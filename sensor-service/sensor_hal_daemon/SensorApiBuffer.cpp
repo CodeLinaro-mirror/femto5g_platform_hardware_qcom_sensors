@@ -856,7 +856,6 @@ void SensorApiService::SensorBuffread() {
   FILE *mfdBuffGyro   = NULL;
   bool accelBuffDataTxProgress = false;
   bool gyroBuffDataTxProgress = false;
-
   while(mBufferSupported) {
     pthread_mutex_lock (&mHalBuffMutex);
     pthread_cond_wait (&mHalBuffCond, &mHalBuffMutex);
@@ -867,6 +866,7 @@ void SensorApiService::SensorBuffread() {
 	   int gyrocount = 0;
 	   int count = 0;
 	   sensors_event_t events[60];
+	   sensors_event_t zevents[2];
 	   /* Open Accel Bufferd Sensor input device */
 	   if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) < 0) {
 		   SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
@@ -888,7 +888,8 @@ void SensorApiService::SensorBuffread() {
 	   {
 	      /* Fill the accel buffered data from kernel bufer */
 	      if (accelBuffDataTxProgress) {
-		  if(getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &events[count])) {
+		  if(getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &zevents[0])) {
+			  memcpy(&events[count], &zevents[0], sizeof(sensors_event_t));
 			  bufferDataScaling(SENSOR_TYPE_ACCELEROMETER, &events[count]);
 			  SENSOR_LOGV(LOG_TAG "ACC event: x=%f y=%f z=%f timestamp=%lld acccount %d\n",
 					  events[count].acceleration.x, events[count].acceleration.y,
@@ -901,8 +902,9 @@ void SensorApiService::SensorBuffread() {
 	      }
 	      /* Fill the gyro buffered data into from kernel buffer */
 	      if (gyroBuffDataTxProgress) {
-	         if (getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &events[count])) {
-			 bufferDataScaling(SENSOR_TYPE_GYROSCOPE, &events[count]);
+	         if (getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &zevents[1])) {
+			 memcpy(&events[count], &zevents[1], sizeof(sensors_event_t));
+ 			 bufferDataScaling(SENSOR_TYPE_GYROSCOPE, &events[count]);
 			 SENSOR_LOGV(LOG_TAG "GYRO event: x=%f y=%f z=%f timestamp=%lld gyrocount %d\n",
 					 events[count].gyro.x, events[count].gyro.y, events[count].gyro.z,
 					 events[count].timestamp, gyrocount++);
@@ -913,14 +915,17 @@ void SensorApiService::SensorBuffread() {
 		 }
 	      }
 	      if (count >= 50) {
+		      usleep(1*1000);
 		      each.second->onSensorBufferDataReadCb(events, count);
+		      usleep(1*1000);
 		      count = 0;
 	      }
 	   }
 	   SENSOR_LOGV(LOG_TAG "End of buffer data acccount %d gyrocount %d remaining packets %d\n",acccount, gyrocount, count);
 	   /***Send remainging packets**/
-	   if (count != 0)
+	   if (count != 0) {
 		   each.second->onSensorBufferDataReadCb(events, count);
+	   }
 	   /***Send BUFFER END PACKET*/
 	   memset(&events[0], 0, sizeof(sensors_event_t));
 	   events[0].type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
