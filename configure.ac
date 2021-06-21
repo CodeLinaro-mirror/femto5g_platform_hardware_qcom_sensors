@@ -57,6 +57,7 @@ AC_CONFIG_FILES([ \
         iam20680/Makefile \
         st/Makefile \
         smi130/HAL_DataReady/Makefile \
+        smi230/Makefile \
         libsensors.pc \
         ])
 
