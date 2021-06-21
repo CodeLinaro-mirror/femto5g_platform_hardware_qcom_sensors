@@ -74,6 +74,8 @@ typedef enum {
         SENSOR_ERROR_MLC_EVENT_ENABLE_FAILED=-14,
         /** NO MLC case found**/
         SENSOR_ERROR_NO_MLC_CASE_FOUND=-15,
+	/**Sensor No response from SHD timeout happens*/
+	SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT = -16,
 }SensorRet;
 
 typedef enum {
@@ -86,6 +88,14 @@ typedef enum {
     /*High power mode*/
      SENSOR_HPM,
 }sensor_state;
+
+/** @brief Provides the capabilities of the system. <br/>
+
+    @param capsMask: SensorCapabilitiesMask. <br/>
+*/
+typedef std::function<void(
+    SensorCapabilitiesMask capsMask
+)> CapabilitiesCb;
 
 /** @brief
     BatchingCb is for notifying the client with updated sampling
@@ -151,8 +161,16 @@ class SensorClient
 public:
     /** @brief
         Creates an instance of SensorClient object. <br/>
+       @param
+        capsCallback: If this callback is not null,
+                      sensor_client::capsMask will
+                      be reported via this callback after the
+                      construction of the object.  <br/>
+                      This callback is allowed to be be null. <br/>
+		      This callback is used to notify about SHD status and also system power
+		      status. <b/r>
     */
-    SensorClient();
+    SensorClient(CapabilitiesCb capsCallback);
 
     /** @brief Default destructor */
     virtual ~SensorClient();
