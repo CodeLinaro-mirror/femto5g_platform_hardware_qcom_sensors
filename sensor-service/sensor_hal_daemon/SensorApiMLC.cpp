@@ -479,10 +479,12 @@ void SensorApiService::pollEvents(void) {
 		    get_mlc_case_name(i+mlc_case_device_start_index, mlc_case_name);
 		    for (auto each : mClients) {
 		       for (int i = 0; i < mSensorMlcCaseCount ; i++) {
+			 if (each.second->mMlcCaseList != nullptr) {
 			   if ((strcmp(each.second->mMlcCaseList[i].name, mlc_case_name) == 0 )
 					   && each.second->mMlcCaseList[i].enable == 1) {
 				   each.second->onSensorMlcCaseEventCb(mlc_case_name, &event);
 			   }
+			 }
 		       }
 		    }
 		    memset(mlc_case_name, 0 ,sizeof(mlc_case_name));
