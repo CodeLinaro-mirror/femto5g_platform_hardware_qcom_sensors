@@ -256,6 +256,11 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 	   return false;
    }
 
+   if (mSensorType != SENSOR_TYPE_ASM) {
+	   SENSOR_LOGE(LOG_TAG "ERROR: Invalid sensor type: %d\n", mSensorType);
+	   return false;
+   }
+
    //Copy data to mSensor to track the sensor configuration parameters till last client deregistered.
    mSensor = new (std::nothrow) SensorConfig[mSensorCount];
    for(int i=0; i < mSensorCount; i++) {
@@ -543,6 +548,7 @@ void SensorApiService::deleteClientbyName(const std::string clientname) {
     // We shall not hold the lock, as lock already held by the caller
     //
     mSensorClient--;
+    SENSOR_LOGI(LOG_TAG ">-- deleteClientbyName %d\n",mSensorClient);
     /*Deactivate the Sensor when last client deregistered*/
     if(mSensorClient <= 0) {
         for(int i=0; i < mSensorCount; i++) {
