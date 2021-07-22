@@ -36,20 +36,52 @@
 #include <SensorClientApi.h>
 #include <pwd.h>
 
-#define UID_SENSOR (3011)
-#define GID_SENSORCLIENT (3011)
+#define CMD_OPTIONS     "b:d:"
 
 using namespace sensor_client;
 
+SensorClient* pClient;
+
+void Usage(void)
+{
+  printf("\nUsage:   ./sensor_test -d odr_rate -b batch_count\n");
+  printf("\t\t\tex: ./sensor_test -d 104 -b 10\n");
+  return;
+}
 
 static uint64_t getTimestamp() {
     struct timespec ts;
     clock_gettime(CLOCK_BOOTTIME, &ts);
-    uint64_t absolute_micro =
-            ((uint64_t)(ts.tv_sec)) * 1000000ULL + ((uint64_t)(ts.tv_nsec)) / 1000ULL;
-    return absolute_micro;
+    uint64_t system_ts =
+            ((uint64_t)(ts.tv_sec)) * 1000000000ULL + ((uint64_t)(ts.tv_nsec));
+    return system_ts;
 }
 
+static void PrintSensorList(struct sensor_list *sensor, int sensor_count)
+{
+   printf("sensor_count %d\n", sensor_count);
+   for (int i=0 ; i< sensor_count ; i++) {
+           printf("%s\n",sensor[i].name);
+           printf("\tvendor: %s\n",sensor[i].vendor);
+           printf("\tsensor_id: %d\n",sensor[i].sensor_id);
+           printf("\ttype: %d\n",sensor[i].type);
+           printf("\trange: %d\n",sensor[i].range);
+           printf("\tmaxSamplingRate: %d\n",sensor[i].maxSamplingRate);
+           printf("\tminBatchCount: %d\n",sensor[i].minBatchCount);
+           printf("\tmaxBatchCount: %d\n",sensor[i].maxBatchCount);
+           printf("\todr rate: %fHZ %fHZ %fHZ %fHZ %fHZ %fHZ\n",
+                           sensor[i].odr[0],sensor[i].odr[1],sensor[i].odr[2],
+                           sensor[i].odr[3],sensor[i].odr[4],sensor[i].odr[5]);
+   }
+}
+
+static void PrintSensorMlcCaseList(struct sensor_mlc_case_list *mlc_case, int mlc_case_count)
+{
+   printf("mlc_case_count %d\n", mlc_case_count);
+   for (int i=0 ; i< mlc_case_count ; i++) {
+           printf("mlc_case_count %d: %s\n", i, mlc_case[i].name);
+   }
+}
 
 static void dump_event(const struct sensors_event_t *e)
 {
@@ -58,23 +90,51 @@ static void dump_event(const struct sensors_event_t *e)
 
     switch (e->type) {
     case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
-        printf("ACC event:x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld HZ=%f\n",
+        printf("ACC event:x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
             e->uncalibrated_accelerometer.x_uncalib, e->uncalibrated_accelerometer.y_uncalib,
             e->uncalibrated_accelerometer.z_uncalib, e->uncalibrated_accelerometer.x_bias,
             e->uncalibrated_accelerometer.y_bias, e->uncalibrated_accelerometer.z_bias,
-            e->timestamp,(1.0F/(e->timestamp-acc_ts))*1000000000);
+            e->timestamp, (getTimestamp() - e->timestamp)/1000000, (1.0F/(e->timestamp-acc_ts))*1000000000);
         acc_ts = e->timestamp;
         break;
     case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
-        printf("GYRO event:x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld HZ=%f\n",
+        printf("GYRO event:x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
             e->uncalibrated_gyro.x_uncalib, e->uncalibrated_gyro.y_uncalib,
             e->uncalibrated_gyro.z_uncalib, e->uncalibrated_gyro.x_bias,
             e->uncalibrated_gyro.y_bias, e->uncalibrated_gyro.z_bias,
-            e->timestamp,(1.0F/(e->timestamp-gyro_ts))*1000000000);
+            e->timestamp,(getTimestamp() - e->timestamp)/1000000, (1.0F/(e->timestamp-gyro_ts))*1000000000);
         gyro_ts = e->timestamp;
         break;
     default:
         printf("Unknown sensor_id events %d\n", e->type);
+    }
+}
+
+
+static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
+    printf("<<< onCapabilitiesCb mask=%d\n", mask);
+    switch (mask) {
+	case SHD_READY:
+		printf("Sensor Hal daemon is Ready to commnunicate\n");
+		break;
+	case SHD_RESTARTED:
+		printf("Sensor Hal daemon is Restarted\n");
+		break;
+	case SHD_NOT_RUNNING:
+		printf("Sensor Hal daemon is not available\n");
+		break;
+	case DEVICE_SUSPEND:
+		printf("Device is about go to suspend state\n");
+		break;
+	case DEVICE_RESUME:
+		printf("Device is resumed\n");
+		break;
+	case DEVICE_SHUTDOWN:
+		printf("Device is about go to shutdown\n");
+		break;
+	defult:
+		printf("Unknown mask\n");
+		break;
     }
 }
 
@@ -86,7 +146,22 @@ static void onBatchingCb(int sensor_id , float sampling_rate, int batch_count)
 static void onSensorDataReadCb(int sensor_id, const sensors_event_t *events, uint32_t count)
 {
     int i =0;
-    printf("<<<sensor_id %d: read events count %d\n", sensor_id, count);
+    static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_cur = 0;
+    static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0;
+    ts_cur = getTimestamp();
+
+    if (sensor_id == 1) {
+	    acc_sensor_ts = events[count-1].timestamp;
+	    printf("<<<sensor_id %d: read events count %d batch delta %lld sensor and system delta %lld\n",
+			    sensor_id, count, (ts_cur - ts_prv_acc)/1000000, (ts_cur - acc_sensor_ts)/1000000);
+	    ts_prv_acc = ts_cur;
+    }
+    else {
+	    gyro_sensor_ts = events[count-1].timestamp;
+	    printf("<<<sensor_id %d: read events count %d batch delta %lld sensor and system delta %lld\n",
+			    sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, (ts_cur - gyro_sensor_ts)/1000000);
+	    ts_prv_gyro = ts_cur;
+    }
     for ( i = 0; i < count ; i++)
 	    dump_event(&events[i]);
 }
@@ -114,32 +189,6 @@ static void onSensorBufferDataReadCb(const sensors_event_t *events, uint32_t cou
 static void onSensorTempReadCb(float tempreature)
 {
    printf("<<< sensor_client_test_app: tempreature %f \n",tempreature);
-}
-
-static void PrintSensorList(struct sensor_list *sensor, int sensor_count)
-{
-   printf("sensor_count %d\n", sensor_count);
-   for (int i=0 ; i< sensor_count ; i++) {
-	   printf("%s\n",sensor[i].name);
-	   printf("\tvendor: %s\n",sensor[i].vendor);
-	   printf("\tsensor_id: %d\n",sensor[i].sensor_id);
-	   printf("\ttype: %d\n",sensor[i].type);
-	   printf("\trange: %d\n",sensor[i].range);
-	   printf("\tmaxSamplingRate: %d\n",sensor[i].maxSamplingRate);
-	   printf("\tminBatchCount: %d\n",sensor[i].minBatchCount);
-	   printf("\tmaxBatchCount: %d\n",sensor[i].maxBatchCount);
-	   printf("\todr rate: %fHZ %fHZ %fHZ %fHZ %fHZ %fHZ\n",
-			   sensor[i].odr[0],sensor[i].odr[1],sensor[i].odr[2],
-			   sensor[i].odr[3],sensor[i].odr[4],sensor[i].odr[5]);
-   }
-}
-
-static void PrintSensorMlcCaseList(struct sensor_mlc_case_list *mlc_case, int mlc_case_count)
-{
-   printf("mlc_case_count %d\n", mlc_case_count);
-   for (int i=0 ; i< mlc_case_count ; i++) {
-           printf("mlc_case_count %d: %s\n", i, mlc_case[i].name);
-   }
 }
 
 static void printHelp() {
@@ -174,12 +223,14 @@ int main(int argc, char *argv[]) {
    int sensor_count = 0;
    struct sensor_mlc_case_list *mlc_case;
    int mlc_case_count = 0;
+   float odr_rate = 0;
+   int c;
 
-   SensorClient* pClient = new SensorClient();
+   pClient = new SensorClient(onCapabilitiesCb);
 
    ret = pClient->get_sensor_list(&sensor, &sensor_count);
    if(ret < 0) {
-	   printf("get sensor list failed ret %d \n", ret);
+           printf("get sensor list failed ret %d \n", ret);
    }
 
    PrintSensorList(sensor,sensor_count);
@@ -187,12 +238,51 @@ int main(int argc, char *argv[]) {
    printHelp();
    sleep(1);
 
+   if(argc > 2) {
+     Usage();
+     while ((c = getopt (argc, argv, CMD_OPTIONS)) != -1) {
+	   switch (c) {
+		   case 'b':
+			   batch_count = strtol(optarg, &stopstring, 10);
+			   break;
+		   case 'd':
+			   odr_rate = strtol(optarg, &stopstring, 10);
+			   break;
+		   default:
+			   Usage();
+			   break;
+	   }
+     }
+     printf(" Sensor odr rate %f batch count %d\n", odr_rate, batch_count);
+
+     for(int i=0; i < sensor_count; i++) {
+	   state = SENSOR_DISABLE;
+	   ret = pClient->sensor_control(sensor[i].sensor_id, state);
+	   if(ret < 0) {
+		   printf("sensor control failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
+	   }
+	   ret = pClient->sensor_config(sensor[i].sensor_id, odr_rate, batch_count, onBatchingCb);
+	   if(ret < 0) {
+		   printf("sensor config  failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
+	   }
+	   state = SENSOR_ENABLE;
+	   ret = pClient->sensor_control(sensor[i].sensor_id, state);
+	   if(ret < 0) {
+		   printf("sensor control failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
+	   }
+	   ret = pClient->sensor_read_events(sensor[i].sensor_id, onSensorDataReadCb);
+	   if(ret < 0) {
+		   printf("sensor read events failed ret %d \n", ret);
+	   }
+     }
+   }
+
    // main loop
    while (1) {
-    char buf[10];
-    memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
-    fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
-    int command = buf[0];
+	   char buf[10];
+	   memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
+	   fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
+	   int command = buf[0];
     switch(command) {
 
      case 'g':

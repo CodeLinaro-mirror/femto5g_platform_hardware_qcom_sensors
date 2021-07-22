@@ -37,6 +37,17 @@ PKG_CHECK_MODULES([SENSORSOCKET], [sensor-socket])
 AC_SUBST([SENSORSOCKET_CFLAGS])
 AC_SUBST([SENSORSOCKET_LIBS])
 
+AC_ARG_WITH([pwrmgrlib],
+    AC_HELP_STRING([--with-pwrmgrlib], [with power manager library]))
+
+AM_CONDITIONAL(POWERMANAGER_ENABLED, test "x$with_pwrmgrlib" = "xyes")
+
+AM_COND_IF(POWERMANAGER_ENABLED, [
+    PKG_CHECK_MODULES([PM], [powermanager])
+    AC_SUBST([PM_CFLAGS])
+    AC_SUBST([PM_LIBS])
+])
+
 AC_ARG_WITH([glib],
       AC_HELP_STRING([--with-glib],
          [enable glib, building HLOS systems which use glib]))

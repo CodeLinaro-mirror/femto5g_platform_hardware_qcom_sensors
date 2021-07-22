@@ -29,7 +29,7 @@
 #define SENSORCLIENTAPIIMPL_H
 
 #include <mutex>
-
+#include <time.h>
 #include <SensorIpc.h>
 #include <SensorLog.h>
 #include <SensorClientApi.h>
@@ -57,14 +57,23 @@ namespace sensor_client
 
 struct MlcCaseListCb {
       char name[100];
+      bool enable;
       SensorMLCEventCb mSensorMLCEventCb;
+};
+
+struct SensorTrackingOption {
+	int sensor_id;
+	float sampling_rate;
+	int batch_count;
+	sensor_state state;
+	SensorDataReadCb mSensorDataReadCb;
 };
 
 class SensorClientImpl :
     public SensorIpc
 {
 public:
-    SensorClientImpl();
+    SensorClientImpl(CapabilitiesCb capabitiescb);
     void destroy();
     //Get Sensor List
     virtual int getSensorList(struct sensor_list***, int *sensor_count);
@@ -89,6 +98,17 @@ public:
 private:
     ~SensorClientImpl();
 
+    //timeout function
+    inline struct timespec timeout(int sec) {
+	    struct timespec ts;
+	    clock_gettime(CLOCK_MONOTONIC, &ts);
+	    ts.tv_sec +=  sec;
+	    return ts;
+    }
+
+    //Sensor Reconnection API
+    bool SensorReconfigure(bool enable);
+
     // override from SensorIpc
     virtual void onListenerReady() override;
     virtual void onReceive(const string& data) override;
@@ -101,26 +121,29 @@ private:
     uint32_t                mClientId;
     bool                    mHalRegistered;
     char                    mSocketName[MAX_SOCKET_PATHNAME_LENGTH];
+    bool 		    mShdRestarted;
+
     //MLC case list
     int 		             mSensorMlcCaseCount;
     struct sensor_mlc_case_list*     mSensorMlcCaseList;
 
     // callbacks
+    CapabilitiesCb          mCapabilitiesCb;
     BatchingCb              mBatchingCb;
-    SensorDataReadCb        mSensorDataReadCb;
     SensorTempReadCb        mSensorTempReadCb;
     SensorBufferDataReadCb  mSensorBufferDataReadCb;
-    struct MlcCaseListCb    *mSensorMLCEventCbs;
+    SensorTrackingOption*   mSensorTrackingOption;
+    MlcCaseListCb*          mSensorMLCEventCbs;
 
-    //Response
-    volatile bool onResponse;
-    volatile int  mRespReturn;
-
+    //Ipc sender
     SensorIpcSender*          mIpcSender;
 
-    //To wake up Sensor Api
-    pthread_mutex_t mSensorLibMutex;
-    pthread_cond_t mSensorLibCond;
+    //Response and to wake up Sensor API
+    volatile int       mRespReturn;
+    struct timespec    mTimeout;
+    pthread_mutex_t    mSensorLibMutex;
+    pthread_cond_t     mSensorLibCond;
+    pthread_condattr_t mSensorLibattr;
 };
 
 } // namespace sensor_client

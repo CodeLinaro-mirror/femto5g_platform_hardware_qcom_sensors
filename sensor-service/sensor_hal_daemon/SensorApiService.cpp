@@ -38,6 +38,9 @@
 #include <SensorHalDaemonIPCSender.h>
 #include <SensorHalDaemonClientHandler.h>
 #include <SensorApiService.h>
+#ifdef POWERMANAGER_ENABLED
+#include <PowerEvtHandler.h>
+#endif
 
 using namespace std;
 
@@ -72,6 +75,9 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mTempSupported(false),
     mBufferDeleted(false),
     mMlcSupported(false)
+#ifdef POWERMANAGER_ENABLED
+    ,mPowerEventObserver(nullptr)
+#endif
 {
     SENSOR_LOGI(LOG_TAG "SensorApiService constructor is called\n");
 
@@ -80,6 +86,15 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 	SENSOR_LOGE(LOG_TAG "no sensor supported \n");
 	return;
     }
+
+#ifdef POWERMANAGER_ENABLED
+    // register power event handler
+    mPowerEventObserver = PowerEvtHandler::getPwrEvtHandler(this);
+    if (nullptr == mPowerEventObserver) {
+        SENSOR_LOGE(LOG_TAG "Failed to regiseter Powerevent handler");
+        return;
+    }
+#endif
 
     // create IPC receiver
     mIpcReceiver = new SensorHalDaemonIPCReceiver(this);
@@ -361,7 +376,7 @@ void* SensorApiService::send_sensor_data_to_clients(void *arg)
   {
      count = mSensorService->mpoll_dev->poll(mSensorService->mpoll_dev_v0,
 		     events, sizeof(events)/sizeof(sensors_event_t));
-     SENSOR_LOGV(LOG_TAG "read events = %d \n",count);
+     SENSOR_LOGV(LOG_TAG "read events = %d\n",count);
      std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
      for (auto each : mSensorService->mClients) {
 	     if (each.second && each.second->mTracking)
@@ -505,6 +520,8 @@ void SensorApiService::newClient(SensorAPIClientRegisterReqMsg *pMsg) {
 	    pClient->onSensorListCb(mSensorList, mSensorCount);
     if (mSensorMlcCaseCount > 0)
 	    pClient->onSensorMlcCaseListCb(mSesnorMlcCaseList, mSensorMlcCaseCount);
+
+    pClient->onCapabilitiesCallback(SHD_READY);
 
     mSensorClient++;
     mClients.emplace(clientname, pClient);
@@ -785,10 +802,16 @@ void SensorApiService::activateSensor(SensorAPIEnableReqMsg* pMsg) {
    for (int i=0 ; i < mSensorCount; i++) {
      if (pMsg->sensor_id == mSensor[i].sensor_id) {
 	pClient->mActivate[i] = pMsg->enable;
-	if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER)
+	if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
 		pClient->mAccTracking = pMsg->enable;
-	if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE || mSensor[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED)
+		pClient->mAccCount = 0;
+		pClient->mAccMovingCount = 0;
+	}
+	if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE || mSensor[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED) {
 		pClient->mGyroTracking = pMsg->enable;
+		pClient->mGyroCount = 0;
+		pClient->mGyroMovingCount = 0;
+	}
         //Check the enable request of all clients
 	for (auto each : mClients) {
 	   enable = max(enable, each.second->mActivate[i]);
@@ -1106,3 +1129,33 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
         break;
   }
 }
+
+/******************************************************************************
+SensorApiService - power event handlers
+******************************************************************************/
+#ifdef POWERMANAGER_ENABLED
+void SensorApiService::onPowerEvent(PowerStateType powerState) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    SENSOR_LOGI(LOG_TAG "--< onPowerEvent %d", powerState);
+
+    mPowerState = powerState;
+    if (POWER_STATE_SUSPEND == powerState) {
+	    for (auto each : mClients) {
+		    if (each.second)
+			    each.second->onCapabilitiesCallback(DEVICE_SUSPEND);
+	    }
+    }
+    else if (POWER_STATE_SHUTDOWN == powerState) {
+	    for (auto each : mClients) {
+		    if (each.second)
+			    each.second->onCapabilitiesCallback(DEVICE_SHUTDOWN);
+	    }
+    }
+    else if (POWER_STATE_RESUME == powerState) {
+	    for (auto each : mClients) {
+		    if (each.second)
+			    each.second->onCapabilitiesCallback(DEVICE_RESUME);
+	    }
+    }
+}
+#endif

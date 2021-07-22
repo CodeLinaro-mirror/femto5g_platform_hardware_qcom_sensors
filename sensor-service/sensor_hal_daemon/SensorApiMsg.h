@@ -97,39 +97,40 @@ enum ESensorMsgID {
     // registration
     E_SENSORAPI_CLIENT_REGISTER_MSG_ID = 1,
     E_SENSORAPI_CLIENT_DEREGISTER_MSG_ID = 2,
-    E_SENSORAPI_HAL_READY_MSG_ID = 3,
+    E_SENSORAPI_CAPABILILTIES_MSG_ID = 3,
+    E_SENSORAPI_HAL_READY_MSG_ID = 4,
 
     // tracking session
-    E_SENSORAPI_START_TRACKING_MSG_ID = 4,
-    E_SENSORAPI_STOP_TRACKING_MSG_ID = 5,
+    E_SENSORAPI_START_TRACKING_MSG_ID = 5,
+    E_SENSORAPI_STOP_TRACKING_MSG_ID = 6,
 
     //Sensor Data indication message id
-    E_SENSORAPI_DATA_READ_MSG_ID = 6,
+    E_SENSORAPI_DATA_READ_MSG_ID = 7,
 
     // batching session
-    E_SENSORAPI_START_BATCHING_MSG_ID = 7,
-    E_SENSORAPI_START_BATCHING_RES_ID = 8,
-    E_SENSORAPI_STOP_BATCHING_MSG_ID = 9,
+    E_SENSORAPI_START_BATCHING_MSG_ID = 8,
+    E_SENSORAPI_START_BATCHING_RES_ID = 9,
+    E_SENSORAPI_STOP_BATCHING_MSG_ID = 10,
 
     // Get Sensor LIST
-    E_SENSORAPI_GET_SENSOR_LIST_MSG_ID = 10,
-    E_SENSORAPI_SENSOR_LIST_MSG_ID = 11,
+    E_SENSORAPI_GET_SENSOR_LIST_MSG_ID = 11,
+    E_SENSORAPI_SENSOR_LIST_MSG_ID = 12,
 
     //Enable Sensor
-    E_SENSORAPI_SENSOR_ENABLE_MSG_ID = 12,
+    E_SENSORAPI_SENSOR_ENABLE_MSG_ID = 13,
 
     //MLC Message ID
-    E_SENSORAPI_SENSOR_MLC_CASE_LIST_MSG_ID = 13,
-    E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID = 14,
-    E_SENSORAPI_SENSOR_MLC_EVENT_IND_MSG_ID = 15,
+    E_SENSORAPI_SENSOR_MLC_CASE_LIST_MSG_ID = 14,
+    E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID = 15,
+    E_SENSORAPI_SENSOR_MLC_EVENT_IND_MSG_ID = 16,
 
     //Read Sensor temperature
-    E_SENSORAPI_SENSOR_TEMP_REQ_MSG_ID = 16,
-    E_SENSORAPI_SENSOR_TEMP_IND_MSG_ID = 17,
+    E_SENSORAPI_SENSOR_TEMP_REQ_MSG_ID = 17,
+    E_SENSORAPI_SENSOR_TEMP_IND_MSG_ID = 18,
 
     //Buffer data
-    E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID = 18,
-    E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID = 19,
+    E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID = 19,
+    E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID = 20,
 
 };
 
@@ -229,6 +230,16 @@ struct SensorAPIClientDeregisterReqMsg: SensorAPIMsgHeader
 {
     inline SensorAPIClientDeregisterReqMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_CLIENT_DEREGISTER_MSG_ID) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_CAPABILILTIES_MSG_ID
+struct SensorAPICapabilitiesIndMsg: SensorAPIMsgHeader
+{
+    SensorCapabilitiesMask mask;
+
+    inline SensorAPICapabilitiesIndMsg(const char* name, SensorCapabilitiesMask mask) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_CAPABILILTIES_MSG_ID),
+        mask(mask) { }
 };
 
 // defintion for message with msg id of E_SENSORAPI_HAL_READY_MSG_ID
