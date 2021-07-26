@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: sensor-hal-daemon
+Description: sensor hal daemon service
+Version: @VERSION@
+Libs: -L${libdir} -lsensor-hal-daemon
+Cflags: -I${includedir} -I${includedir}/sensor-hal-daemon
