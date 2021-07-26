@@ -40,6 +40,24 @@
 #define MAX_PATH_SIZE 100
 #define MAX_ODR 6
 
+typedef enum {
+        /*Senshor HAL Deamon is ready to communicate*/
+        SHD_READY = (1<<0),
+	/*Sensor Hal Daemon is not running*/
+        SHD_NOT_RUNNING  = (1<<1),
+	/*Sensor Hal Daemon is restartd*/
+        SHD_RESTARTED  = (1<<2),
+	/*Device is about to go suspend state, This notifcation
+	will get when SHD is enabled with power manager daemon*/
+        DEVICE_SUSPEND  = (1<<3),
+	/*Device is about to go resume state, This notifcation
+	will get when SHD is enabled with power manager daemon*/
+        DEVICE_RESUME  = (1<<4),
+	/*Device is about to go shutdown state, This notifcation
+	will get when SHD is enabled with power manager daemon*/
+        DEVICE_SHUTDOWN  = (1<<5),
+}SensorCapabilitiesMask;
+
 struct sensor_list;
 
 struct sensor_list {

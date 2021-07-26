@@ -45,18 +45,20 @@ mutex SensorClientImpl::mMutex;
 /******************************************************************************
 SensorClientImpl - constructors
 ******************************************************************************/
-SensorClientImpl::SensorClientImpl() :
+SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
         mHalRegistered(false),
-	mSensorDataReadCb(nullptr),
+	mCapabilitiesCb(capabitiescb),
         mBatchingCb(nullptr),
         mSensorTempReadCb(nullptr),
         mSensorBufferDataReadCb(nullptr),
 	mSensorList(nullptr),
 	mSensorMlcCaseList(nullptr),
+	mSensorTrackingOption(nullptr),
+        mSensorMLCEventCbs(nullptr),
 	mSensorCount(0),
+	mShdRestarted(false),
 	mSensorMlcCaseCount(0)
 {
-    onResponse = false;
     // get clientId
     uint32_t pid = (uint32_t)getpid();
 
@@ -81,12 +83,13 @@ SensorClientImpl::SensorClientImpl() :
         return;
     }
 
+    pthread_mutex_init(&mSensorLibMutex, NULL);
+    pthread_condattr_init(&mSensorLibattr);
+    pthread_condattr_setclock(&mSensorLibattr, CLOCK_MONOTONIC);
+    pthread_cond_init(&mSensorLibCond, &mSensorLibattr);
+
     SENSOR_LOGI(LOG_TAG "listen on socket: %s\n", mSocketName);
     startListeningNonBlocking(mSocketName);
-    pthread_mutex_init (&mSensorLibMutex, NULL);
-    pthread_cond_init (&mSensorLibCond, NULL);
-    //Wait till client lib is registered to deamon and received sensorlist
-    while(!onResponse);
 }
 
 /******************************************************************************
@@ -111,6 +114,9 @@ void SensorClientImpl::destroy() {
         delete mSensorMlcCaseList;
 	mSensorMlcCaseList = nullptr;
     }
+    pthread_mutex_destroy(&mSensorLibMutex);
+    pthread_condattr_destroy(&mSensorLibattr);
+    pthread_cond_destroy(&mSensorLibCond);
 }
 
 /******************************************************************************
@@ -119,6 +125,9 @@ SensorClientImpl - GetSensorList
 int SensorClientImpl::getSensorList(struct sensor_list ***s, int *sensor_count) {
 
     SENSOR_LOGI(LOG_TAG ">>> GetSensorList \n");
+
+    lock_guard<mutex> lock(mMutex);
+
     //Check about Client registered to daemon
     if (!mHalRegistered) {
 	    SENSOR_LOGE(LOG_TAG ">>> getSensorList - Not registered yet\n");
@@ -141,11 +150,12 @@ SensorClientImpl - SensorControl
 int SensorClientImpl::sensorControl(int sensor_id, sensor_state state) {
 
     SENSOR_LOGI(LOG_TAG ">>> sensorControl sensor_id %d sensor state %d\n", sensor_id, state);
-
-    onResponse = false;
+    int ret = 0;
     bool SensorId = false;
 
-    //Check about Client registered to daemon
+    lock_guard<mutex> lock(mMutex);
+
+   //Check about Client registered to daemon
     if (!mHalRegistered) {
 	    SENSOR_LOGE(LOG_TAG ">>> sensorControl - Not registered yet\n");
 	    return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
@@ -159,12 +169,14 @@ int SensorClientImpl::sensorControl(int sensor_id, sensor_state state) {
       for (int i=0; i < mSensorCount; i++) {
 	 if (mSensorList[i].sensor_id == sensor_id) {
 	    SensorId = true;
+	    if (state == SENSOR_ENABLE || state == SENSOR_DISABLE)
+		    mSensorTrackingOption[i].state = state;
 	    break;
 	 }
       }
       if (SensorId != true ) {
          return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
-	}
+      }
     }
     else
       return SENSOR_ERROR_NO_SENSORS_FOUND;
@@ -179,10 +191,13 @@ int SensorClientImpl::sensorControl(int sensor_id, sensor_state state) {
 	 pthread_mutex_unlock (&mSensorLibMutex);
 	 return SENSOR_ERROR_IPC_FAILED;
       }
-      pthread_cond_wait (&mSensorLibCond, &mSensorLibMutex);
+      mTimeout = timeout(3);
+      ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       pthread_mutex_unlock (&mSensorLibMutex);
-      onResponse = false;
-      return mRespReturn;
+      if (ret == ETIMEDOUT)
+	      return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
+      else
+	      return mRespReturn;
     }
     else
 	return SENSOR_ERROR_INVALID_CLIENT;
@@ -194,8 +209,10 @@ SensorClientImpl - StartBatching
 int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batch_count, BatchingCb batchingCallback) {
     SENSOR_LOGI(LOG_TAG ">>> sensorBatching sensor_id %d sampling_rate %f batch_count %d\n", sensor_id, sampling_rate, batch_count);
 
-    onResponse = false;
+    int ret = 0;
     bool SensorId = false;
+
+    lock_guard<mutex> lock(mMutex);
 
     //Check about Client registered to daemon
     if (!mHalRegistered) {
@@ -214,6 +231,8 @@ int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batc
 		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 	    if (sampling_rate <=0)
 		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+	    mSensorTrackingOption[i].sampling_rate = sampling_rate;
+	    mSensorTrackingOption[i].batch_count = batch_count;
             break;
          }
       }
@@ -233,10 +252,13 @@ int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batc
 	 pthread_mutex_unlock (&mSensorLibMutex);
 	 return SENSOR_ERROR_IPC_FAILED;
       }
-      pthread_cond_wait (&mSensorLibCond, &mSensorLibMutex);
+      mTimeout = timeout(3);
+      ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       pthread_mutex_unlock (&mSensorLibMutex);
-      onResponse = false;
-      return mRespReturn;
+      if (ret == ETIMEDOUT)
+	      return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
+      else
+	      return mRespReturn;
     }
     else
 	return SENSOR_ERROR_INVALID_CLIENT;
@@ -248,14 +270,18 @@ SensorClientImpl - StartTracking
 int SensorClientImpl::startTracking(int sensor_id, SensorDataReadCb sensorreadCallback) {
     SENSOR_LOGI(LOG_TAG ">>> sensorTracking sensor_id %d\n", sensor_id);
 
-    onResponse = false;
+    int ret = 0;
     bool SensorId = false;
+
+    lock_guard<mutex> lock(mMutex);
 
     //Input parameter check
     if (mSensorCount != 0) {
       for (int i=0; i < mSensorCount; i++) {
          if (mSensorList[i].sensor_id == sensor_id) {
 	    SensorId = true;
+	    mSensorTrackingOption[i].mSensorDataReadCb = sensorreadCallback;
+	    break;
          }
       }
       if (SensorId != true )
@@ -263,8 +289,6 @@ int SensorClientImpl::startTracking(int sensor_id, SensorDataReadCb sensorreadCa
     }
     else
       return SENSOR_ERROR_NO_SENSORS_FOUND;
-
-    mSensorDataReadCb = sensorreadCallback;
 
     //Check about Client registered to daemon
     if (!mHalRegistered) {
@@ -280,10 +304,13 @@ int SensorClientImpl::startTracking(int sensor_id, SensorDataReadCb sensorreadCa
 	 pthread_mutex_unlock (&mSensorLibMutex);
          return SENSOR_ERROR_IPC_FAILED;
       }
-      pthread_cond_wait (&mSensorLibCond, &mSensorLibMutex);
+      mTimeout = timeout(3);
+      ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       pthread_mutex_unlock (&mSensorLibMutex);
-      onResponse = false;
-      return mRespReturn;
+      if (ret == ETIMEDOUT)
+	      return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
+      else
+	      return mRespReturn;
     }
     else
 	return SENSOR_ERROR_INVALID_CLIENT;
@@ -294,6 +321,9 @@ SensorClientImpl - sensorRequestMLC
 int SensorClientImpl::sensorRequestMLC(struct sensor_mlc_case_list ***m, int *mlc_case_count) {
 
     SENSOR_LOGI(LOG_TAG ">>> sensorRequestMLC \n");
+
+    lock_guard<mutex> lock(mMutex);
+
     //Check about Client registered to daemon
     if (!mHalRegistered) {
 	    SENSOR_LOGE(LOG_TAG ">>> sensorRequestMLC - Not registered yet\n");
@@ -315,11 +345,13 @@ SensorClientImpl - SensorMLCEventEnable
 ******************************************************************************/
 int SensorClientImpl::sensorMLCEventEnable(char *mlc_case_name, bool enable,
 				SensorMLCEventCb sensorMlcEventCallback) {
-    onResponse = false;
     bool mlc_case = false;
     char case_name[100];
+    int ret = 0;
 
     SENSOR_LOGI(LOG_TAG ">>> SensorMLCEventEnable name %s enable %d \n", mlc_case_name, enable);
+
+    lock_guard<mutex> lock(mMutex);
 
     //Check about Client registered to daemon
     if (!mHalRegistered) {
@@ -335,6 +367,8 @@ int SensorClientImpl::sensorMLCEventEnable(char *mlc_case_name, bool enable,
       for (int i=0; i < mSensorMlcCaseCount; i++) {
 	    if (strcmp(mSensorMlcCaseList[i].name, mlc_case_name) == 0) {
 		    mlc_case = true;
+		    mSensorMLCEventCbs[i].mSensorMLCEventCb = sensorMlcEventCallback;
+		    mSensorMLCEventCbs[i].enable = enable;
 		    break;
 	    }
       }
@@ -345,15 +379,10 @@ int SensorClientImpl::sensorMLCEventEnable(char *mlc_case_name, bool enable,
     else
       return SENSOR_ERROR_NO_MLC_CASE_FOUND;
 
-    for (int i = 0 ; i < mSensorMlcCaseCount; i++) {
-	    if (strcmp(mSensorMLCEventCbs[i].name, mlc_case_name) == 0)
-		    mSensorMLCEventCbs[i].mSensorMLCEventCb = sensorMlcEventCallback;
-    }
-
     if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
       pthread_mutex_lock (&mSensorLibMutex);
       //Enable/Disable the Mlc case event
-      strlcpy(case_name, mlc_case_name,100);
+      strlcpy(case_name, mlc_case_name, 100);
       SensorAPIMLCCaseEnableMsg msg (mSocketName, case_name, enable);
       bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
               sizeof(msg));
@@ -361,10 +390,13 @@ int SensorClientImpl::sensorMLCEventEnable(char *mlc_case_name, bool enable,
          pthread_mutex_unlock (&mSensorLibMutex);
          return SENSOR_ERROR_IPC_FAILED;
       }
-      pthread_cond_wait (&mSensorLibCond, &mSensorLibMutex);
+      mTimeout = timeout(3);
+      ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       pthread_mutex_unlock (&mSensorLibMutex);
-      onResponse = false;
-      return mRespReturn;
+      if (ret == ETIMEDOUT)
+	      return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
+      else
+	      return mRespReturn;
     }
     else
 	    return SENSOR_ERROR_INVALID_CLIENT;
@@ -376,6 +408,8 @@ SensorClientImpl - ReadTemperature
 int SensorClientImpl::readTemperature(SensorTempReadCb sensortempreadCallback) {
 
     SENSOR_LOGI(LOG_TAG ">>> sensorReadTemp\n");
+
+    lock_guard<mutex> lock(mMutex);
 
     mSensorTempReadCb = sensortempreadCallback;
 
@@ -405,8 +439,10 @@ SensorClientImpl - StartBufferDataRead
 int SensorClientImpl::startBufferDataRead(bool enable, SensorBufferDataReadCb sensorbufferreadCallback) {
 
     SENSOR_LOGI(LOG_TAG ">>> sensorBufferRead enbale %d\n", enable);
+    int ret = 0;
 
-    onResponse = false;
+    lock_guard<mutex> lock(mMutex);
+
     mSensorBufferDataReadCb = sensorbufferreadCallback;
 
     //Check about Client registered to daemon
@@ -427,18 +463,61 @@ int SensorClientImpl::startBufferDataRead(bool enable, SensorBufferDataReadCb se
               pthread_mutex_unlock (&mSensorLibMutex);
 	      return SENSOR_ERROR_IPC_FAILED;
       }
-      pthread_cond_wait (&mSensorLibCond, &mSensorLibMutex);
+      mTimeout = timeout(3);
+      ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       pthread_mutex_unlock (&mSensorLibMutex);
-      onResponse = false;
-      return mRespReturn;
+      if (ret == ETIMEDOUT)
+	      return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
+      else
+	      return mRespReturn;
     }
     else
 	return SENSOR_ERROR_INVALID_CLIENT;
 }
 
 /******************************************************************************
-  SensorClientImpl - onListenerReady
+SensorClientImpl - SensorReconfigure Enable
 ******************************************************************************/
+bool SensorClientImpl::SensorReconfigure(bool enable) {
+  bool rc = 0;
+
+  lock_guard<mutex> lock(mMutex);
+
+  if (mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) {
+     if (enable) {
+	for (int i = 0 ; i < mSensorCount ; i++) {
+		if (mSensorTrackingOption[i].state == SENSOR_ENABLE) {
+			SensorAPIStartTrackingReqMsg Trackingmsg(mSocketName);
+			rc = sendMessage(reinterpret_cast<uint8_t*>(&Trackingmsg),
+					sizeof(Trackingmsg));
+			SensorAPIStartBatchingReqMsg Configmsg (mSocketName,
+					mSensorTrackingOption[i].sensor_id,
+					mSensorTrackingOption[i].sampling_rate,
+					mSensorTrackingOption[i].batch_count);
+			rc = sendMessage(reinterpret_cast<uint8_t*>(&Configmsg),
+					sizeof(Configmsg));
+			SensorAPIEnableReqMsg Enablemsg (mSocketName, mSensorTrackingOption[i].sensor_id,
+					mSensorTrackingOption[i].state);
+			rc = sendMessage(reinterpret_cast<uint8_t*>(&Enablemsg),
+					sizeof(Enablemsg));
+		}
+	}
+	for (int i = 0 ; i < mSensorMlcCaseCount ; i++) {
+		if (mSensorMLCEventCbs[i].enable) {
+			SensorAPIMLCCaseEnableMsg Mlcmsg (mSocketName, mSensorMLCEventCbs[i].name,
+					mSensorMLCEventCbs[i].enable);
+			rc = sendMessage(reinterpret_cast<uint8_t*>(&Mlcmsg),
+					sizeof(Mlcmsg));
+		}
+	}
+     }
+   }
+   return rc;
+}
+
+/******************************************************************************
+  SensorClientImpl - onListenerReady
+ ******************************************************************************/
 void SensorClientImpl::onListenerReady() {
 
     SENSOR_LOGI(LOG_TAG "<<< onListenerReady\n");
@@ -450,10 +529,8 @@ void SensorClientImpl::onListenerReady() {
     if (!mHalRegistered) {
       SensorAPIClientRegisterReqMsg msg(mSocketName, SENSOR_CLIENT_API);
       bool rc = sendMessage(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
-      if(true == rc)
-	  mHalRegistered = true;
-      else
-	  onResponse = true;
+      if(true != rc && mCapabilitiesCb)
+	      mCapabilitiesCb(SHD_NOT_RUNNING);
     }
 }
 
@@ -471,6 +548,22 @@ void SensorClientImpl::onReceive(const string& data) {
    }
    //Check for MSG ID
    switch (pMsg->msgId) {
+       //Received hal capability message from SHD(SENSOR HAL DAEMON)
+       case E_SENSORAPI_CAPABILILTIES_MSG_ID:
+       {
+                SENSOR_LOGI(LOG_TAG "<<< capabilities indication");
+                if (sizeof(SensorAPICapabilitiesIndMsg) != length) {
+                    SENSOR_LOGE(LOG_TAG  "payload size does not match for message with id: %d",
+                             pMsg->msgId);
+                }
+		SensorAPICapabilitiesIndMsg* pCapIndMsg = (SensorAPICapabilitiesIndMsg*)(pMsg);
+		mHalRegistered = true;
+		SensorReconfigure(mShdRestarted);
+		mShdRestarted = false;
+		if (mCapabilitiesCb)
+			mCapabilitiesCb(pCapIndMsg->mask);
+                break;
+       }
        //Received hal ready message from SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_HAL_READY_MSG_ID:
        {
@@ -484,6 +577,9 @@ void SensorClientImpl::onReceive(const string& data) {
 	  // flag to false to prevent messages to be sent to hal
 	  // before registeration completes
 	  mHalRegistered = false;
+	  if (mCapabilitiesCb)
+		  mCapabilitiesCb(SHD_RESTARTED);
+	  mShdRestarted = true;
 	  onListenerReady();
 	  break;
        }
@@ -499,8 +595,15 @@ void SensorClientImpl::onReceive(const string& data) {
 		   }
 		   mSensorList = new (std::nothrow) struct sensor_list[mSensorCount];
 		   memcpy(mSensorList, &pListIndMsg->sensorList.s[0], sizeof(struct sensor_list) * mSensorCount);
+
+		   if (mSensorTrackingOption == nullptr) {
+		     mSensorTrackingOption = new (std::nothrow) struct SensorTrackingOption[mSensorCount];
+		     for (int i = 0 ; i < mSensorCount ; i++) {
+			     mSensorTrackingOption[i].sensor_id = mSensorList[i].sensor_id;
+			     mSensorTrackingOption[i].mSensorDataReadCb = nullptr;
+		     }
+		   }
            }
-	   onResponse = true;
            break;
        }
        //Received Sensor MLC Case List from SHD(SENSOR HAL DAEMON)
@@ -517,13 +620,14 @@ void SensorClientImpl::onReceive(const string& data) {
                    memcpy(mSensorMlcCaseList, &pListIndMsg->sensorMlcCaseList.s[0],
 				   sizeof(struct sensor_mlc_case_list) * mSensorMlcCaseCount);
 
-                   mSensorMLCEventCbs = new (std::nothrow) struct MlcCaseListCb[mSensorMlcCaseCount];
-		   for (int i = 0 ; i < mSensorMlcCaseCount ; i++) {
-			   strlcpy(mSensorMLCEventCbs[i].name, mSensorMlcCaseList[i].name, 100);
-			   mSensorMLCEventCbs[i].mSensorMLCEventCb = nullptr;
+		   if (mSensorMLCEventCbs == nullptr) {
+                     mSensorMLCEventCbs = new (std::nothrow) struct MlcCaseListCb[mSensorMlcCaseCount];
+		     for (int i = 0 ; i < mSensorMlcCaseCount ; i++) {
+			     strlcpy(mSensorMLCEventCbs[i].name, mSensorMlcCaseList[i].name, 100);
+			     mSensorMLCEventCbs[i].mSensorMLCEventCb = nullptr;
+		     }
 		   }
 	   }
-	   onResponse = true;
 	   break;
        }
        //Received Sensor Enable/Disable Resp from SHD(SENSOR HAL DAEMON)
@@ -535,9 +639,8 @@ void SensorClientImpl::onReceive(const string& data) {
            }
 
 	   const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
-           mRespReturn = pRespMsg->ret;
-	   onResponse = true;
 	   pthread_mutex_lock (&mSensorLibMutex);
+           mRespReturn = pRespMsg->ret;
 	   pthread_cond_signal (&mSensorLibCond);
 	   pthread_mutex_unlock (&mSensorLibMutex);
            break;
@@ -551,9 +654,8 @@ void SensorClientImpl::onReceive(const string& data) {
            }
 
            const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
-           mRespReturn = pRespMsg->ret;
-           onResponse = true;
 	   pthread_mutex_lock (&mSensorLibMutex);
+           mRespReturn = pRespMsg->ret;
 	   pthread_cond_signal (&mSensorLibCond);
 	   pthread_mutex_unlock (&mSensorLibMutex);
            break;
@@ -567,9 +669,8 @@ void SensorClientImpl::onReceive(const string& data) {
            }
 
            const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
-           mRespReturn = pRespMsg->ret;
-           onResponse = true;
 	   pthread_mutex_lock (&mSensorLibMutex);
+           mRespReturn = pRespMsg->ret;
 	   pthread_cond_signal (&mSensorLibCond);
 	   pthread_mutex_unlock (&mSensorLibMutex);
            break;
@@ -582,9 +683,8 @@ void SensorClientImpl::onReceive(const string& data) {
                                    pMsg->msgId);
            }
            const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
-           mRespReturn = pRespMsg->ret;
-           onResponse = true;
 	   pthread_mutex_lock (&mSensorLibMutex);
+           mRespReturn = pRespMsg->ret;
 	   pthread_cond_signal (&mSensorLibCond);
 	   pthread_mutex_unlock (&mSensorLibMutex);
            break;
@@ -597,9 +697,8 @@ void SensorClientImpl::onReceive(const string& data) {
                                    pMsg->msgId);
            }
            const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
-           mRespReturn = pRespMsg->ret;
-           onResponse = true;
 	   pthread_mutex_lock (&mSensorLibMutex);
+           mRespReturn = pRespMsg->ret;
 	   pthread_cond_signal (&mSensorLibCond);
 	   pthread_mutex_unlock (&mSensorLibMutex);
            break;
@@ -620,10 +719,14 @@ void SensorClientImpl::onReceive(const string& data) {
        //Received Sensor events from SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_DATA_READ_MSG_ID:
        {
-	   if ((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSensorDataReadCb) {
+	   if (mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) {
 		   const SensorAPIDataIndMsg* pDataIndMsg = (SensorAPIDataIndMsg*)(pMsg);
-		   mSensorDataReadCb(pDataIndMsg->sensorData.events[0].sensor,
-				   &pDataIndMsg->sensorData.events[0], pDataIndMsg->sensorData.count);
+		   for (int i = 0; i < mSensorCount; i++) {
+			   if((mSensorTrackingOption[i].sensor_id == pDataIndMsg->sensorData.events[0].sensor)
+				   && mSensorTrackingOption[i].mSensorDataReadCb)
+				mSensorTrackingOption[i].mSensorDataReadCb(pDataIndMsg->sensorData.events[0].sensor,
+						&pDataIndMsg->sensorData.events[0], pDataIndMsg->sensorData.count);
+		   }
 	   }
 	   break;
        }
