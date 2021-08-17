@@ -125,6 +125,21 @@ typedef std::function<void(
 int sensor_id, const sensors_event_t *events, uint32_t count
 )> SensorDataReadCb;
 
+
+/** @brief
+    SensormFifoReadCb is for receiveing mlc fifo sensor data.
+
+    This callback is invoked when device resumes and data stored in sensor
+    h/w fifo will be sent usings this callback
+
+    @param[out] sensor_id: sensor identifier.
+    @param[out] sensors_event_t: the sensor events.
+    @param[out] count: the total number of events.
+*/
+typedef std::function<void(
+int sensor_id, const sensors_event_t *events, uint32_t count
+)> SensormFifoReadCb;
+
 /** @brief
     SensorMLCEventCb is for receiveing sensor mlc case event.
 
@@ -371,7 +386,8 @@ public:
                 SENSOR_ERROR_CALLBACK_MISSING         : SensorMLCEventCb is null
                 SENSOR_ERROR_NO_MLC_CASE_FOUND        : no mlc case supported by h/w
     **/
-    int sensor_mlc_event_enable(char *mlc_case_name, bool enable, SensorMLCEventCb sensorMlcEventCallback);
+    int sensor_mlc_event_enable(char *mlc_case_name, bool enable, SensorMLCEventCb sensorMlcEventCallback,
+		    SensormFifoReadCb sensorMfifoReadCallback);
 
 
     /*================================== Sensor Buffer Read Events =================================*/

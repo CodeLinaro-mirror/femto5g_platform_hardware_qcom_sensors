@@ -130,7 +130,7 @@ int SensorClient::sensor_request_mlc_case(struct sensor_mlc_case_list **m, int *
 SensorClientApi - SensorMLCEventEnable
 ******************************************************************************/
 int SensorClient::sensor_mlc_event_enable(char *mlc_case_name, bool enable,
-		SensorMLCEventCb sensorMlcEventCallback) {
+		SensorMLCEventCb sensorMlcEventCallback, SensormFifoReadCb sensorMfifoReadCallback) {
     //Chek for Client Register
     if (!mApiImpl) {
         SENSOR_LOGE(LOG_TAG "NULL mApiImpl\n");
@@ -144,7 +144,7 @@ int SensorClient::sensor_mlc_event_enable(char *mlc_case_name, bool enable,
     }
 
     return mApiImpl->sensorMLCEventEnable(mlc_case_name, enable,
-		    sensorMlcEventCallback);
+		    sensorMlcEventCallback, sensorMfifoReadCallback);
 }
 
 /******************************************************************************

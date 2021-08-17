@@ -86,7 +86,7 @@ public:
     //Sensor request MLC case supported
     virtual int sensorRequestMLC(struct sensor_mlc_case_list ***m, int *mlc_case_count);
     //Sensor Enable/Disable MLC case
-    virtual int sensorMLCEventEnable(char *mlc_case_name, bool enable, SensorMLCEventCb);
+    virtual int sensorMLCEventEnable(char *mlc_case_name, bool enable, SensorMLCEventCb, SensormFifoReadCb);
     //Sensor Temperature Read
     virtual int readTemperature(SensorTempReadCb);
     //Sensor Buffer Read
@@ -134,6 +134,7 @@ private:
     SensorBufferDataReadCb  mSensorBufferDataReadCb;
     SensorTrackingOption*   mSensorTrackingOption;
     MlcCaseListCb*          mSensorMLCEventCbs;
+    SensormFifoReadCb       mSensormFifoReadCb;
 
     //Ipc sender
     SensorIpcSender*          mIpcSender;

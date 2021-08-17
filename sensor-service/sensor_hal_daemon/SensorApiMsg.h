@@ -132,6 +132,8 @@ enum ESensorMsgID {
     E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID = 19,
     E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID = 20,
 
+    //mFifo data
+    E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID
 };
 
 
@@ -391,6 +393,15 @@ struct SensorAPIBufferDataIndMsg: SensorAPIMsgHeader
 
     inline SensorAPIBufferDataIndMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID
+struct SensorAPImFifoIndMsg: SensorAPIMsgHeader
+{
+    SensorDataPayload sensorData;
+
+    inline SensorAPImFifoIndMsg(const char* name) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID) { }
 };
 
 //To Dump the Senor Events.

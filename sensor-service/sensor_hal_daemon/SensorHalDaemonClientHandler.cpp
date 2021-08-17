@@ -363,6 +363,36 @@ void SensorHalDaemonClientHandler::onSensorMlcCaseEventCb(char *name , struct ml
 }
 
 /************************************************************************************
+SensorHalDaemonClientHandler - onSensorMFifoDataReadCb to send buffer data to client
+************************************************************************************/
+void SensorHalDaemonClientHandler::onSensorMFifoDataReadCb(sensors_event_t *events, int count) {
+   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+   SENSOR_LOGV(LOG_TAG "--< onSensorMFifoDataReadCb count %d\n", count);
+
+   if (nullptr != mIpcSender) {
+           size_t msglen = sizeof(SensorAPImFifoIndMsg) + sizeof(sensors_event_t) * (count-1);
+           uint8_t *msg = new(std::nothrow) uint8_t[msglen];
+           if (nullptr == msg) {
+                   return;
+           }
+           memset(msg, 0, msglen);
+           SensorAPImFifoIndMsg *pmsg = reinterpret_cast<SensorAPImFifoIndMsg*>(msg);
+           strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
+           pmsg->msgId = E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID;
+           pmsg->msgVersion = SENSOR_REMOTE_API_MSG_VERSION;
+           pmsg->sensorData.count = count;
+           memcpy(&pmsg->sensorData.events[0], events, sizeof(sensors_event_t) * count);
+           bool rc = sendMessage(msg, msglen);
+           // purge this client if failed
+           if (!rc) {
+                   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
+                   mService->deleteClientbyName(mName);
+           }
+           delete[] msg;
+   }
+}
+
+/************************************************************************************
 SensorHalDaemonClientHandler - onSensorTempCb to send temperature to client
 ************************************************************************************/
 void SensorHalDaemonClientHandler::onSensorTempCb(float temperature) {

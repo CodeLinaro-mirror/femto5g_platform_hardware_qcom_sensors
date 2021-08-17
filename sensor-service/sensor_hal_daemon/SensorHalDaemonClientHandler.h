@@ -115,6 +115,7 @@ public:
     //MLC public APIs
     void onSensorMlcCaseListCb(struct sensor_mlc_case_list *s, int count);
     void onSensorMlcCaseEventCb(char *case_name, struct mlc_event_data *event);
+    void onSensorMFifoDataReadCb(sensors_event_t *events, int count);
 
     //To check Tracking status of client
     bool    mTracking;

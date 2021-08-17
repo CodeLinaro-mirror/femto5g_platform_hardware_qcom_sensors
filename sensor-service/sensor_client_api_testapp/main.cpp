@@ -178,6 +178,13 @@ static void onSensorMLCEventCb(const char *case_name, struct mlc_event_data *eve
 		    event->timestamp);
 }
 
+static void onMfifoDataReadCb(int sensor_id, const sensors_event_t *events, uint32_t count)
+{
+    printf("<<<sensor_id %d: read events count %d\n", sensor_id, count);
+    for (int i = 0; i < count ; i++)
+	    dump_event(&events[i]);
+}
+
 static void onSensorBufferDataReadCb(const sensors_event_t *events, uint32_t count)
 {
     int i =0;
@@ -405,7 +412,7 @@ int main(int argc, char *argv[]) {
 		mlc_enable=strtol(enable,&stopstring,10);
 		printf("mlc_enable %d\n", mlc_enable);
 		for(int i=0; i < mlc_case_count; i++) {
-			ret = pClient->sensor_mlc_event_enable(mlc_case[i].name, mlc_enable, onSensorMLCEventCb);
+			ret = pClient->sensor_mlc_event_enable(mlc_case[i].name, mlc_enable, onSensorMLCEventCb, onMfifoDataReadCb);
 			if(ret < 0) {
 				printf("sensor enable/disable mlc case event failed ret %d \n", ret);
 				break;

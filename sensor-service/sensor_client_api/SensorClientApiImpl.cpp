@@ -55,6 +55,7 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
 	mSensorMlcCaseList(nullptr),
 	mSensorTrackingOption(nullptr),
         mSensorMLCEventCbs(nullptr),
+	mSensormFifoReadCb(nullptr),
 	mSensorCount(0),
 	mShdRestarted(false),
 	mSensorMlcCaseCount(0)
@@ -344,7 +345,8 @@ int SensorClientImpl::sensorRequestMLC(struct sensor_mlc_case_list ***m, int *ml
 SensorClientImpl - SensorMLCEventEnable
 ******************************************************************************/
 int SensorClientImpl::sensorMLCEventEnable(char *mlc_case_name, bool enable,
-				SensorMLCEventCb sensorMlcEventCallback) {
+				SensorMLCEventCb sensorMlcEventCallback,
+				SensormFifoReadCb sensorMfifoReadCallback) {
     bool mlc_case = false;
     char case_name[100];
     int ret = 0;
@@ -362,6 +364,8 @@ int SensorClientImpl::sensorMLCEventEnable(char *mlc_case_name, bool enable,
     //Input parameter check
     if (enable != 0 &&  enable != 1)
             return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+
+    mSensormFifoReadCb = sensorMfifoReadCallback;
 
     if (mSensorMlcCaseCount != 0) {
       for (int i=0; i < mSensorMlcCaseCount; i++) {
@@ -761,6 +765,16 @@ void SensorClientImpl::onReceive(const string& data) {
 		  mSensorBufferDataReadCb(&pBufferDataMsg->sensorData.events[0], pBufferDataMsg->sensorData.count);
 	  }
 	  break;
+       }
+       //Received sensor mfifo data from  SHD(SENSOR HAL DAEMON)
+       case E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID:
+       {
+          if((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSensormFifoReadCb) {
+                  const SensorAPImFifoIndMsg* pmFifoMsg = (SensorAPImFifoIndMsg*) (pMsg);
+                  mSensormFifoReadCb(pmFifoMsg->sensorData.events[0].sensor,
+				  &pmFifoMsg->sensorData.events[0], pmFifoMsg->sensorData.count);
+          }
+          break;
        }
        //Received unknown message from SHD(SENSOR HAL DAEMON)
        default:
