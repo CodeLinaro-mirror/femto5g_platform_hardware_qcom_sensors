@@ -102,6 +102,7 @@ SensorClientImpl::~SensorClientImpl() {
 void SensorClientImpl::destroy() {
     if (mHalRegistered && (nullptr != mIpcSender)) {
 	//Send Client Deregister Message Id to hal daemon
+	SENSOR_LOGI(LOG_TAG "Send client De-Register message\n");
         SensorAPIClientDeregisterReqMsg msg(mSocketName);
 	bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
 	delete mIpcSender;

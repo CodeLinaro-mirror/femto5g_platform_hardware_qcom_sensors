@@ -14,6 +14,7 @@ h_sources = \
     SensorHalDaemonClientHandler.h \
     SensorHalDaemonIPCReceiver.h \
     SensorHalDaemonIPCSender.h \
+    SensorApiUtils.h \
     SensorList.h
 
 c_sources = \
@@ -23,7 +24,8 @@ c_sources = \
     SensorApiMLC.cpp \
     SensorHalDaemonClientHandler.cpp \
     SensorHalDaemonIPCReceiver.cpp \
-    SensorHalDaemonIPCSender.cpp
+    SensorHalDaemonIPCSender.cpp \
+    SensorApiUtils.cpp
 
 if POWERMANAGER_ENABLED
 AM_CFLAGS += $(PM_CFLAGS) -DPOWERMANAGER_ENABLED

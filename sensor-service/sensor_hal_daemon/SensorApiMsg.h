@@ -49,12 +49,6 @@ Constants
 #define BUFFER_EVENT    2048
 #define SENSOR_REMOTE_API_MSG_VERSION (1)
 
-/* Defines to enable/disable sensors */
-#define SENSOR_DISABLE    0
-#define SENSOR_ENABLE     1
-#define SENSOR_LPM        2
-#define SENSOR_HPM        3
-
 //Max Batch Count supported by SHD
 #define MAX_BATCH_COUNT 50
 
@@ -73,11 +67,6 @@ Constants
 #define MAX_SOCKET_PATHNAME_LENGTH (128)
 
 #define SENSOR_CLIENT_SESSION_ID_INVALID (0)
-
-#define NS_TO_MS(x)                             (x / 1E6)
-#define NS_TO_FREQUENCY(x)                      (1E9 / x)
-#define FREQUENCY_TO_NS(x)                      (1E9 / x)
-#define FREQUENCY_TO_US(x)                      (1E6 / x)
 
 using namespace std;
 using namespace sensor_util;
@@ -404,39 +393,4 @@ struct SensorAPImFifoIndMsg: SensorAPIMsgHeader
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID) { }
 };
 
-//To Dump the Senor Events.
-inline void dump_event(const struct sensors_event_t *e)
-{
-    switch (e->type) {
-    case SENSOR_TYPE_ACCELEROMETER:
-        SENSOR_LOGD(LOG_TAG "ACC event: x=%f y=%f z=%f timestamp=%lld\n",
-            e->acceleration.x, e->acceleration.y, e->acceleration.z,
-            e->timestamp);
-        break;
-    case SENSOR_TYPE_MAGNETIC_FIELD:
-        SENSOR_LOGD(LOG_TAG "MAG event: x=%f y=%f z=%f timestamp=%lld\n",
-            e->magnetic.x, e->magnetic.y, e->magnetic.z,
-            e->timestamp);
-        break;
-    case SENSOR_TYPE_GYROSCOPE:
-        SENSOR_LOGD(LOG_TAG "GYRO event: x=%f y=%f z=%f timestamp=%lld\n",
-            e->gyro.x, e->gyro.y, e->gyro.z, e->timestamp);
-        break;
-    case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
-        SENSOR_LOGD(LOG_TAG "ACC event: x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld HZ=%f\n",
-            e->uncalibrated_accelerometer.x_uncalib, e->uncalibrated_accelerometer.y_uncalib,
-            e->uncalibrated_accelerometer.z_uncalib, e->uncalibrated_accelerometer.x_bias,
-            e->uncalibrated_accelerometer.y_bias, e->uncalibrated_accelerometer.z_bias);
-        break;
-    case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
-        SENSOR_LOGD(LOG_TAG "GYRO event x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld HZ=%f\n",
-            e->uncalibrated_gyro.x_uncalib, e->uncalibrated_gyro.y_uncalib,
-            e->uncalibrated_gyro.z_uncalib, e->uncalibrated_gyro.x_bias,
-            e->uncalibrated_gyro.y_bias, e->uncalibrated_gyro.z_bias);
-        break;
-    default:
-        SENSOR_LOGD(LOG_TAG "Unknown sensor_id events %d\n", e->type);
-        break;
-    }
-}
 #endif /* SENSORAPIMSG_H */

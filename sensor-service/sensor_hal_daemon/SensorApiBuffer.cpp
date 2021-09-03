@@ -35,21 +35,13 @@
 
 using namespace std;
 
-#define SEARCH_PATH_SIZE            100
-#define NAME_FILE                   "name"
-#define ACC_BUFFER_READ             "read_acc_boot_sample"
-#define GYRO_BUFFER_READ            "read_gyro_boot_sample"
-
-#define CLOSE_FILE_HANDLE(fd) do {  \
-  if (fd) {                         \
-    fflush(fd);                     \
-    fclose(fd);                     \
-    fd = NULL;                      \
-  }                                 \
-} while(0)
+/*Buffer read files - common*/
+#define ACC_BUFFER_READ         "read_acc_boot_sample"
+#define GYRO_BUFFER_READ        "read_gyro_boot_sample"
+#define ACCNAME_BUFF_PATH       "/dev/input/accbuff"
+#define GYRNAME_BUFF_PATH       "/dev/input/gyrobuff"
 
 /*ASM temperature*/
-#define IIO_PATH                "/sys/bus/iio/devices/"
 #define ASM_TEMP_SEARCH         "asm330lhh_temp"
 #define ASMX_TEMP_SEARCH        "asm330lhhx_temp"
 #define ASM_ACCEL_FSR           0.000598   // 2G:0.000598, 4G:0.001196, 8G:0.002392, 16G:0.004785
@@ -62,8 +54,8 @@ using namespace std;
 #define ASM_TEMP_OFFSET         "in_temp_offset"
 #define ASM_TEMP_RAW            "in_temp_raw"
 #define ASM_BATCH_TIME          (3.0 * NS_IN_ONE_SECOND)
+
 /*SMI temperature*/
-#define INPUT_PATH              "/sys/devices/virtual/input/"
 #define SMI_TEMP_SEARCH         "smi130_acc"
 #define SMI_TEMP_NAME           "temperature"
 #define SMI_GYR_SEARCH          "smi130_gyro"
@@ -71,116 +63,22 @@ using namespace std;
 #define SMI_CONVERT_ACC         (0.0098) //library output is in mg = 0.0098 m/s^2
 #define SMI_CONVERT_GYRO        (0.000066322)
 #define SMI_BATCH_TIME          0
+
 /*IAM temperature and buffer read*/
 #define IAM_TEMP_SEARCH         "iam20680"
 #define IAM_TEMP_NAME           "out_temperature"
 #define IAM_ACCEL_FSR           2.0f // 2:2g, 4:4g, 8:8g, 16:16g
 #define IAM_GYRO_FSR            131.0f // 131:250dbps 65.5:500dbps 32.8:1000dbps 16.4:2000dbps
 #define IAM_BATCH_TIME          (1.0 * NS_IN_ONE_SECOND)
+
 /*BMI temperature*/
-// iio devices for buffed data read
 #define BMI_BATCH_TIME          0
 #define BMI_TEMP_SEARCH         "bmi160_accl"
 #define BMI_TEMP_NAME           "temperature"
-#define BMI_ACC_RESL (0.061)
-#define BMI_CONVERT_ACC (0.0098) //library output is in mg = 0.0098 m/s^2
-#define BMI_CONVERT_GYRO (0.000066322)
+#define BMI_ACC_RESL            (0.061)
+#define BMI_CONVERT_ACC         (0.0098) //library output is in mg = 0.0098 m/s^2
+#define BMI_CONVERT_GYRO        (0.000066322)
 
-#define ACCNAME_BUFF_PATH           "/dev/input/accbuff"
-#define GYRNAME_BUFF_PATH           "/dev/input/gyrobuff"
-
-
-//Search for Path
-void SearchInPath(char* parentDir,  char* subFileRead, string contentVerified, int maxLevel,char* outputPath)
-{
-  if ( NULL == parentDir || NULL == subFileRead || NULL == outputPath )
-  {
-    return;
-  }
-  if ( 0 == maxLevel || strlen(outputPath) !=0 )
-  {
-    return;
-  }
-
-  DIR *dir = opendir(parentDir);
-  struct dirent *entry = NULL;
-  if (dir != NULL)
-  {
-    entry = readdir(dir);
-  }
-  SENSOR_LOGI(LOG_TAG "Current directory: %s\n",parentDir);
-  while (entry != NULL)
-  {
-    if ( (entry->d_type == DT_DIR || entry->d_type == DT_LNK) &&
-         (strcmp(entry->d_name,"..") != 0) && (strcmp(entry->d_name,".") !=0 ))
-    {
-      char newParent[SEARCH_PATH_SIZE];
-      snprintf(newParent,sizeof(newParent),"%s/%s/",parentDir,entry->d_name);
-      SearchInPath(newParent, subFileRead, contentVerified, maxLevel-1, outputPath);
-    }
-    else if ( strstr( entry->d_name, subFileRead ) != NULL )
-    {
-      char fullFilePath[SEARCH_PATH_SIZE];
-      snprintf(fullFilePath,sizeof(fullFilePath),"%s/%s",parentDir,entry->d_name);
-      string content;
-      ifstream fin(fullFilePath);
-      if ( fin.is_open() && fin.peek() != EOF )
-      {
-        fin>>content;
-        if ( (0 == contentVerified.length() && strlen(entry->d_name) == strlen(subFileRead))
-              || contentVerified == content )
-        {
-          strlcpy(outputPath, parentDir, SEARCH_PATH_SIZE);
-        }
-      }
-      fin.close();
-    }
-    if (strlen(outputPath) != 0)
-    {
-      break;
-    }
-    entry = readdir(dir);
-
-  }
-
-  if (dir != NULL)
-  {
-    closedir(dir);
-  }
-  return;
-}
-
-/**
- * @brief Finds location of fle.
- *
- *
- * @param[in] aeType - type of device, aeFtype- type of file, aBuffPath- output,aLength- sizeof the output
- *
- * @return void.
- */
-void SensorApiService::findPath(dynDeviceType aeType, char *aPath, std::string aKey, int aLength )
-{
-  switch(aeType)
-  {
-    case DYN_IIO_TYPE:
-          if (NULL ==aPath)
-          {
-            return;
-          }
-          SearchInPath(IIO_PATH, NAME_FILE, aKey, 2, aPath);
-          SENSOR_LOGI(LOG_TAG "PATH detected - %s\n", aPath);
-          break;
-
-    case DYN_INPUT_TYPE:
-          if(NULL == aPath)
-          {
-            return;
-          }
-          SearchInPath(INPUT_PATH,NAME_FILE, aKey, 2, aPath);
-          SENSOR_LOGI(LOG_TAG "PATH detected- %s\n", aPath);
-          break;
-  }
-}
 
 /**
  * @brief Read Temp Sensor data from SYS File System for ASM330 Sensor.
@@ -378,11 +276,11 @@ bool SensorApiService::tempSensorDataInit()
         char tOffsetFilePath[SEARCH_PATH_SIZE]={'\0'};
         char tRawDataFilePath[SEARCH_PATH_SIZE]={'\0'};
 
-        findPath(DYN_IIO_TYPE, tScaleFilePath, ASM_TEMP_SEARCH, sizeof(tScaleFilePath));
+        find_path(DYN_IIO_TYPE, tScaleFilePath, ASM_TEMP_SEARCH, sizeof(tScaleFilePath));
 
         if(strlen(tScaleFilePath) == 0)
         {
-	  findPath(DYN_IIO_TYPE, tScaleFilePath, ASMX_TEMP_SEARCH, sizeof(tScaleFilePath));
+	  find_path(DYN_IIO_TYPE, tScaleFilePath, ASMX_TEMP_SEARCH, sizeof(tScaleFilePath));
 	  if(strlen(tScaleFilePath) == 0)
 		  return false;
 	}
@@ -431,7 +329,7 @@ bool SensorApiService::tempSensorDataInit()
     case SENSOR_TYPE_BMI:
       {
         char tTempFilePath[SEARCH_PATH_SIZE]={'\0'};
-        findPath(DYN_IIO_TYPE, tTempFilePath, BMI_TEMP_SEARCH, sizeof(tTempFilePath));
+        find_path(DYN_IIO_TYPE, tTempFilePath, BMI_TEMP_SEARCH, sizeof(tTempFilePath));
         if (strlen(tTempFilePath) ==0 )
         {
           return false;
@@ -453,7 +351,7 @@ bool SensorApiService::tempSensorDataInit()
     case SENSOR_TYPE_IAM:
       {
         char iamPathTemp[SEARCH_PATH_SIZE]={'\0'};
-        findPath(DYN_IIO_TYPE, iamPathTemp, IAM_TEMP_SEARCH, sizeof(iamPathTemp));
+        find_path(DYN_IIO_TYPE, iamPathTemp, IAM_TEMP_SEARCH, sizeof(iamPathTemp));
         if(strlen(iamPathTemp) == 0)
         {
           return false;
@@ -474,7 +372,7 @@ bool SensorApiService::tempSensorDataInit()
     case SENSOR_TYPE_SMI:
       {
         char smiPathTemp[SEARCH_PATH_SIZE]={'\0'};
-        findPath(DYN_INPUT_TYPE,smiPathTemp, SMI_TEMP_SEARCH, sizeof(smiPathTemp));
+        find_path(DYN_INPUT_TYPE,smiPathTemp, SMI_TEMP_SEARCH, sizeof(smiPathTemp));
         if (strlen(smiPathTemp) != 0)
         {
           strlcat(smiPathTemp, SMI_TEMP_NAME, sizeof(smiPathTemp));
@@ -680,24 +578,24 @@ bool SensorApiService::CheckBufferReadFile()
  switch (mSensorType)
  {
     case SENSOR_TYPE_BMI:
-      findPath(DYN_IIO_TYPE, acc_boot_sample, BMI_TEMP_SEARCH, sizeof(acc_boot_sample));
+      find_path(DYN_IIO_TYPE, acc_boot_sample, BMI_TEMP_SEARCH, sizeof(acc_boot_sample));
       strlcpy(gyr_boot_sample, acc_boot_sample, sizeof(gyr_boot_sample));
       break;
     case SENSOR_TYPE_IAM:
-      findPath(DYN_IIO_TYPE, acc_boot_sample, IAM_TEMP_SEARCH, sizeof(acc_boot_sample));
+      find_path(DYN_IIO_TYPE, acc_boot_sample, IAM_TEMP_SEARCH, sizeof(acc_boot_sample));
       strlcpy(gyr_boot_sample, acc_boot_sample, sizeof(gyr_boot_sample));
       break;
     case SENSOR_TYPE_SMI:
-      findPath(DYN_INPUT_TYPE, acc_boot_sample, SMI_TEMP_SEARCH, sizeof(acc_boot_sample));
-      findPath(DYN_INPUT_TYPE, gyr_boot_sample, SMI_GYR_SEARCH, sizeof(gyr_boot_sample));
+      find_path(DYN_INPUT_TYPE, acc_boot_sample, SMI_TEMP_SEARCH, sizeof(acc_boot_sample));
+      find_path(DYN_INPUT_TYPE, gyr_boot_sample, SMI_GYR_SEARCH, sizeof(gyr_boot_sample));
       break;
     case SENSOR_TYPE_ASM:
-      findPath(DYN_IIO_TYPE, acc_boot_sample, ASM_ACC_SEARCH, sizeof(acc_boot_sample));
+      find_path(DYN_IIO_TYPE, acc_boot_sample, ASM_ACC_SEARCH, sizeof(acc_boot_sample));
       if(strlen(acc_boot_sample) == 0)
-	      findPath(DYN_IIO_TYPE, acc_boot_sample, ASMX_ACC_SEARCH, sizeof(acc_boot_sample));
-      findPath(DYN_IIO_TYPE, gyr_boot_sample, ASM_GYR_SEARCH, sizeof(gyr_boot_sample));
+	      find_path(DYN_IIO_TYPE, acc_boot_sample, ASMX_ACC_SEARCH, sizeof(acc_boot_sample));
+      find_path(DYN_IIO_TYPE, gyr_boot_sample, ASM_GYR_SEARCH, sizeof(gyr_boot_sample));
       if(strlen(gyr_boot_sample) == 0)
-	      findPath(DYN_IIO_TYPE, gyr_boot_sample, ASMX_GYR_SEARCH, sizeof(gyr_boot_sample));
+	      find_path(DYN_IIO_TYPE, gyr_boot_sample, ASMX_GYR_SEARCH, sizeof(gyr_boot_sample));
       break;
     default:
       SENSOR_LOGE(LOG_TAG "Buffer find error - invalid config, type- %d\n",mSensorType);
@@ -716,8 +614,8 @@ bool SensorApiService::CheckBufferReadFile()
 
  SENSOR_LOGI(LOG_TAG "mAccBootSample-%s,mGyroBootSample-%s\n",mAccBootSample.c_str(),mGyroBootSample.c_str());
 
- pthread_mutex_init (&mHalBuffMutex, NULL);
- pthread_cond_init (&mHalBuffCond, NULL);
+ pthread_mutex_init(&mHalBuffMutex, NULL);
+ pthread_cond_init(&mHalBuffCond, NULL);
 
  return true;
 }

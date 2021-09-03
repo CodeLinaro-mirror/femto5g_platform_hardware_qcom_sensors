@@ -233,6 +233,9 @@ int main(int argc, char *argv[]) {
    float odr_rate = 0;
    int c;
 
+   printHelp();
+   sleep(1);
+
    pClient = new SensorClient(onCapabilitiesCb);
 
    ret = pClient->get_sensor_list(&sensor, &sensor_count);
@@ -242,8 +245,6 @@ int main(int argc, char *argv[]) {
 
    PrintSensorList(sensor,sensor_count);
 
-   printHelp();
-   sleep(1);
 
    if(argc > 2) {
      Usage();
@@ -436,7 +437,7 @@ int main(int argc, char *argv[]) {
    }//while(1)
 
 EXIT:
-   if (!pClient) {
+   if (pClient) {
 	   delete pClient;
    }
    printf("Done\n");
