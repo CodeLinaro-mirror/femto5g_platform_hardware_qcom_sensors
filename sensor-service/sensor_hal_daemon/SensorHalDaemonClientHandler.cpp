@@ -74,6 +74,7 @@ void SensorHalDaemonClientHandler::cleanup() {
    mTracking = false;
    mAccTracking = false;
    mGyroTracking = false;
+   mMlcEnable = false;
 }
 
 /******************************************************************************

@@ -174,7 +174,7 @@ void SensorApiService::onListenerReady() {
         const char* clientName = NULL;
 	if (0 == fname.compare(0, fnamebase.size(), fnamebase)) {
             clientName = fname.c_str();
-            SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s, size %d\n", clientName);
+            SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s\n", clientName);
         }
         if (NULL != clientName) {
             SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName);
@@ -398,6 +398,7 @@ void* SensorApiService::bufferDataprocessTask(void * arg)
 {
   SensorApiService* mSensorService = (SensorApiService*)(arg);
   mSensorService->SensorBuffread();
+  return 0;
 }
 
 
@@ -821,7 +822,7 @@ void SensorApiService::activateSensor(SensorAPIEnableReqMsg* pMsg) {
         //Check the enable request of all clients
 	for (auto each : mClients) {
 	   enable = max(enable, each.second->mActivate[i]);
-	   SENSOR_LOGD(LOG_TAG "<-- enable %d each.second->mActivate[i] %d \n",enable,each.second->mActivate[i]);
+	   SENSOR_LOGD(LOG_TAG "<-- enable %d each.second->mActivate[%d] %d \n",enable,i,each.second->mActivate[i]);
 	}
         // activate or deactivate the sensor
 	if(enable != mSensor[i].Activate) {
@@ -885,18 +886,24 @@ void SensorApiService::SensorEnableMLCCase(SensorAPIMLCCaseEnableMsg* pMsg) {
             goto fail;
     }
 
+    pClient->mMlcEnable = false;
+	
     if (mMlcSupported == true) {
-	    if(SensorMlcEnableEvents(pMsg->mlc_case_name, pMsg->enable)) {
 	      for (int i = 0; i < mSensorMlcCaseCount ; i++) {
 		 if (strcmp(pClient->mMlcCaseList[i].name, pMsg->mlc_case_name) == 0) {
 			 pClient->mMlcCaseList[i].enable = pMsg->enable;
-			 SENSOR_LOGE(LOG_TAG "pClient->mMlcCaseList[i].name %s enable %d\n",
+			 SENSOR_LOGI(LOG_TAG "pClient->mMlcCaseList[i].name %s enable %d\n",
 					 pClient->mMlcCaseList[i].name,pClient->mMlcCaseList[i].enable);
 		 }
 	      }
-	      ret = SENSOR_RESPONSE_SUCCESS;
-	    }
+	      if(SensorMlcEnableEvents(pMsg->mlc_case_name, pMsg->enable))
+		      ret = SENSOR_RESPONSE_SUCCESS;
     }
+
+    //Check MLC enable status for client
+    for (int i = 0; i < mSensorMlcCaseCount ; i++)
+	    if ( pClient->mMlcCaseList[i].enable == true)
+		    pClient->mMlcEnable = true;
 fail:
     pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID);
     pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID);
@@ -993,6 +1000,7 @@ int SensorApiService::NearByBatchCount(int ActualCount, int ReqBatchCount) {
 			   return ActualCount * (i-1);
 	   }
    }
+   return 0;
 }
 
 /******************************************************************************
@@ -1021,9 +1029,29 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
       case SENSOR_TYPE_ASM: {
 	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
 		float samplingRate[6] = {12, 26, 52, 104, 208, 416};
-		int acc_range[4] = {2, 4, 8, 16};
+		float acc_range[4][2] = { {0.000598,2}, { 0.001196,4}, {0.002392,8}, {0.004785,16}};
+		float scale_value = 0;
+		int acc_num = -1;
+		char tmp_filaname[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
+		s->range = -1;
 		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-		s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
+		acc_num = get_sensor_device_by_name("asm330lhhx_accel");
+		if (acc_num < 0) {
+			acc_num = get_sensor_device_by_name("asm330lhh_accel");
+			if (acc_num < 0)
+				SENSOR_LOGE(LOG_TAG "No asm330 accel sensor found into /sys/bus/iio/devices/ folder.\n");
+		}
+		/* save path to acc. iio device in sysfs */
+		snprintf(tmp_filaname, DEVICE_IIO_MAX_FILENAME_LEN,
+				"/sys/bus/iio/devices/iio:device%d/in_accel_x_scale",
+				acc_num);
+		SENSOR_LOGI(LOG_TAG "Acc tmp_filaname %s acc_num %d\n", tmp_filaname, acc_num);
+		if(!sysfs_read_scale(tmp_filaname, &scale_value)) {
+			SENSOR_LOGI(LOG_TAG "Acc scale_value %f\n", scale_value);
+			for(int i = 0; i < 4; i++)
+				if(acc_range[i][0] == scale_value)
+					s->range = acc_range[i][1];
+		}
 		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
 		s->maxSamplingRate = mMaxAccSampleRate;
 		if (mMinAccBatchCount >= MAX_BATCH_COUNT)
@@ -1034,9 +1062,29 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
         }
 	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
 		float samplingRate[6] = {12, 26, 52, 104, 208, 416};
-		int gyro_range[6] = {125, 250, 500, 1000, 2000, 4000};
+		float gyro_range[6][2] = {{0.000076,125}, {0.000153,250}, {0.000305,500}, {0.000611,1000}, {0.001222,2000}, {0.002443,4000}};
+		float scale_value = 0;
+		int gyro_num = -1;
+		char tmp_filaname[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
+		s->range = -1;
 		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-		s->range = (mGyroRange >= 0 && mGyroRange <= 5 ) ? gyro_range[mGyroRange] : gyro_range[5];
+                gyro_num = get_sensor_device_by_name("asm330lhhx_gyro");
+                if (gyro_num < 0) {
+			gyro_num = get_sensor_device_by_name("asm330lhh_gyro");
+			if (gyro_num < 0)
+				SENSOR_LOGE(LOG_TAG "No asm330 gyro sensor found into /sys/bus/iio/devices/ folder.\n");
+		}
+		/* save path to acc. iio device in sysfs */
+		snprintf(tmp_filaname, DEVICE_IIO_MAX_FILENAME_LEN,
+				"/sys/bus/iio/devices/iio:device%d/in_anglvel_x_scale",
+				gyro_num);
+		SENSOR_LOGI(LOG_TAG "Gyro tmp_filaname %s gyro_num %d\n", tmp_filaname, gyro_num);
+		if(!sysfs_read_scale(tmp_filaname, &scale_value)) {
+			SENSOR_LOGI(LOG_TAG "gyro scale_value %f\n", scale_value);
+			for(int i = 0; i < 6; i++)
+				if(gyro_range[i][0] == scale_value)
+					s->range = gyro_range[i][1];
+		}
 		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
 		s->maxSamplingRate = mMaxGyroSampleRate;
 		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)

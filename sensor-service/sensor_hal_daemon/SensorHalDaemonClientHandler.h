@@ -77,6 +77,7 @@ public:
 	    mAccEvents(nullptr),
 	    mGyroEvents(nullptr),
 	    mMlcCaseList(nullptr),
+	    mMlcEnable(false),
 	    mAccFactor(0),
 	    mGyroFactor(0),
 	    mAccCount(0),
@@ -143,6 +144,7 @@ public:
 
     //MLC LIST for clients
     struct mlc_case_list *mMlcCaseList;
+    bool mMlcEnable;
 
     //To Check Buffer read or delete status
     int mBufferRead;
@@ -172,6 +174,7 @@ private:
 	 }
 	 return retVal;
 	}
+	return false;
     }
 
     //To Send Sensor events to client once sample count reached to requested count.

@@ -51,6 +51,7 @@
 
 #include <SensorLog.h>
 #include <SensorApiMsg.h>
+#include <SensorApiUtils.h>
 #include <SensorHalDaemonClientHandler.h>
 
 #ifdef POWERMANAGER_ENABLED
@@ -71,58 +72,14 @@
 //Config file
 #define SENSOR_CONF_PATH "/etc/sensors.conf"
 //MLC bin path
-#define PATH_MLC_BINARY         "/lib/firmware/st_asm330lhhx_mlc.bin"
+#define PATH_MLC_BINARY  "/lib/firmware/st_asm330lhhx_mlc.bin"
 
 enum PowerStateType {
-    POWER_STATE_UNKNOWN = 0,
-    POWER_STATE_SUSPEND = 1,
-    POWER_STATE_RESUME  = 2,
+    POWER_STATE_UNKNOWN  = 0,
+    POWER_STATE_SUSPEND  = 1,
+    POWER_STATE_RESUME   = 2,
     POWER_STATE_SHUTDOWN = 3
 };
-
-typedef enum {
-        /** On Success **/
-        SENSOR_RESPONSE_SUCCESS=0,
-        /** Client is not registered to SHD **/
-        SENSOR_ERROR_CLIENT_REGISTER_FAILED=-1,
-        /** Client is not generated while registering the client **/
-        SENSOR_ERROR_INVALID_CLIENT=-2,
-        /** Invalid input parameteres from respective AP **/
-        SENSOR_ERROR_INVALID_INPUT_PARAMETER=-3,
-        /** Callback is null in respective API **/
-        SENSOR_ERROR_CALLBACK_MISSING=-4,
-        /** Not supported feature of sensor **/
-        SENSOR_ERROR_NOT_SUPPORTED=-5,
-        /** Physical Sensor Enable/Disable failed **/
-        SENSOR_ERROR_CONTROL_FAILED=-6,
-        /** Physical Sensor Config failed **/
-        SENSOR_ERROR_CONFIG_FAILED=-7,
-        /** Socket communication failed b/w SHD and client lib **/
-        SENSOR_ERROR_IPC_FAILED=-8,
-        /** No sensors supported in h/w **/
-        SENSOR_ERROR_NO_SENSORS_FOUND=-9,
-        /**No snesor is activated and configured**/
-        SENSOR_ERROR_TRACKING_FAILED=-10,
-        /** Unknown error **/
-        SENSOR_ERROR_UNKNOWN=-11,
-        /** Buffer is not supported by sensor**/
-        SENSOR_ERROR_BUFFER_NOT_SUPPORTED=-12,
-        /** Buffer is deleted**/
-        SENSOR_ERROR_BUFFER_DELETED=-13,
-        /** MLC Event Enable failed**/
-        SENSOR_ERROR_MLC_EVENT_ENABLE_FAILED=-14,
-        /** NO MLC case found**/
-        SENSOR_ERROR_NO_MLC_CASE_FOUND=-15,
-	/**Sensor No response from SHD timeout happens*/
-	SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT = -16,
-}SensorRet;
-
-//Type of devices based on sensor driver sysfs path mount.
-typedef enum
-{
-  DYN_IIO_TYPE,
-  DYN_INPUT_TYPE
-} dynDeviceType;
 
 typedef struct {
     int   SensorType;
@@ -148,7 +105,6 @@ typedef struct {
    int   BatchCount;
    float SamplingRate;
 } SensorConfig;
-
 
 //To check sensor type defined in config file
 typedef enum
@@ -239,7 +195,6 @@ private:
     void  GetSupportedSamplingRateAndRange(struct sensor_list *s);
     int   NearByBatchCount(int ActualCount, int RequestedCount);
     float NearBySamplingRate(float sampling_rate, struct sensor_list *s);
-    void  findPath(dynDeviceType aeType, char *aPath, std::string aKey, int aLength);
 
     //MLC API's
     bool LoadMLC(const char *mcl_fw_name);
