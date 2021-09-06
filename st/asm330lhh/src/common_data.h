@@ -34,9 +34,9 @@
 
 #define CONCATENATE_STRING(x, y)		(x y)
 
-#define ST_HAL_DATA_PATH			"/data/STSensorHAL"
-#define ST_HAL_PRIVATE_DATA_PATH		"/data/STSensorHAL/private_data.dat"
-#define ST_HAL_FACTORY_DATA_PATH		"/data/STSensorHAL/factory_calibration"
+#define ST_HAL_DATA_PATH			"/data/vendor/STSensorHAL"
+#define ST_HAL_PRIVATE_DATA_PATH		"/data/vendor/STSensorHAL/private_data.dat"
+#define ST_HAL_FACTORY_DATA_PATH		"/data/vendor/STSensorHAL/factory_calibration"
 #define ST_HAL_FACTORY_ACCEL_DATA_FILENAME	CONCATENATE_STRING(ST_HAL_FACTORY_DATA_PATH, "/accel.txt")
 #define ST_HAL_FACTORY_GYRO_DATA_FILENAME	CONCATENATE_STRING(ST_HAL_FACTORY_DATA_PATH, "/gyro.txt")
 
