@@ -37,8 +37,22 @@ SensorHalDaemonClientHandler - cleanup called by SensorAPIService on delete of c
 void SensorHalDaemonClientHandler::cleanup() {
    // please do not attempt to hold the lock, as the caller of this function
    // already holds the lock
-   if (0 != remove(mName.c_str())) {
-	   SENSOR_LOGE(LOG_TAG "<-- failed to remove file %s error %s", mName.c_str(), strerror(errno));
+  
+
+   // check whether this is client from external AP,
+   // mName for client on external ap is of format "serviceid.instanceid"
+   if (strncmp(mName.c_str(), SOCKET_SENSOR_CLIENT_DIR,
+                sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0 ) {
+        char fileName[MAX_SOCKET_PATHNAME_LENGTH];
+        snprintf (fileName, sizeof(fileName), "%s%s",
+                  EAP_SENSOR_CLIENT_DIR, mName.c_str());
+        SENSOR_LOGI(LOG_TAG "removed file name %s\n", fileName);
+        if (0 != remove(fileName)) {
+		SENSOR_LOGE(LOG_TAG "<-- failed to remove file %s error %s\n", fileName, strerror(errno));
+        }
+   } else {
+	   if (0 != remove(mName.c_str()))
+		   SENSOR_LOGE(LOG_TAG "<-- failed to remove file %s error %s", mName.c_str(), strerror(errno));
    }
 
    //Delete memory allocated of all pointers.

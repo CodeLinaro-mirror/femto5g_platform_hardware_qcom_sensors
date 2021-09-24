@@ -29,22 +29,38 @@
 #define SENSORHALDAEMON_IPCSENDER_H
 
 #include <SensorIpc.h>
+#include <SensorQsocket.h>
 #include <SensorApiMsg.h>
 
 using sensor_util::SensorIpcSender;
+using sensor_util::SensorQsocketSender;
 
 class SensorHalDaemonIPCSender
 {
 public:
     inline SensorHalDaemonIPCSender(const char* destSocket) :
-            mIpcSender(nullptr) {
-            mIpcSender = new SensorIpcSender(destSocket);
+            mIpcSender(nullptr),
+	    mQsockSender(nullptr) {
+	if (strncmp(destSocket, SOCKET_SENSOR_CLIENT_DIR,
+		sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) == 0 ) {
+	    mIpcSender = new SensorIpcSender(destSocket);
+	}
+	else {
+            uint32_t serviceId = atoi(destSocket);
+            const char* instance_ptr = strchr(destSocket, '.');
+            if (nullptr != instance_ptr) {
+		    uint32_t instanceId = atoi(++instance_ptr);
+		    mQsockSender = new SensorQsocketSender(serviceId, instanceId);
+	    }
+
+        }
     }
 
     bool send(const uint8_t data[], uint32_t length);
 
 private:
     SensorIpcSender* mIpcSender;
+    SensorQsocketSender* mQsockSender;
 };
 
 #endif //SENSORHALDAEMON_IPCSENDER_H

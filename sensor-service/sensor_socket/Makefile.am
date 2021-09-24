@@ -1,18 +1,28 @@
 AM_CFLAGS = \
     -DDEBUG \
     -I \
-    -fno-permissive
+    $(QMIFW_CFLAGS) \
+    -fpermissive
+
+if USE_QSOCKET
+  AM_CFLAGS += -DUSE_QSOCKET
+endif
 
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -std=c++14
 
+requiredlibs = \
+	       $(QMIFW_LIBS)
+
 h_sources = \
 	    ./SensorIpc.h \
+	    ./SensorQsocket.h \
 	    ./SensorThread.h \
 	    ./SensorLog.h
 
 c_sources = \
 	    ./SensorIpc.cpp \
+	    ./SensorQsocket.cpp\
 	    ./SensorThread.cpp \
 	    ./SensorLog.cpp
 

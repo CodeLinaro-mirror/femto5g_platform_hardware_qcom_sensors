@@ -104,10 +104,21 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
         return;
     }
 
+    // create Qsock receiver
+    mQsockReceiver = new SensorHalDaemonQsockReceiver(this);
+    if (nullptr == mQsockReceiver) {
+	    SENSOR_LOGE(LOG_TAG "Failed to create SensorHalDaemonQsockReceiver\n");
+	    return;
+    }
+
     // start receiver - never return
     SENSOR_LOGI(LOG_TAG "Ready, start Ipc Receiver\n");
+    // blocking: set to false
+    mIpcReceiver->start(false);
+
+    SENSOR_LOGI(LOG_TAG "Ready, start qsock Receiver\n");
     // blocking: set to true
-    mIpcReceiver->start(true);
+    mQsockReceiver->start(true);
 }
 
 /******************************************************************************
@@ -119,6 +130,11 @@ SensorApiService::~SensorApiService() {
     if (nullptr != mIpcReceiver) {
         mIpcReceiver->stop();
         delete mIpcReceiver;
+    }
+
+    if (nullptr != mQsockReceiver) {
+        mQsockReceiver->stop();
+        delete mQsockReceiver;
     }
 
     //Delete mSensor memory
@@ -150,7 +166,7 @@ SensorApiService::~SensorApiService() {
 /******************************************************************************
 SensorApiService - onListenerReady send HAL READY message to all clients.
 ******************************************************************************/
-void SensorApiService::onListenerReady() {
+void SensorApiService::onListenerReady(bool externalApIpc) {
 
     // traverse client sockets directory - then broadcast READY message
     SENSOR_LOGV(LOG_TAG ">-- onListenerReady Finding client sockets...\n");
@@ -164,6 +180,7 @@ void SensorApiService::onListenerReady() {
     struct stat sbuf = {0};
     const std::string fnamebase = SOCKET_TO_SENSOR_CLIENT_BASE;
     while (nullptr != (dp = readdir(dirp))) {
+	std::string fnameExtAp = EAP_SENSOR_CLIENT_DIR;
         std::string fname = SOCKET_SENSOR_CLIENT_DIR;
         fname += dp->d_name;
         if (-1 == lstat(fname.c_str(), &sbuf)) {
@@ -172,16 +189,31 @@ void SensorApiService::onListenerReady() {
         if ('.' == (dp->d_name[0])) {
             continue;
         }
+
         const char* clientName = NULL;
-	if (0 == fname.compare(0, fnamebase.size(), fnamebase)) {
+        if ((false == externalApIpc) &&
+		(0 == fname.compare(0, fnamebase.size(), fnamebase))) {
             clientName = fname.c_str();
             SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s\n", clientName);
+        }else if ((true == externalApIpc) &&
+                   (0 == fname.compare(0, fnameExtAp.size(), fnameExtAp))) {
+            // client resides on external processor
+            clientName = fname.c_str() + strlen(EAP_SENSOR_CLIENT_DIR);
+            SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s, size %d\n", clientName,
+                     strlen(EAP_SENSOR_CLIENT_DIR));
         }
         if (NULL != clientName) {
             SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName);
             SensorAPIHalReadyIndMsg msg(SERVICE_NAME);
             SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s, msg size %d\n", clientName, sizeof(msg));
-            pIpcSender->send(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
+            bool sendSuccessful = pIpcSender->send(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
+	    // Remove this external AP client as the socket it has is no longer reachable.
+	    // For MDM location API client, the socket file will be removed automatically when
+	    // its process exits/crashes.
+	    if ((false == sendSuccessful) && (true == externalApIpc)) {
+                remove(fname.c_str());
+                SENSOR_LOGV(LOG_TAG "<-- remove file %s", fname.c_str());
+            }
             delete pIpcSender;
         }
     }

@@ -40,6 +40,7 @@ namespace sensor_client {
 SensorClientImpl
 ******************************************************************************/
 uint32_t  SensorClientImpl::mClientIdGenerator = SENSOR_CLIENT_SESSION_ID_INVALID;
+uint32_t  SensorClientImpl::mClientIdIndex = 0;
 mutex SensorClientImpl::mMutex;
 
 /******************************************************************************
@@ -64,6 +65,56 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
     // get clientId
     uint32_t pid = (uint32_t)getpid();
 
+#ifdef FEATURE_EXTERNAL_AP
+    // The instance id is composed from pid and client id.
+    // We support up to 32 unique client api within one process.
+    // Each client id is tracked via a bit in mClientIdGenerator,
+    // which is 4 bytes now.
+    lock_guard<mutex> lock(mMutex);
+    // find a bit in the mClientIdGenerator that is not yet used
+    // and use that as client id
+    // client id will be from 1 to 32, as client id will be used to
+    // set session id and 0 is reserved for LOCATION_CLIENT_SESSION_ID_INVALID
+    mClientIdIndex++;
+    if (mClientIdIndex > 32) {
+        mClientIdIndex = 1;
+    }
+
+    uint32_t loopCnt = 0;
+    for (; loopCnt < sizeof(mClientIdGenerator) * 8; loopCnt++) {
+        if ((mClientIdGenerator & (1UL << (mClientIdIndex-1))) == 0) {
+            mClientIdGenerator |= (1UL << (mClientIdIndex-1));
+            mClientId = mClientIdIndex;
+            break;
+        }
+    }
+
+    if (loopCnt >= sizeof(mClientIdGenerator) * 8) {
+	    SENSOR_LOGE(LOG_TAG "create Qsocket failed, already use up maximum of %d clients",
+			    sizeof(mClientIdGenerator)*8);
+        return;
+    }
+
+    int service = SENSOR_CLIENT_API_QSOCKET_HALDAEMON_SERVICE_ID;
+    // generate instance from pid and client id
+    int instance = pid * 100 + mClientId;
+    int numChars = snprintf(mSocketName, sizeof(mSocketName), "%u.%u",
+                            SENSOR_CLIENT_API_QSOCKET_CLIENT_SERVICE_ID,
+                            instance);
+    if (numChars >= (sizeof(mSocketName)-1)) {
+        SENSOR_LOGE(LOG_TAG "mSocketName to small, need %d, buffer size %d",
+                 numChars, sizeof(mSocketName));
+	return;
+    }
+
+    // establish an ipc sender to the hal daemon
+    mIpcSender = new SensorQsocketSender(SENSOR_CLIENT_API_QSOCKET_HALDAEMON_SERVICE_ID,
+                                     SENSOR_CLIENT_API_QSOCKET_HALDAEMON_INSTANCE_ID);
+    if (nullptr == mIpcSender) {
+        SENSOR_LOGE(LOG_TAG "create Qsocket failed addr=%u:%u\n", service, instance);
+        return;
+    }
+#else
     // create ipc socket to send
     mIpcSender = new SensorIpcSender(SOCKET_TO_SENSOR_HAL_DAEMON);
     if (nullptr == mIpcSender) {
@@ -84,13 +135,14 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
         SENSOR_LOGE(LOG_TAG "strlcpy failed %d\n", strCopied);
         return;
     }
+#endif
 
     pthread_mutex_init(&mSensorLibMutex, NULL);
     pthread_condattr_init(&mSensorLibattr);
     pthread_condattr_setclock(&mSensorLibattr, CLOCK_MONOTONIC);
     pthread_cond_init(&mSensorLibCond, &mSensorLibattr);
 
-    SENSOR_LOGI(LOG_TAG "listen on socket: %s\n", mSocketName);
+    SENSOR_LOGI(LOG_TAG "mClientId %d listen on socket: %s\n", mClientId, mSocketName);
     startListeningNonBlocking(mSocketName);
 }
 
@@ -109,6 +161,13 @@ void SensorClientImpl::destroy() {
 	bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
 	delete mIpcSender;
 	mIpcSender = nullptr;
+#ifdef ENABLE_USE_LOC_SOCKET
+	// get clientId
+	lock_guard<mutex> lock(mMutex);
+	mApiImpl->mClientIdGenerator &= ~(1UL << mApiImpl->mClientId);
+	SENSOR_LOGD(LOG_TAG ("client id generarator 0x%x, id %d",
+			mApiImpl->mClientIdGenerator, mApiImpl->mClientId);
+#endif
     }
     if (mSensorList) {
         delete mSensorList;
@@ -596,7 +655,12 @@ void SensorClientImpl::onListenerReady() {
     //set mHalRegistered to true
     if (!mHalRegistered) {
       SensorAPIClientRegisterReqMsg msg(mSocketName, SENSOR_CLIENT_API);
-      bool rc = sendMessage(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+      bool rc = true;
+#ifdef FEATURE_EXTERNAL_AP
+      rc = mIpcSender->findNewService();
+#endif
+      if (rc == true)
+	      rc = sendMessage(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
       if(true != rc && mCapabilitiesCb)
 	      mCapabilitiesCb(SHD_NOT_RUNNING);
     }
@@ -615,6 +679,7 @@ void SensorClientImpl::onReceive(const string& data) {
    if (false == pMsg->isValidServerMsg(length)) {
 	   return;
    }
+   SENSOR_LOGV(LOG_TAG "<<< pMsg->msgId %d", pMsg->msgId);
    //Check for MSG ID
    switch (pMsg->msgId) {
        //Received hal capability message from SHD(SENSOR HAL DAEMON)
@@ -875,4 +940,6 @@ void SensorClientImpl::onReceive(const string& data) {
        }
    }
 }
+
+
 } // namespace sensor_client

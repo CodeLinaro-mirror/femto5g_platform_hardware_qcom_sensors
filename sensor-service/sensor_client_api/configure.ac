@@ -36,6 +36,18 @@ PKG_CHECK_MODULES([SENSORSOCKET], [sensor-socket])
 AC_SUBST([SENSORSOCKET_CFLAGS])
 AC_SUBST([SENSORSOCKET_LIBS])
 
+AC_ARG_WITH([external_ap],
+    AC_HELP_STRING([--with-external_ap=@<:@dir@:>@],
+        [Using External Application Processor]),
+    [],
+    with_external_ap=no)
+
+if test "x$with_external_ap" != "xno"; then
+    CPPFLAGS="${CPPFLAGS} -DFEATURE_EXTERNAL_AP"
+fi
+
+AM_CONDITIONAL(USE_EXTERNAL_AP, test "x${with_external_ap}" = "xyes")
+
 AC_ARG_WITH([core_includes],
       AC_HELP_STRING([--with-core-includes=@<:@dir@:>@],
          [Specify the sensor of the core headers]),
