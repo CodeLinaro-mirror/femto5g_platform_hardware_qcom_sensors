@@ -90,6 +90,20 @@ public:
     {
 	    SENSOR_LOGI(LOG_TAG "new SensorHalDaemonClientHandler \n");
 	    mIpcSender = new SensorHalDaemonIPCSender(mName.c_str());
+	    // Create a file name with instanceId. The file handle
+            // will be used by hal daemon when it crashes to figure out
+            // the running clients.
+            if (strncmp(mName.c_str(), SOCKET_SENSOR_CLIENT_DIR,
+                sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0 ) {
+
+                char fileName[MAX_SOCKET_PATHNAME_LENGTH];
+                snprintf (fileName, sizeof(fileName), "%s%s",
+                          EAP_SENSOR_CLIENT_DIR, mName.c_str());
+                SENSOR_LOGI(LOG_TAG "<-- attempt to open file %s\n", fileName);
+                if (nullptr == fopen (fileName, "w")) {
+                    SENSOR_LOGE(LOG_TAG "<-- failed to open file %s\n", fileName);
+                }
+            }
 
 	    //Intialise the client parameters and set to zero
 	    mActivate = new (std::nothrow) int[mSensorCount];

@@ -30,7 +30,11 @@
 
 #include <mutex>
 #include <time.h>
+#ifdef FEATURE_EXTERNAL_AP
+#include <SensorQsocket.h>
+#else  // FEATURE_EXTERNAL_AP
 #include <SensorIpc.h>
+#endif // FEATURE_EXTERNAL_AP
 #include <SensorLog.h>
 #include <SensorClientApi.h>
 #include <SensorApiMsg.h>
@@ -49,8 +53,13 @@
 using namespace std;
 using namespace sensor_util;
 
+#ifdef FEATURE_EXTERNAL_AP
+using sensor_util::SensorQsocket;
+using sensor_util::SensorQsocketSender;
+#else  // FEATURE_EXTERNAL_AP
 using sensor_util::SensorIpc;
 using sensor_util::SensorIpcSender;
+#endif // FEATURE_EXTERNAL_AP
 
 namespace sensor_client
 {
@@ -70,7 +79,11 @@ struct SensorTrackingOption {
 };
 
 class SensorClientImpl :
+#ifdef FEATURE_EXTERNAL_AP
+    public SensorQsocket
+#else // FEATURE_EXTERNAL_AP
     public SensorIpc
+#endif // FEATURE_EXTERNAL_AP
 {
 public:
     SensorClientImpl(CapabilitiesCb capabitiescb);
@@ -119,11 +132,14 @@ private:
     struct sensor_list*     mSensorList;
     int 		    mSensorCount;
     static uint32_t         mClientIdGenerator;
+    static uint32_t         mClientIdIndex;
     static mutex            mMutex;
     uint32_t                mClientId;
     bool                    mHalRegistered;
     char                    mSocketName[MAX_SOCKET_PATHNAME_LENGTH];
     bool 		    mShdRestarted;
+    // for client on a different processor, 0 is invalid
+    uint32_t                mInstanceId;
 
     //MLC case list
     int 		             mSensorMlcCaseCount;
@@ -140,7 +156,11 @@ private:
     SelfTestResultCallback  mSelfTestResultCb;
 
     //Ipc sender
+#ifdef FEATURE_EXTERNAL_AP
+    SensorQsocketSender*       mIpcSender;
+#else  // FEATURE_EXTERNAL_AP
     SensorIpcSender*          mIpcSender;
+#endif // FEATURE_EXTERNAL_AP
 
     //Response and to wake up Sensor API
     volatile int       mRespReturn;

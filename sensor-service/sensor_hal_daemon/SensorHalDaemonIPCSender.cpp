@@ -33,6 +33,8 @@ bool SensorHalDaemonIPCSender::send(const uint8_t data[], uint32_t length) {
     bool rc = false;
     if (nullptr != mIpcSender) {
         rc = mIpcSender->send(data, length);
+    } else if (nullptr != mQsockSender) {
+        rc = mQsockSender->send(data, length);
     } else {
         SENSOR_LOGE(LOG_TAG "invalid configuration\n");
     }

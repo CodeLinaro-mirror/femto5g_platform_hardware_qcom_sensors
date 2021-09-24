@@ -41,6 +41,11 @@ libsensor_client_api_la_LDFLAGS = -lstdc++ -Wl,-z,defs -lpthread -shared -versio
 libsensor_client_api_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
 
+if USE_EXTERNAL_AP
+AM_CFLAGS += $(SENSORSOCKET_CFLAGS)
+requiredlibs += $(SENSORSOCKET_LIBS)
+endif
+
 libsensor_client_api_la_LIBADD = $(requiredlibs) -lstdc++ -ldl -llog
 
 #Create and Install libraries

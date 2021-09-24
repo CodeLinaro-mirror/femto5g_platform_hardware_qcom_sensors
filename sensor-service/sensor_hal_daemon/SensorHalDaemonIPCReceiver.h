@@ -31,9 +31,11 @@
 #include <string>
 
 #include <SensorIpc.h>
+#include <SensorQsocket.h>
 #include <SensorApiMsg.h>
 
 using sensor_util::SensorIpc;
+using sensor_util::SensorQsocket;
 
 // forward declaration
 class SensorApiService;
@@ -53,6 +55,45 @@ public:
             return startListeningBlocking(SOCKET_TO_SENSOR_HAL_DAEMON);
         } else {
             return startListeningNonBlocking(SOCKET_TO_SENSOR_HAL_DAEMON);
+        }
+    }
+
+    void stop() {
+        // not used
+        stopListening();
+    }
+
+    // override from SensorIpc
+    void onReceive(const std::string& data) override;
+    void onListenerReady() override;
+
+private:
+    SensorApiService *mService;
+};
+
+class SensorHalDaemonQsockReceiver : public SensorQsocket
+{
+public:
+    SensorHalDaemonQsockReceiver(SensorApiService* service) :
+            mService(service),
+            SensorQsocket(){ }
+    virtual ~SensorHalDaemonQsockReceiver() { }
+
+    bool start(bool blocking) {
+        char qsocketName[MAX_SOCKET_PATHNAME_LENGTH];
+        int numChars = snprintf(qsocketName, sizeof(qsocketName), "%u.%u",
+                                SENSOR_CLIENT_API_QSOCKET_HALDAEMON_SERVICE_ID,
+                                SENSOR_CLIENT_API_QSOCKET_HALDAEMON_INSTANCE_ID);
+        if (numChars >= (sizeof(qsocketName)-1)) {
+            SENSOR_LOGE(LOG_TAG "qsocketName to small, need %d, buffer size %d\n",
+                     numChars, sizeof(qsocketName));
+            return false;
+        }
+
+        if (true == blocking) {
+            return startListeningBlocking(qsocketName);
+        } else {
+            return startListeningNonBlocking(qsocketName);
         }
     }
 

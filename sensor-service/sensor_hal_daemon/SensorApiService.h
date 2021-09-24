@@ -128,6 +128,7 @@ typedef struct {
 
 // forward declaration
 class SensorHalDaemonIPCReceiver;
+class SensorHalDaemonQsockReceiver;
 
 /******************************************************************************
 SensorApiService
@@ -163,7 +164,7 @@ public:
 
 
     // from IPC receiver
-    void onListenerReady();
+    void onListenerReady(bool externalApIpc);
 
     // other APIs
     void deleteClientbyName(const std::string name);
@@ -244,6 +245,8 @@ private:
     static SensorApiService *mInstance;
     // IPC interface
     SensorHalDaemonIPCReceiver* mIpcReceiver;
+    // QSocket interface
+    SensorHalDaemonQsockReceiver* mQsockReceiver;
 
     struct sensor_list *mSensorList;
     int mSensorCount;

@@ -59,6 +59,7 @@ Constants
 #define GID_SENSORCLIENT (3011)
 
 #define SOCKET_SENSOR_CLIENT_DIR     "/dev/socket/sensor_client/"
+#define EAP_SENSOR_CLIENT_DIR        "/data/vendor/sensor/extap_sensorclient/"
 #define SOCKET_TO_SENSOR_HAL_DAEMON  "/dev/socket/sensor_client/hal_daemon"
 #define SOCKET_TO_SENSOR_CLIENT_BASE "/dev/socket/sensor_client/toclient"
 
@@ -67,6 +68,10 @@ Constants
 #define MAX_SOCKET_PATHNAME_LENGTH (128)
 
 #define SENSOR_CLIENT_SESSION_ID_INVALID (0)
+
+#define SENSOR_CLIENT_API_QSOCKET_HALDAEMON_SERVICE_ID    (8001)
+#define SENSOR_CLIENT_API_QSOCKET_HALDAEMON_INSTANCE_ID   (1)
+#define SENSOR_CLIENT_API_QSOCKET_CLIENT_SERVICE_ID       (8002)
 
 using namespace std;
 using namespace sensor_util;
@@ -186,7 +191,9 @@ struct SensorAPIMsgHeader
 	    bool msgValid = isValidMsg(msgSize);
 	    if ((true== msgValid) &&
 			    ((strncmp(mSocketName, SOCKET_SENSOR_CLIENT_DIR,
-				      sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0))) {
+				      sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0) &&
+			     (strncmp(mSocketName, EAP_SENSOR_CLIENT_DIR,
+				      sizeof(EAP_SENSOR_CLIENT_DIR)-1) != 0))) {
 		    SENSOR_LOGE(LOG_TAG "msg not from expected client\n");
 		    msgValid = false;
 	    }
