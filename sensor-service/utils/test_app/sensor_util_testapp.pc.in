@@ -3,8 +3,8 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: sensor_client_api_testapp
-Description: sensor_client_api_testapp
+Name: sensor_util_lib_testapp
+Description: sensor_util_lib_testapp
 Version: @VERSION@
-Libs: -L${libdir} -lsensor_client_api
+Libs: -L${libdir} -lsensor_util_lib
 Cflags: -I${includedir}

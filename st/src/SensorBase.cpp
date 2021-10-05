@@ -7,6 +7,42 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
 
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+
+Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ 
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+ 
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+ 
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+ 
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+ 
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #define __STDC_LIMIT_MACROS
 #define __STDINT_LIMITS
 
@@ -18,6 +54,26 @@
 #include <unistd.h>
 
 #include "SensorBase.h"
+#include "iNotifyConfigMngmt.h"
+
+#if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_PIE_VERSION)
+#if (CONFIG_ST_HAL_ADDITIONAL_INFO_ENABLED)
+static int64_t elapsedRealtimeNano()
+{
+#ifdef PLTF_LINUX_ENABLED
+    struct timespec ts;
+    int err = clock_gettime(CLOCK_BOOTTIME, &ts);
+    if (err) {
+        ALOGE("clock_gettime(CLOCK_BOOTTIME) failed: %s", strerror(errno));
+        return 0;
+    }
+    return (ts.tv_sec * 1000000000) + ts.tv_nsec;
+#else
+    return android::elapsedRealtimeNano();
+#endif
+}
+#endif /* CONFIG_ST_HAL_ADDITIONAL_INFO_ENABLED */
+#endif /* CONFIG_ST_HAL_ANDROID_VERSION */
 
 #if (CONFIG_ST_HAL_ANDROID_VERSION == ST_HAL_KITKAT_VERSION)
 void atomic_init(atomic_short *atom, int num)
@@ -598,7 +654,7 @@ void SensorBase::WriteSensorAdditionalInfoFrameToPipe(additional_info_event_t *p
 	sens_info_singleframe.sensor = sensor_event.sensor;
 	sens_info_singleframe.type = SENSOR_TYPE_ADDITIONAL_INFO;
 	sens_info_singleframe.additional_info = *p_sensor_additional_info_event;
-	sens_info_singleframe.timestamp = android::elapsedRealtimeNano();
+	sens_info_singleframe.timestamp = elapsedRealtimeNano();
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_VERBOSE)
 	ALOGD("\"%s\": write additional sensor info event to pipe (sensor type: %d, additional info type: %d).", GetName(), GetType(), sens_info_singleframe.additional_info.type);
@@ -737,6 +793,26 @@ void SensorBase::ProcessData(SensorBaseData *data)
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
 }
 
+void SensorBase::applyRotationMatrix(SensorBaseData& data)
+{
+	float tmp_data[4];
+	memcpy(tmp_data, data.raw, 4 * sizeof(float));
+
+	struct hal_config_t *config = get_sensor_placement();
+
+	data.raw[0] = config->sensor_placement.rot[0][0] * tmp_data[0] +
+		      config->sensor_placement.rot[1][0] * tmp_data[1] +
+		      config->sensor_placement.rot[2][0] * tmp_data[2];
+
+	data.raw[1] = config->sensor_placement.rot[0][1] * tmp_data[0] +
+		      config->sensor_placement.rot[1][1] * tmp_data[1] +
+		      config->sensor_placement.rot[2][1] * tmp_data[2];
+
+	data.raw[2] = config->sensor_placement.rot[0][2] * tmp_data[0] +
+		      config->sensor_placement.rot[1][2] * tmp_data[1] +
+		      config->sensor_placement.rot[2][2] * tmp_data[2];
+}
+
 void SensorBase::ReceiveDataFromDependency(int handle, SensorBaseData *data)
 {
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
@@ -840,6 +916,14 @@ void SensorBase::ThreadEventsTask()
 {
 	pthread_exit(NULL);
 }
+
+#ifdef PLTF_LINUX_ENABLED
+	/* set engine ignition status (on/off) */
+int SensorBase::Ignition(int val)
+{
+	return 0;
+}
+#endif /* PLTF_LINUX_ENABLED */
 
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_MARSHMALLOW_VERSION)
 int SensorBase::InjectionMode(bool __attribute__((unused))enable)

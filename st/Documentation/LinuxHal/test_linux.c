@@ -6,6 +6,43 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
 
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+
+Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ 
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+ 
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+ 
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+ 
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+ 
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
 #undef ANDROID_LOG
 #define LOG_FILE
 
@@ -29,8 +66,10 @@
 #include <hardware/sensors.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <math.h>
 
-#define TEST_LINUX_VERSION	"1.1"
+#define TEST_LINUX_VERSION	"1.2"
 
 #ifndef LOG_TAG
 #define LOG_TAG "test_linux"
@@ -83,6 +122,8 @@
 #define IIO_MLC_FLUSH_FILE	"/mlc_flush"
 #define IIO_MLC_VERSION_FILE	"/mlc_version"
 #define IIO_MLC_INFO_FILE	"/mlc_info"
+#define HAL_CONFIGURATION_FILE	"hal_config"
+#define HAL_CONFIGURATION_PATH	"/etc/sensorhal"
 
 #define IIO_GET_EVENT_FD_IOCTL _IOR('i', 0x90, int)
 
@@ -144,6 +185,9 @@ static const struct option long_options[] = {
 		{"version",   no_argument,       0,  'v' },
 		{"gyropm",    required_argument, 0,  'q' },
 		{"accpm",     required_argument, 0,  'p' },
+		{"rotmat",    required_argument, 0,  'r' },
+		{"position",  required_argument, 0,  'z' },
+		{"ign_cmd",   required_argument, 0,  'I' },
 		{"help",      no_argument,       0,  '?' },
 		{0,           0,                 0,   0  }
 	};
@@ -186,6 +230,9 @@ static int test_events = 0;
 static int mlc_iio_device_number = 3;
 static int mlc_wait_events_device_number = 4;
 
+static float rot[3][3];
+static float location[3];
+
 /* Report sensor type in string format */
 static const char *type_str(int type)
 {
@@ -196,6 +243,48 @@ static const char *type_str(int type)
 
 	return types[type];
 }
+
+static void init_rotation_location(void)
+{
+	rot[0][0] = 1;
+	rot[0][1] = 0;
+	rot[0][2] = 0;
+
+	rot[1][0] = 0;
+	rot[1][1] = 1;
+	rot[1][2] = 0;
+
+	rot[2][0] = 0;
+	rot[2][1] = 0;
+	rot[2][2] = 1;
+
+	location[0] = 0;
+	location[1] = 0;
+	location[2] = 0;
+}
+
+static void apply_rotation(float yawd, float pitchd, float rolld)
+{
+	float yaw = (yawd / 10.0f) * M_PI / 180.0f;
+	float pitch = (pitchd / 10.0f) * M_PI / 180.0f;
+	float roll = (rolld / 10.0f) * M_PI / 180.0f;
+
+	rot[0][0] = cos(yaw) * cos(roll) - sin(yaw) * sin(pitch) * sin(roll);
+	rot[0][1] = sin(yaw) * cos(roll) + cos(yaw) * sin(pitch) * sin(roll);
+	rot[0][2] = -cos(pitch) * sin(roll);
+	rot[1][0] = -sin(yaw) * cos(pitch);
+	rot[1][1] = cos(yaw) * cos(pitch);
+	rot[1][2] = sin(pitch);
+	rot[2][0] = cos(yaw) * sin(roll) + sin(yaw) * sin(pitch) * cos(roll);
+	rot[2][1] = sin(yaw) * sin(roll) - cos(yaw) * sin(pitch) * cos(roll);
+	rot[2][2] = cos(pitch) * cos(roll);
+
+	tl_log("\t%f %f %f\n\t%f %f %f\n\t%f %f %f\n",
+		rot[0][0], rot[0][1], rot[0][2],
+		rot[1][0], rot[1][1], rot[1][2],
+		rot[2][0], rot[2][1], rot[2][2]);
+}
+
 
 static void dump_event(struct sensors_event_t *e)
 {
@@ -212,11 +301,15 @@ static void dump_event(struct sensors_event_t *e)
 	case SENSOR_TYPE_ACCELEROMETER:
 		if (start_sensortime[0] == 0LL)
 			start_sensortime[0] = e->timestamp;
-		tl_log("ACC event: x=%10.2f y=%10.2f z=%10.2f timestamp=%lld systime=%lld delta=%lld",
+		tl_log("ACC event: x=%10.2f y=%10.2f z=%10.2f timestamp=%lld systime=%lld delta=%lld Module %f  x=%10.2f y=%10.2f z=%10.2f",
 			e->acceleration.x, e->acceleration.y, e->acceleration.z,
 			e->timestamp - start_sensortime[0],
 			sec_usec - start_systime,
-			((sec_usec - start_systime) * 1000) - (e->timestamp - start_sensortime[0]));
+			((sec_usec - start_systime) * 1000) - (e->timestamp - start_sensortime[0]),
+			sqrt(pow(e->acceleration.x, 2) + pow(e->acceleration.y, 2) + pow(e->acceleration.z, 2)),
+			rot[0][0] * e->acceleration.x + rot[0][1] * e->acceleration.y + rot[0][2] * e->acceleration.z,
+			rot[1][0] * e->acceleration.x + rot[1][1] * e->acceleration.y + rot[1][2] * e->acceleration.z,
+			rot[2][0] * e->acceleration.x + rot[2][1] * e->acceleration.y + rot[2][2] * e->acceleration.z);
 		break;
 	case SENSOR_TYPE_GYROSCOPE:
 		if (start_sensortime[1] == 0LL)
@@ -340,7 +433,11 @@ static int sensor_setdelay(int type, int odr)
 	if (handle < 0 || !sensor)
 		return -ENODEV;
 
-	delay = 1000000000 / odr;
+	if (odr == 0)
+		delay = 0;
+	else
+		delay = 1000000000 / odr;
+
 	tl_debug("Setting Acc ODR to %d Hz (%lld ns)\n", odr, delay);
 
 	return poll_dev->setDelay(&poll_dev->v0, handle, delay);
@@ -513,10 +610,20 @@ static void help(char *argv)
 	       long_options[index++].name, TL_FILE_DEFAULT_NAME);
 #endif /* LOG_FILE */
 
-	printf("\t--%s:\tDisable temperature sensor\n", long_options[index++].name);
-	printf("\t--%s:\tPrint Version\n", long_options[index++].name);
-	printf("\t--%s:\tSet Gyro Power Mode (0 = HP, 1 = LP)\n", long_options[index++].name);
-	printf("\t--%s:\tSet Acc Power Mode (0 = HP, 1 = LP)\n", long_options[index++].name);
+	printf("\t--%s:\tDisable temperature sensor\n",
+	       long_options[index++].name);
+	printf("\t--%s:\tPrint Version\n",
+	       long_options[index++].name);
+	printf("\t--%s:\tSet Gyro Power Mode (0 = HP, 1 = LP)\n",
+	       long_options[index++].name);
+	printf("\t--%s:\tSet Acc Power Mode (0 = HP, 1 = LP)\n",
+	       long_options[index++].name);
+	printf("\t--%s:\tUpdate HAL rotation matrix (\"yaw,pitch,roll\")\n",
+	       long_options[index++].name);
+	printf("\t--%s:\tUpdate HAL sensor position (\"x,y,z\")\n",
+	       long_options[index++].name);
+	printf("\t--%s:\tRun Ignition command on SensorHAL (data 0/1)\n",
+	       long_options[index++].name);
 	printf("\t--%s:\t\tThis help\n", long_options[index++].name);
 
 	exit(0);
@@ -641,7 +748,9 @@ static int load_mlc(int iio_device_number, char *ucf_file_name,
 			if (strstr(str, "--"))
 				continue;
 
-			ret = sscanf(str, "Ac %x %x", &buff[0], &buff[1]);
+			ret = sscanf(str, "Ac %x %x",
+				     (unsigned int *)&buff[0],
+				     (unsigned int *)&buff[1]);
 			if (ret != 2) {
 				continue;
 			}
@@ -946,6 +1055,147 @@ static void ctrlzHandler(int events)
 	exit(0);
 }
 
+int update_hal_rotation_matrix(char *path, char *file, char *rm_value)
+{
+	float yaw, pitch, roll;
+	char *file_path_name = NULL;
+	char *buffer_string = NULL;
+	FILE *fd_config = NULL;
+	int len = 0;
+	int err = 0;
+	char *ptr;
+	int size;
+	int fsize = 0;
+
+	file_path_name = (char *)calloc(strlen(path) + strlen(file) + 2, 1);
+	if (!file_path_name) {
+		tl_debug("Unable to allocate memory (errno %d)\n", err);
+
+		return -ENOMEM;
+	}
+
+	fsize = strlen(path) + strlen(file);
+	snprintf(file_path_name, fsize + 2,"%s/%s", path, file);
+	fd_config = fopen(file_path_name, "w+");
+	if (!fd_config) {
+		err = -errno;
+		tl_debug("Filed to open %s (errno %d)\n",
+			 file_path_name, err);
+
+		goto err_out;
+	}
+
+	size = strlen("imu_sensor_euler_angles = []") +
+	       strlen(rm_value) + 2;
+	buffer_string = (char *)calloc(size, 1);
+	if (!buffer_string) {
+		err = -errno;
+		tl_debug("Unable to allocate memory (errno %d)\n", err);
+
+		goto err_out;
+	}
+
+	fsize = strlen("imu_sensor_euler_angles = [0]");
+	size = snprintf(buffer_string, fsize + 1,"imu_sensor_euler_angles = [%s]",
+		       rm_value);
+
+	tl_debug("Update file in %s with %s\n", file_path_name, buffer_string);
+	len = fwrite(buffer_string, 1, size, fd_config);
+	if (!len) {
+		err = -errno;
+		tl_debug("Filed to write data to %s (errno %d)\n",
+			 file_path_name, err);
+	}
+
+err_out:
+	if (fd_config) {
+		fclose(fd_config);
+	}
+
+	if (file_path_name) {
+		free(file_path_name);
+	}
+
+	if (buffer_string) {
+		free(buffer_string);
+	}
+
+	size = sscanf(rm_value, "%f,%f,%f", &yaw, &pitch, &roll);
+	if (size > 0) {
+		apply_rotation(yaw, pitch, roll);
+	}
+
+	return err;
+}
+
+int update_hal_sensor_placement(char *path, char *file, char *sp_value)
+{
+	char *file_path_name = NULL;
+	char *buffer_string = NULL;
+	FILE *fd_config = NULL;
+	int len = 0;
+	int err = 0;
+	char *ptr;
+	int size;
+	int fsize = 0;
+
+	file_path_name = (char *)calloc(strlen(path) + strlen(file) + 2, 1);
+	if (!file_path_name) {
+		tl_debug("Unable to allocate memory (errno %d)\n", err);
+
+		return -ENOMEM;
+	}
+
+	fsize = strlen(path) + strlen(file);
+	snprintf(file_path_name, fsize + 2,"%s/%s", path, file);
+	fd_config = fopen(file_path_name, "w+");
+	if (!fd_config) {
+		err = -errno;
+		tl_debug("Filed to open %s (errno %d)\n",
+			 file_path_name, err);
+
+		goto err_out;
+	}
+
+	size = strlen("imu_sensor_placement = []") +
+	       strlen(sp_value) + 2;
+	buffer_string = (char *)calloc(size, 1);
+	if (!buffer_string) {
+		err = -errno;
+		tl_debug("Unable to allocate memory (errno %d)\n", err);
+
+		goto err_out;
+	}
+
+	fsize = strlen("imu_sensor_placement = [0]");
+	size = snprintf(buffer_string, fsize + 1,"imu_sensor_placement = [%s]",
+		       sp_value);
+
+	tl_debug("Update file in %s with %s\n", file_path_name, buffer_string);
+	len = fwrite(buffer_string, 1, size, fd_config);
+	if (!len) {
+		err = -errno;
+		tl_debug("Filed to write data to %s (errno %d)\n",
+			 file_path_name, err);
+	}
+
+err_out:
+	if (fd_config) {
+		fclose(fd_config);
+	}
+
+	if (file_path_name) {
+		free(file_path_name);
+	}
+
+	if (buffer_string) {
+		free(buffer_string);
+	}
+
+	return err;
+}
+
+
 int main(int argc, char **argv)
 {
 	int ret;
@@ -959,6 +1209,10 @@ int main(int argc, char **argv)
 	int set_pm = 0;
 	int find_mlc = 0;
 	int info_mlc = 0;
+	int ign_flag = 0;
+	int ign_data = 0;
+	char *rm_value = NULL;
+	char *sp_value = NULL;
 
 #ifdef LOG_FILE
 	char *log_filename = NULL;
@@ -1033,6 +1287,16 @@ int main(int argc, char **argv)
 		case 'p':
 			new_pm = atoi(optarg);
 			set_pm = 2;
+			break;
+		case 'r':
+			rm_value = optarg;
+			break;
+		case 'z':
+			sp_value = optarg;
+			break;
+		case 'I':
+			ign_flag = 1;
+			ign_data = atoi(optarg);
 			break;
 		case 'v':
 			printf("Version %s\n", TEST_LINUX_VERSION);
@@ -1150,6 +1414,20 @@ int main(int argc, char **argv)
 	start_systime = 0LL;
 	for(i = 0; i < 3; i++)
 		start_sensortime[i] = 0LL;
+
+	init_rotation_location();
+
+	if (rm_value)
+		update_hal_rotation_matrix(HAL_CONFIGURATION_PATH,
+					   HAL_CONFIGURATION_FILE,
+					   rm_value);
+	if (sp_value)
+		update_hal_sensor_placement(HAL_CONFIGURATION_PATH,
+					    HAL_CONFIGURATION_FILE,
+					    sp_value);
+
+	if (ign_flag)
+		hmi->ignition_on_off(ign_data);
 
 	if (sensor_handle >= 0)
 		single_sensor_test(sensor_handle);

@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: sensor-util-lib
+Description: sensor util library
+Version: @VERSION@
+Libs: -L${libdir} -lsensor_util_lib
+Cflags: -I${includedir} -I${includedir}/sensor-util-lib

@@ -102,6 +102,10 @@ The test_linux example application has the following menu options:
         --version:      Print Version
         --gyropm:       Set Gyro Power Mode (0 = HP, 1 = LP)
         --accpm:        Set Acc Power Mode (0 = HP, 1 = LP)
+        --rotmat:       Update HAL rotation matrix (yaw,pitch,roll), data expressed
+                        in tenth of a degree (i.e. 900 means 90 degree)
+        --position:     Update HAL sensor position (x,y,z)
+	--ign_cmd:	Run Ignition command on SensorHAL (data 0/1)
         --help:         This help
 
 NOTE: (*) SensorHAL library must becompiled for linux by using the Makefile provided

@@ -7,6 +7,42 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
 
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+
+Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ 
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+ 
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+ 
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+ 
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+ 
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #define __STDC_LIMIT_MACROS
 #define __STDINT_LIMITS
 
@@ -23,6 +59,9 @@
 #include "SensorHAL.h"
 #include "Accelerometer.h"
 #include "Gyroscope.h"
+#include "SWGyroscopeUncalibrated.h"
+#include "SWAccelerometerUncalibrated.h"
+#include "iNotifyConfigMngmt.h"
 
 /*
  * STSensorHAL_device_iio_devices_data: informations related to the IIO devices,
@@ -136,6 +175,10 @@ struct st_hal_private_data {
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_MARSHMALLOW_VERSION)
 static int st_hal_set_operation_mode(unsigned int mode);
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
+
+#ifdef PLTF_LINUX_ENABLED
+static int st_ignition_on_off(int val);
+#endif /* PLTF_LINUX_ENABLED */
 
 /*
  * st_hal_create_virtual_class_sensor - Istance virtual sensor class
@@ -1204,7 +1247,24 @@ struct sensors_module_t HAL_MODULE_INFO_SYM = {
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_MARSHMALLOW_VERSION)
 	.set_operation_mode = st_hal_set_operation_mode,
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
+#ifdef PLTF_LINUX_ENABLED
+	.ignition_on_off = st_ignition_on_off,
+#endif /* PLTF_LINUX_ENABLED */
 };
+
+#ifdef PLTF_LINUX_ENABLED
+/**
+ * command ignition
+ */
+static int st_ignition_on_off(int val)
+{
+	STSensorHAL_data *hal_data =
+		(STSensorHAL_data *)HAL_MODULE_INFO_SYM.common.dso;
+
+
+	return hal_data->sensor_classes[hal_data->sensor_t_list[0].handle]->Ignition(val);
+}
+#endif /* PLTF_LINUX_ENABLED */
 
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_MARSHMALLOW_VERSION)
 /**
@@ -1250,3 +1310,15 @@ rollback_operation_mode:
 	return -EINVAL;
 }
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
+
+#if CONFIG_ST_HAL_CONFIG_INOTIFY_ENABLED
+__attribute__((constructor)) void init(void)
+{
+	init_notify_loop(HAL_CONFIGURATION_PATH);
+}
+
+__attribute__((destructor)) void fini(void)
+{
+
+}
+#endif /* CONFIG_ST_HAL_CONFIG_INOTIFY_ENABLED */

@@ -5,7 +5,8 @@ AM_CFLAGS = \
 -I./linux \
 -D__func__=__PRETTY_FUNCTION__ \
 -DON_TARGET_TEST \
--DPLTF_LINUX_ENABLED
+-DPLTF_LINUX_ENABLED \
+-DCONFIG_ST_HAL_CONFIG_INOTIFY_ENABLED
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -19,6 +20,8 @@ libasm330sensors_la_SOURCES = \
                 ./src/HWSensorBase.cpp \
                 ./src/Accelerometer.cpp \
                 ./src/Gyroscope.cpp \
+		./src/iNotifyConfigMngmt.cpp \
+		./src/mlc-helper.cpp \
                 ./src/utils.cpp
 
 if CONFIG_ST_HAL_HAS_SELFTEST_FUNCTIONS
@@ -41,7 +44,7 @@ libasm330sensors_la_CFLAGS = $(AM_CFLAGS)
 libasm330sensors_la_LDFLAGS = -lpthread -shared -version-info 1:0:0
 libasm330sensors_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
-libasm330sensors_la_LIBADD = -lstdc++
+libasm330sensors_la_LIBADD = -lstdc++ -llog
 
 #Create and Install libraries
 lib_LTLIBRARIES = libasm330sensors.la

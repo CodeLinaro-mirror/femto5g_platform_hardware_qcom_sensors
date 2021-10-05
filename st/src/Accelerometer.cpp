@@ -7,11 +7,49 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
 
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+
+Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ 
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+ 
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+ 
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+ 
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+ 
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include <fcntl.h>
 #include <assert.h>
 #include <signal.h>
 
 #include "Accelerometer.h"
+
+static int toggle_ignition;
 
 Accelerometer::Accelerometer(HWSensorBaseCommonData *data, const char *name,
 		struct device_iio_sampling_freqs *sfa, int handle,
@@ -45,9 +83,95 @@ Accelerometer::~Accelerometer()
 
 }
 
+#ifdef PLTF_LINUX_ENABLED
+int Accelerometer::Ignition(int status)
+{
+	ALOGD("\"%s\": Ignition mode %d", sensor_t_data.name, status);
+	toggle_ignition = status;
+
+	return 0;
+}
+#endif /* PLTF_LINUX_ENABLED */
+
 int Accelerometer::Enable(int handle, bool enable, bool lock_en_mutex)
 {
 	return HWSensorBaseWithPollrate::Enable(handle, enable, lock_en_mutex);
+}
+
+void Accelerometer::calculateThresholdMLC(SensorBaseData &data)
+{
+	static int8_t isStatic = 0;
+ 
+	switch (fsmNextState) {
+	case RESET:
+		isStatic = 0;
+		stFSMInit(&state);
+		fsmNextState = INITIALIZED;
+		break;
+	case INITIALIZED:
+		// move to running when ignition is off
+		// waiting for a command ignition off, then move to running state
+		if (toggle_ignition) {
+			toggle_ignition = 0;
+			fsmNextState = RUNNING;
+		}
+		break;
+	case RUNNING:
+		float acc[3], gVec[3];
+
+		acc[0] = data.raw[0] / GRAVITY_EARTH;
+		acc[1] = data.raw[1] / GRAVITY_EARTH;
+		acc[2] = data.raw[2] / GRAVITY_EARTH;
+
+		if (isStatic == 0){
+			isStatic =  computeGravityVector(&state, acc, data.timestamp, gVec);
+			if (isStatic) {
+				int ret;
+				int16_t nLoop;
+				uint16_t thresh[3][2];
+				uint8_t thresh_hex[3][4];
+				char fsm_th_str[sizeof(thresh_hex) * strlen("00,")];
+
+				computeThreshold(gVec,thresh);
+
+				for (nLoop = 0; nLoop < 3; nLoop++) {
+					thresh_hex[nLoop][0] = (uint8_t)(thresh[0][0] & 0x00FF);
+					thresh_hex[nLoop][1] = (uint8_t)(thresh[0][0] >> 8);
+					thresh_hex[nLoop][2] = (uint8_t)(thresh[0][1] & 0x00FF);
+					thresh_hex[nLoop][3] = (uint8_t)(thresh[0][1] >> 8);
+				}
+
+				// store thresholds into sensors fsm registers
+				ret = snprintf(fsm_th_str, 256,
+							   "%2x,%2x,%2x,%2x,%2x,%2x,%2x,%2x,%2x,%2x,%2x,%2x",
+							   thresh_hex[0][1], thresh_hex[0][0],
+							   thresh_hex[0][3], thresh_hex[0][2],
+							   thresh_hex[1][1], thresh_hex[1][0],
+							   thresh_hex[1][3], thresh_hex[1][2],
+							   thresh_hex[2][1], thresh_hex[2][0],
+							   thresh_hex[2][3], thresh_hex[2][2]);
+				if (ret < 0) {
+					ALOGE("\"%s\": Failed to allocate FSM threshold",
+						  sensor_t_data.name);
+
+					return;
+				}
+
+				ALOGD("\"%s\": Updating FSM thresholds %s",
+				      sensor_t_data.name, fsm_th_str);
+				ret = device_iio_utils::update_fsm_thresholds(fsm_th_str);
+				if (ret < 0) {
+					ALOGE("\"%s\": Failed to update FSM threshold",
+						  sensor_t_data.name);
+
+					return;
+				}
+			}
+		}
+		break;
+	default:
+		return;
+	}
 }
 
 void Accelerometer::ProcessData(SensorBaseData *data)
@@ -68,6 +192,10 @@ void Accelerometer::ProcessData(SensorBaseData *data)
 				     tmp_raw_data[1],
 				     tmp_raw_data[2],
 				     CONFIG_ST_HAL_ACCEL_ROT_MATRIX);
+
+	calculateThresholdMLC(*data);
+
+	applyRotationMatrix(*data);
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
 	ALOGD("\"%s\": received new sensor data: x=%f y=%f z=%f, timestamp=%" PRIu64 "ns, deltatime=%" PRIu64 "ns (sensor type: %d).",
