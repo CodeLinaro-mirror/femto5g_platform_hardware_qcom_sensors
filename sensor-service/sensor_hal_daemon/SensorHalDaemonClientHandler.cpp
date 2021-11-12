@@ -76,6 +76,26 @@ void SensorHalDaemonClientHandler::cleanup() {
    mGyroTracking = false;
 }
 
+/******************************************************************************
+SensorHalDaemonClientHandler - Sensor API callback functions
+******************************************************************************/
+void SensorHalDaemonClientHandler::onCapabilitiesCallback(SensorCapabilitiesMask mask) {
+   // please do not attempt to hold the lock, as the caller of this function
+   // already holds the lock
+   SENSOR_LOGI(LOG_TAG "--< onCapabilitiesCallback=0x%x", mask);
+
+   if (nullptr != mIpcSender) {
+        // broadcast
+        SensorAPICapabilitiesIndMsg msg(SERVICE_NAME, mask);
+        bool rc = sendMessage(msg);
+	// purge this client if failed
+	if (!rc) {
+		SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s", rc, mName.c_str());
+		mService->deleteClientbyName(mName);
+	}
+    }
+}
+
 /************************************************************************************
 SensorHalDaemonClientHandler - OnResponseCb to send response message to client
 ************************************************************************************/

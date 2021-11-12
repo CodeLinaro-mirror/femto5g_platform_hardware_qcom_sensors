@@ -53,6 +53,10 @@
 #include <SensorApiMsg.h>
 #include <SensorHalDaemonClientHandler.h>
 
+#ifdef POWERMANAGER_ENABLED
+#include <PowerEvtHandler.h>
+#endif
+
 #ifdef NO_UNORDERED_SET_OR_MAP
     #include <map>
 #else
@@ -68,6 +72,13 @@
 #define SENSOR_CONF_PATH "/etc/sensors.conf"
 //MLC bin path
 #define PATH_MLC_BINARY         "/lib/firmware/st_asm330lhhx_mlc.bin"
+
+enum PowerStateType {
+    POWER_STATE_UNKNOWN = 0,
+    POWER_STATE_SUSPEND = 1,
+    POWER_STATE_RESUME  = 2,
+    POWER_STATE_SHUTDOWN = 3
+};
 
 typedef enum {
         /** On Success **/
@@ -102,6 +113,8 @@ typedef enum {
         SENSOR_ERROR_MLC_EVENT_ENABLE_FAILED=-14,
         /** NO MLC case found**/
         SENSOR_ERROR_NO_MLC_CASE_FOUND=-15,
+	/**Sensor No response from SHD timeout happens*/
+	SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT = -16,
 }SensorRet;
 
 //Type of devices based on sensor driver sysfs path mount.
@@ -196,6 +209,10 @@ public:
     // other APIs
     void deleteClientbyName(const std::string name);
 
+#ifdef POWERMANAGER_ENABLED
+    void onPowerEvent(PowerStateType powerState);
+#endif
+
     bool open_sensor(const configParamToRead & configParamRead);
     int get_sensor_list(const struct sensor_t **s);
     int sensor_activate(int sensor_id , int enable);
@@ -276,6 +293,12 @@ private:
     struct hw_device_t *mdev;
     struct sensors_poll_device_t *mpoll_dev_v0;
     struct sensors_poll_device_1 *mpoll_dev;
+
+#ifdef POWERMANAGER_ENABLED
+    // power event observer
+    PowerEvtHandler* mPowerEventObserver;
+#endif
+    PowerStateType  mPowerState;
 
     //Mlc sesnros list
     struct sensor_mlc_case_list *mSesnorMlcCaseList;

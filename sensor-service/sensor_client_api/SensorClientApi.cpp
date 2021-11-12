@@ -37,12 +37,12 @@ static int DebugLevel = 0;
 /******************************************************************************
 SensorClient - constructor
 ******************************************************************************/
-SensorClient::SensorClient() {
+SensorClient::SensorClient(CapabilitiesCb capabitiescb) {
 
     DebugLevel = SensorReadDebugLevel();
     SENSOR_LOGI(LOG_TAG "debug_level %d\n", DebugLevel);
 
-    mApiImpl = new SensorClientImpl();
+    mApiImpl = new SensorClientImpl(capabitiescb);
 }
 
 /******************************************************************************

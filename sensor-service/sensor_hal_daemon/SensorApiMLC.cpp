@@ -261,15 +261,15 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 
         SENSOR_LOGI(LOG_TAG "Loading MLC.......\n");
         ret = fprintf(sysfs_load, "1");
+        if (sysfs_load)
+                fclose(sysfs_load);
         if (ret < 0) {
                 SENSOR_LOGE(LOG_TAG "Loading MLC [FAIL]\n");
 		return false;
         } else {
                 SENSOR_LOGE(LOG_TAG "Loading MLC [DONE]\n");
         }
-        if (sysfs_load)
-                fclose(sysfs_load);
-	sleep(3);
+	usleep(3000*1000);
 	//Print MLC INFO
 	mlc_info(iio_device_number);
 	memset(mlc_file_name, 0 ,sizeof(mlc_file_name));

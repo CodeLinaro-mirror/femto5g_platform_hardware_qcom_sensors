@@ -267,7 +267,7 @@ void SENSOR_READ_CONF(char *file_name, int *acc_range, int *gyro_range)
 {
     FILE *file;
     char buffer[BUFSIZ];
-    char *line;
+    char *line = NULL;
     int i;
 
     file = fopen(file_name, "r");
@@ -284,12 +284,16 @@ void SENSOR_READ_CONF(char *file_name, int *acc_range, int *gyro_range)
                  continue;
          } else if(strstr(buffer, "ACC_RANGE=")) {
                  line = strstr(buffer, "=");
-                 sscanf(&line[1], "%d", acc_range);
+		 if(line != NULL){
+               	 sscanf(&line[1], "%d", acc_range);
+		 }
                  break;
          }
          else if(strstr(buffer, "GYRO_RANGE=")) {
                line = strstr(buffer, "=");
+	       if(line != NULL){
                sscanf(&line[1], "%d", gyro_range);
+	       }
                break;
          }
     }
