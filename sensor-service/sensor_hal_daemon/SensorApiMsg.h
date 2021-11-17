@@ -158,6 +158,13 @@ struct SensorMlcEventData {
     char name[100];
     struct mlc_event_data event[1];
 };
+
+static int getId1Id2(const char* fullPathName, int32_t length, int32_t& id1, int32_t& id2) {
+        int32_t indx = 0;
+	sscanf(fullPathName, "%d.%d", &id1, &id2);
+        return indx;
+}
+
 /******************************************************************************
   IPC message header structure
  ******************************************************************************/

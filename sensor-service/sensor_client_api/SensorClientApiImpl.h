@@ -127,6 +127,9 @@ private:
     // override from SensorIpc
     virtual void onListenerReady() override;
     virtual void onReceive(const string& data) override;
+#ifdef FEATURE_EXTERNAL_AP
+    virtual void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender) override;
+#endif
 
     // internal session parameter
     struct sensor_list*     mSensorList;
@@ -138,6 +141,7 @@ private:
     bool                    mHalRegistered;
     char                    mSocketName[MAX_SOCKET_PATHNAME_LENGTH];
     bool 		    mShdRestarted;
+    bool                    mEapClient;
     // for client on a different processor, 0 is invalid
     uint32_t                mInstanceId;
 

@@ -5,7 +5,7 @@ AM_CFLAGS = \
     $(SENSORS_CFLAGS)\
     $(SENSORSOCKET_CFLAGS)\
     -std=c++11\
-    -fno-permissive
+    -fpermissive
 
 
 ACLOCAL_AMFLAGS = -I m4

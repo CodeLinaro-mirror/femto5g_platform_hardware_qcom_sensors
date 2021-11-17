@@ -3,7 +3,8 @@ AM_CFLAGS = \
     -I./ \
     $(SENSORS_CFLAGS)\
     $(SENSORSOCKET_CFLAGS)\
-    -std=c++11
+    -std=c++11 \
+    -fpermissive
 
 requiredlibs = \
      $(SENSORSOCKET_LIBS)

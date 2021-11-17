@@ -197,9 +197,9 @@ SensorApiService::~SensorApiService() {
 }
 
 /******************************************************************************
-SensorApiService - onListenerReady send HAL READY message to all clients.
+  SensorApiService - onListenerReady send HAL READY message to all clients.
 ******************************************************************************/
-void SensorApiService::onListenerReady(bool externalApIpc) {
+void SensorApiService::onListenerReady() {
 
     // traverse client sockets directory - then broadcast READY message
     SENSOR_LOGD(LOG_TAG ">-- onListenerReady Finding client sockets...\n");
@@ -213,7 +213,6 @@ void SensorApiService::onListenerReady(bool externalApIpc) {
     struct stat sbuf = {0};
     const std::string fnamebase = SOCKET_TO_SENSOR_CLIENT_BASE;
     while (nullptr != (dp = readdir(dirp))) {
-	std::string fnameExtAp = SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE;
         std::string fname = SOCKET_SENSOR_CLIENT_DIR;
         fname += dp->d_name;
         if (-1 == lstat(fname.c_str(), &sbuf)) {
@@ -222,35 +221,32 @@ void SensorApiService::onListenerReady(bool externalApIpc) {
         if ('.' == (dp->d_name[0])) {
             continue;
         }
-
         const char* clientName = NULL;
-        if ((false == externalApIpc) &&
-		(0 == fname.compare(0, fnamebase.size(), fnamebase))) {
+        if (0 == fname.compare(0, fnamebase.size(), fnamebase)) {
             clientName = fname.c_str();
-            SENSOR_LOGD(LOG_TAG "<-- Local Sending ready to socket: %s\n", clientName);
-        }else if ((true == externalApIpc) &&
-                   (0 == fname.compare(0, fnameExtAp.size(), fnameExtAp))) {
-            // client resides on external processor
-            clientName = fname.c_str() + strlen(SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE);
-            SENSOR_LOGD(LOG_TAG "<-- External Sending ready to socket: %s, size %d\n", clientName,
-                     strlen(SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE));
+            SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s\n", clientName);
         }
         if (NULL != clientName) {
             SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName);
             SensorAPIHalReadyIndMsg msg(SERVICE_NAME);
             SENSOR_LOGD(LOG_TAG "<-- Sending ready to socket: %s, msg size %d\n", clientName, sizeof(msg));
-            bool sendSuccessful = pIpcSender->send(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
-	    // Remove this external AP client as the socket it has is no longer reachable.
-	    // For MDM location API client, the socket file will be removed automatically when
-	    // its process exits/crashes.
-	    if ((false == sendSuccessful) && (true == externalApIpc)) {
-                remove(fname.c_str());
-                SENSOR_LOGD(LOG_TAG "<-- remove file %s", fname.c_str());
-            }
+            pIpcSender->send(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
             delete pIpcSender;
         }
     }
     closedir(dirp);
+}
+
+/******************************************************************************
+SensorApiService - onServiceStatusChange override
+******************************************************************************/
+void SensorApiService::onServiceStatusChange(int serviceId, int instanceId, int status,
+		const SensorQsocketSender& sender) {
+	SENSOR_LOGI(LOG_TAG ">-- onServiceStatusChange: (%d, %d) status %d\n", serviceId, instanceId, status);
+	if (status == 0) {
+		SENSOR_LOGI(LOG_TAG ">-- client deleted by qrtr: (%d, %d)\n", serviceId, instanceId);
+		deleteEapClientByIds(serviceId, instanceId);
+	}
 }
 
 /******************************************************************************
@@ -444,8 +440,7 @@ int SensorApiService::get_sensor_list(struct sensor_t const **s)
 /******************************************************************************
 SensorApiService - send_sensor_data_to_clients thread to process sensor data
 ******************************************************************************/
-void* SensorApiService::send_sensor_data_to_clients(void *arg)
-{
+void* SensorApiService::send_sensor_data_to_clients(void *arg) {
   SensorApiService* mSensorService = (SensorApiService*)(arg);
   int count = 0;
   sensors_event_t events[BUFFER_EVENT];
@@ -455,11 +450,22 @@ void* SensorApiService::send_sensor_data_to_clients(void *arg)
 		     events, sizeof(events)/sizeof(sensors_event_t));
      SENSOR_LOGV(LOG_TAG "read events = %d\n",count);
      std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+#ifdef POWERMANAGER_ENABLED
+     if ((POWER_STATE_SUSPEND != mSensorService->mPowerState) &&
+        (POWER_STATE_SHUTDOWN != mSensorService->mPowerState)) {
+	    for (auto each : mSensorService->mClients) {
+		    if (each.second && each.second->mTracking)
+			    if (each.second->mAccTracking || each.second->mGyroTracking)
+				    each.second->onSensorDataReadCb(events, count);
+	    }
+    }
+#else
      for (auto each : mSensorService->mClients) {
 	     if (each.second && each.second->mTracking)
 		     if (each.second->mAccTracking || each.second->mGyroTracking)
 			     each.second->onSensorDataReadCb(events, count);
      }
+#endif
   }
 }
 
@@ -661,6 +667,18 @@ void SensorApiService::deleteClientbyName(const std::string clientname) {
     pClient->cleanup();
 
     SENSOR_LOGI(LOG_TAG ">-- deleteClient client=%s\n", clientname.c_str());
+}
+
+void SensorApiService::deleteEapClientByIds(int serviceId, int instanceId) {
+
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    const char* clientName = getClientNameByIds(serviceId, instanceId);
+    if (clientName) {
+        SENSOR_LOGI(LOG_TAG ">-- service id: %d, instance id: %d, client name: %s",
+                 serviceId, instanceId, clientName);
+        deleteClientbyName(std::string(clientName));
+    }
 }
 
 /******************************************************************************
@@ -1397,25 +1415,6 @@ SensorApiService - power event handlers
 void SensorApiService::onPowerEvent(PowerStateType powerState) {
     std::lock_guard<std::mutex> lock(mMutex);
     SENSOR_LOGI(LOG_TAG "--< onPowerEvent %d", powerState);
-
     mPowerState = powerState;
-    if (POWER_STATE_SUSPEND == powerState) {
-	    for (auto each : mClients) {
-		    if (each.second)
-			    each.second->onCapabilitiesCallback(DEVICE_SUSPEND);
-	    }
-    }
-    else if (POWER_STATE_SHUTDOWN == powerState) {
-	    for (auto each : mClients) {
-		    if (each.second)
-			    each.second->onCapabilitiesCallback(DEVICE_SHUTDOWN);
-	    }
-    }
-    else if (POWER_STATE_RESUME == powerState) {
-	    for (auto each : mClients) {
-		    if (each.second)
-			    each.second->onCapabilitiesCallback(DEVICE_RESUME);
-	    }
-    }
 }
 #endif
