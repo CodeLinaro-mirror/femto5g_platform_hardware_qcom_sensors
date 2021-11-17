@@ -83,6 +83,7 @@ SensorClientImpl - constructors
 ******************************************************************************/
 SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
         mHalRegistered(false),
+        mEapClient(false),
 	mCapabilitiesCb(capabitiescb),
         mBatchingCb(nullptr),
         mSensorTempReadCb(nullptr),
@@ -143,6 +144,8 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
         SENSOR_LOGE(LOG_TAG "create Qsocket failed addr=%u:%u\n", service, instance);
         return;
     }
+    SENSOR_LOGI(LOG_TAG "mClientId %d listen on socket: %s\n", mClientId, mSocketName);
+    startListeningNonBlocking(mSocketName, SENSOR_CLIENT_API_QSOCKET_HALDAEMON_SERVICE_ID);
 #else
     // create ipc socket to send
     mIpcSender = new SensorIpcSender(SOCKET_TO_SENSOR_HAL_DAEMON);
@@ -164,6 +167,8 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
         SENSOR_LOGE(LOG_TAG "strlcpy failed %d\n", strCopied);
         return;
     }
+    SENSOR_LOGI(LOG_TAG "mClientId %d listen on socket: %s\n", mClientId, mSocketName);
+    startListeningNonBlocking(mSocketName);
 #endif
 
     pthread_mutex_init(&mSensorLibMutex, NULL);
@@ -171,8 +176,6 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
     pthread_condattr_setclock(&mSensorLibattr, CLOCK_MONOTONIC);
     pthread_cond_init(&mSensorLibCond, &mSensorLibattr);
 
-    SENSOR_LOGI(LOG_TAG "mClientId %d listen on socket: %s\n", mClientId, mSocketName);
-    startListeningNonBlocking(mSocketName);
 }
 
 /******************************************************************************
@@ -185,7 +188,7 @@ void SensorClientImpl::destroy() {
     stopListening();
     if (mHalRegistered && (nullptr != mIpcSender)) {
 	//Send Client Deregister Message Id to hal daemon
-	SENSOR_LOGI(LOG_TAG "Send client De-Register message\n");
+	SENSOR_LOGI(LOG_TAG "Send client De-Register message %s\n", mSocketName);
         SensorAPIClientDeregisterReqMsg msg(mSocketName);
 	bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
 	delete mIpcSender;
@@ -673,9 +676,8 @@ bool SensorClientImpl::SensorReconfigure(bool enable) {
 
 /******************************************************************************
   SensorClientImpl - onListenerReady
- ******************************************************************************/
+*******************************************************************************/
 void SensorClientImpl::onListenerReady() {
-
     SENSOR_LOGI(LOG_TAG "<<< onListenerReady\n");
     if (0 != chown(mSocketName, getuid(), GID_SENSORCLIENT)) {
 	    SENSOR_LOGE(LOG_TAG "chown to group sensor client failed %s", strerror(errno));
@@ -683,17 +685,46 @@ void SensorClientImpl::onListenerReady() {
     //Send Client Register Message Id to Daemon if success,
     //set mHalRegistered to true
     if (!mHalRegistered) {
+      SENSOR_LOGI(LOG_TAG "<<< Sending Client Register message %s\n", mSocketName);
       SensorAPIClientRegisterReqMsg msg(mSocketName, SENSOR_CLIENT_API);
-      bool rc = false;
-      rc = sendMessage(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
-      if(true != rc && mCapabilitiesCb)
+      bool rc = sendMessage(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+      if(true != rc && mCapabilitiesCb) {
 	      mCapabilitiesCb(SHD_NOT_RUNNING);
+	      mEapClient  = true;
+      }
     }
 }
 
+#ifdef FEATURE_EXTERNAL_AP
 /******************************************************************************
-  SensorClientImpl - Process Message Receive from Daemon
- ******************************************************************************/
+  SensorClientImpl - onServiceStatusChange
+*******************************************************************************/
+void SensorClientImpl::onServiceStatusChange(int serviceId, int instanceId, int status,
+		const SensorQsocketSender& sender) {
+    if (status == 1) {
+	SENSOR_LOGI(LOG_TAG "Sensor HAL Daemon ServiceStatus::UP serviceId %d instanceId %d\n",
+			serviceId, instanceId);
+	if (SENSOR_CLIENT_API_QSOCKET_HALDAEMON_SERVICE_ID == serviceId &&
+			SENSOR_CLIENT_API_QSOCKET_HALDAEMON_INSTANCE_ID == instanceId) {
+		if (mIpcSender->copyDestAddrFrom(sender)) {
+			if (mEapClient) {
+			    sleep(2);
+			    SensorAPIHalReadyIndMsg pMsg(SERVICE_NAME);
+			    string msg;
+			    msg.resize(sizeof(pMsg));
+			    memcpy(msg.data(), reinterpret_cast<uint8_t *>(&pMsg), sizeof(pMsg));
+			    onReceive(msg);
+			    mEapClient = true;
+			}
+		}
+	}
+    }
+}
+#endif
+
+/******************************************************************************
+ SensorClientImpl - Process Message Receive from Daemon
+******************************************************************************/
 void SensorClientImpl::onReceive(const string& data) {
 
    SensorAPIMsgHeader *pMsg = (SensorAPIMsgHeader *)(data.data());
@@ -704,7 +735,6 @@ void SensorClientImpl::onReceive(const string& data) {
    if (false == pMsg->isValidServerMsg(length)) {
 	   return;
    }
-   SENSOR_LOGV(LOG_TAG "<<< pMsg->msgId %d", pMsg->msgId);
    //Check for MSG ID
    switch (pMsg->msgId) {
        //Received hal capability message from SHD(SENSOR HAL DAEMON)
@@ -719,6 +749,7 @@ void SensorClientImpl::onReceive(const string& data) {
 		mHalRegistered = true;
 		SensorReconfigure(mShdRestarted);
 		mShdRestarted = false;
+		mEapClient  = true;
 		if (mCapabilitiesCb)
 			mCapabilitiesCb(pCapIndMsg->mask);
                 break;
@@ -739,10 +770,6 @@ void SensorClientImpl::onReceive(const string& data) {
 	  if (mCapabilitiesCb)
 		  mCapabilitiesCb(SHD_RESTARTED);
 	  mShdRestarted = true;
-	  // when hal daemon crashes, we need to find the new node/port
-#ifdef FEATURE_EXTERNAL_AP
-	  mIpcSender->findNewService();
-#endif
 	  onListenerReady();
 	  break;
        }

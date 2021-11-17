@@ -37,7 +37,7 @@ void SensorHalDaemonIPCReceiver::onReceive(const std::string& data) {
 }
 
 void SensorHalDaemonIPCReceiver::onListenerReady() {
-    mService->onListenerReady(false);
+    mService->onListenerReady();
 }
 
 /******************************************************************************
@@ -48,6 +48,10 @@ void SensorHalDaemonQsockReceiver::onReceive(const std::string& data) {
 }
 
 void SensorHalDaemonQsockReceiver::onListenerReady() {
-    // true indicates this is IPC is for communication within same processor
-    mService->onListenerReady(true);
+    mService->onListenerReady();
+}
+
+void SensorHalDaemonQsockReceiver::onServiceStatusChange(int serviceId,
+		int instanceId, int status, const SensorQsocketSender& refSender) {
+    mService->onServiceStatusChange(serviceId, instanceId, status, refSender);
 }

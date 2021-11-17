@@ -48,6 +48,10 @@
 #include <SensorIpc.h>
 #include <fstream>
 #include <linux/input.h>
+#include <vector>
+#include <string>
+#include <functional>
+#include <memory>
 
 #include <SensorLog.h>
 #include <SensorApiMsg.h>
@@ -162,12 +166,13 @@ public:
     // APIs can be invoked by IPC
     void processClientMsg(const std::string& data);
 
-
     // from IPC receiver
-    void onListenerReady(bool externalApIpc);
+    void onListenerReady();
+    void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender);
 
     // other APIs
     void deleteClientbyName(const std::string name);
+    void deleteEapClientByIds(int id1, int id2);
 
 #ifdef POWERMANAGER_ENABLED
     void onPowerEvent(PowerStateType powerState);
@@ -239,6 +244,15 @@ private:
     inline SensorHalDaemonClientHandler* getClient(const char* socketName) {
 	    std::string clientname(socketName);
 	    return getClient(clientname);
+    }
+
+    inline const char* getClientNameByIds(int id1, int id2) {
+        for (auto it = mClients.begin(); it != mClients.end(); ++it) {
+            if (it->second->getServiceId() == id1 && it->second->getInstanceId() == id2) {
+                return it->first.c_str();
+            }
+        }
+        return nullptr;
     }
 
     // singleton instance

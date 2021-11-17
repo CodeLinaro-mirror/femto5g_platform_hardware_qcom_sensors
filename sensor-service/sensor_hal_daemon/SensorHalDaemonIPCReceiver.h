@@ -91,9 +91,9 @@ public:
         }
 
         if (true == blocking) {
-            return startListeningBlocking(qsocketName);
+            return startListeningBlocking(qsocketName, SENSOR_CLIENT_API_QSOCKET_CLIENT_SERVICE_ID);
         } else {
-            return startListeningNonBlocking(qsocketName);
+            return startListeningNonBlocking(qsocketName, SENSOR_CLIENT_API_QSOCKET_CLIENT_SERVICE_ID);
         }
     }
 
@@ -105,7 +105,7 @@ public:
     // override from SensorIpc
     void onReceive(const std::string& data) override;
     void onListenerReady() override;
-
+    void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender)override;
 private:
     SensorApiService *mService;
 };

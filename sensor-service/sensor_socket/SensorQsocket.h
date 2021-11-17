@@ -87,9 +87,7 @@
 
 namespace sensor_util {
 
-
 #ifdef USE_QSOCKET
-
 class SensorQsocketSender;
 
 class SensorQsocket : SensorIpc {
@@ -105,14 +103,14 @@ public:
     // instance id of the socket.
     // Calling this funciton will bsensork current thread. The listening can
     // be stopped by calling stopListening().
-    bool startListeningBlocking(const std::string& name);
+    bool startListeningBlocking(const std::string& name, int ServiceIdToWatch);
 
     // Create a new SensorThread and listen for new messages in it.
     // The socket to listen on is identified by the argument name,
     // which contains the service and instance id of the socket.
     // Calling this function will return immediately and won't bsensork current thread.
     // The listening can be stopped by calling stopListening().
-    bool startListeningNonBlocking(const std::string& name);
+    bool startListeningNonBlocking(const std::string& name, int ServiceIdToWatch);
     static void *startListeningNonBlockingThread(void *arg);
 
     // Stop listening to new messages.
@@ -140,6 +138,7 @@ protected:
     // SensorQsocket client can overwrite this function to get notification
     // when the socket for SensorQsocket is ready to receive messages.
     inline virtual void onListenerReady() {}
+    inline virtual void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender) {}
 
 private:
     static bool sendData(int fd, const qsockaddr_ipcr& addr,
@@ -154,6 +153,7 @@ private:
     int mService;
     int mInstance;
     int mFdMe;
+    int mServiceIdToWatch;
     std::string mQsocketName;
     pthread_t mQsocketThread;
 };
@@ -214,10 +214,10 @@ private:
 };
 
 #else //QRTRT famlily
+#define SOCKET_SENDER_SEND_TIMEOUT_MSEC 100
 
-#define RETRY_FINDNEWSERVICE_MAX_COUNT 200
-#define RETRY_FINDNEWSERVICE_SLEEP_MS  5
-#define SOCKET_TIMEOUT_SEC 2
+static inline __le32 cpu_to_le32(uint32_t x) { return htole32(x); }
+static inline uint32_t le32_to_cpu(__le32 x) { return le32toh(x); }
 
 class SensorQsocketSender;
 
@@ -234,14 +234,14 @@ public:
     // instance id of the socket.
     // Calling this funciton will bsensork current thread. The listening can
     // be stopped by calling stopListening().
-    bool startListeningBlocking(const std::string& name);
+    bool startListeningBlocking(const std::string& name, int ServiceIdToWatch);
 
     // Create a new SensorThread and listen for new messages in it.
     // The socket to listen on is identified by the argument name,
     // which contains the service and instance id of the socket.
     // Calling this function will return immediately and won't bsensork current thread.
     // The listening can be stopped by calling stopListening().
-    bool startListeningNonBlocking(const std::string& name);
+    bool startListeningNonBlocking(const std::string& name, int ServiceIdToWatch);
     static void *startListeningNonBlockingThread(void *arg);
 
     // Stop listening to new messages.
@@ -253,8 +253,9 @@ public:
     // Argument name contains the name of the target unix socket. data contains the
     // message to be sent out. Convert your message to a string before calling this function.
     // The function will return true on success, and false on failure.
-    static bool send(int service, int instance, const std::string& data);
-    static bool send(int service, int instance, const uint8_t data[], uint32_t length);
+    bool send(int service, int instance, const std::string& data);
+    bool send(int service, int instance, const uint8_t data[], uint32_t length);
+    bool handleQrtrCtrlMsg(const char* data, uint32_t len);
 
 protected:
     // Callback function for receiving incoming messages.
@@ -269,49 +270,160 @@ protected:
     // SensorQsocket client can overwrite this function to get notification
     // when the socket for SensorQsocket is ready to receive messages.
     inline virtual void onListenerReady() {}
+    inline virtual void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender) {}
 
 private:
     static bool sendData(int fd, const sockaddr_qrtr& addr,
 		    const uint8_t data[], uint32_t length); 
-    static bool findService(int fd, sockaddr_qrtr& addr, int service, int instance,
-                            bool & serviceDeleted);
-    // this call will find service with retry attempt of
-    // default retry count and interval
-    static bool findServiceWithRetry(int fd, sockaddr_qrtr& addr, int service, int instance,
-                                     bool & serviceDeleted);
-    struct sockaddr_qrtr mDestAddr;
+    struct sockaddr_qrtr mAddr;
+    mutable sockaddr_qrtr mCtrlPntAddr;
+    mutable struct qrtr_ctrl_pkt mCtrlPkt;
     int mService;
     int mInstance;
     int mFdMe;
+    int mServiceIdToWatch;
     std::string mQsocketName;
     pthread_t mQsocketThread;
 };
 
 
 class SensorQsocketSender {
-public:
-    // Constructor of SensorQsocketSender class
-    //
-    // Argument service/instance contain destination port.
-    // This class hides generated fd and destination address object from user.
-    inline SensorQsocketSender(int service, int instance) {
-        mService = service;
-        mInstance = instance;
-	mServiceDeleted = false;
-	memset(&mDestAddr, 0, sizeof(mDestAddr));
-	mSocket = socket(AF_QIPCRTR, SOCK_DGRAM, 0);
-        if (mSocket < 0) {
-            return;
+protected:
+    int mSocket;
+    int mService;
+    int mInstance;
+    mutable sockaddr_qrtr mAddr;
+    mutable sockaddr_qrtr mCtrlPntAddr;
+    mutable struct qrtr_ctrl_pkt mCtrlPkt;
+    mutable bool mLookupPending;
+    bool ctrlCmdAndResponse(enum qrtr_pkt_type cmd) const {
+	    SENSOR_LOGI(LOG_TAG "cmd: %d, isValid %d sock id %d, service id %d, instance id %d",
+		cmd, isValid(), mSocket,
+		le32_to_cpu(mCtrlPkt.server.service),
+		le32_to_cpu(mCtrlPkt.server.instance));
+        if (isValid()) {
+            int rc = 0;
+            mCtrlPkt.cmd = cpu_to_le32(cmd);
+            if ((rc = ::sendto(mSocket, &mCtrlPkt, sizeof(mCtrlPkt), 0,
+                               (const struct sockaddr *)&mCtrlPntAddr, sizeof(mCtrlPntAddr))) < 0) {
+		    SENSOR_LOGE(LOG_TAG "failed: sendto rc=%d reason=(%s)", rc, strerror(errno));
+            } else if (QRTR_TYPE_NEW_LOOKUP == cmd) {
+                int len = 0;
+                struct qrtr_ctrl_pkt pkt;
+                while ((len = ::recv(mSocket, &pkt, sizeof(pkt), 0)) > 0) {
+                    if (len >= (decltype(len))sizeof(pkt)) {
+                        qrtr_pkt_type pktType = le32_to_cpu(pkt.cmd);
+                        SENSOR_LOGI(LOG_TAG "qrtr new lookup received pkt type: %d, "
+                                 "pkt service id: %d, instance id: %d,"
+                                 "node %d, port %d",
+                                 pktType, le32_to_cpu(pkt.server.service),
+                                 le32_to_cpu(pkt.server.instance),
+                                 le32_to_cpu(pkt.server.node),
+                                 le32_to_cpu(pkt.server.port));
+
+                        switch (pktType){
+                        case QRTR_TYPE_NEW_SERVER:
+                            if (le32_to_cpu(pkt.server.service) == 0 &&
+                                       le32_to_cpu(pkt.server.instance) == 0) {
+                                return false;
+                            } else if ((mCtrlPkt.server.service == pkt.server.service) &&
+                                (mCtrlPkt.server.instance == pkt.server.instance)) {
+                                mAddr.sq_node = le32_to_cpu(pkt.server.node);
+                                mAddr.sq_port = le32_to_cpu(pkt.server.port);
+                                return true;
+                            }
+                            break;
+                        case QRTR_TYPE_DEL_SERVER:
+                            if ((mCtrlPkt.server.service == pkt.server.service) &&
+                                (mCtrlPkt.server.instance == pkt.server.instance)) {
+                                // service of particular service id, instance id gets deleted
+                                return false;
+                            }
+                            break;
+                        default:
+                            break;
+                        }
+                    }
+                }
+            }
         }
-        // 2 second timeout value for socket operation
+        SENSOR_LOGI(LOG_TAG "cmd: %d, return %d", cmd, isValid());
+        return isValid();
+    }
+    inline virtual bool isOperable() {
+        return isValid() &&
+            (mAddr.sq_node != 0 || mAddr.sq_port != 0);
+    }
+
+public:
+    inline bool send(const uint8_t data[], uint32_t length) {
+        if (mLookupPending) {
+            if (ctrlCmdAndResponse(QRTR_TYPE_NEW_LOOKUP) == false) {
+                return 0;
+            }
+            mLookupPending = false;
+        }
+	bool result = SensorQsocket::sendData(mSocket, mAddr, data, length);
+        return result;
+    }
+ 
+    inline bool isValid() const { return -1 != mSocket; }
+
+    inline SensorQsocketSender(const sockaddr_qrtr& destAddr) :
+            mService(0), mInstance(0),
+            mAddr(destAddr), mCtrlPkt({}), mLookupPending(false) {
+		    mSocket =  socket(AF_QIPCRTR, SOCK_DGRAM, 0);
+		    if (mSocket < 0) {
+			    return;
+		    }
+    }
+    inline SensorQsocketSender(int service, int instance) : 
+	    mService(service),
+            mInstance(instance),
+            mAddr({AF_QIPCRTR, 0, 0}),
+            mCtrlPkt({}),
+            mLookupPending(true) {
+        mSocket =  socket(AF_QIPCRTR, SOCK_DGRAM, 0);
+	if (mSocket < 0) {
+		return;
+	}
+	// set timeout so if failed to send, call will return after SOCKET_TIMEOUT_MSEC
+        // otherwise, call may never return
         timeval timeout;
-        timeout.tv_sec = SOCKET_TIMEOUT_SEC;
-        timeout.tv_usec = 0;
+
+        timeout.tv_sec = SOCKET_SENDER_SEND_TIMEOUT_MSEC / 1000;
+        timeout.tv_usec = SOCKET_SENDER_SEND_TIMEOUT_MSEC % 1000 * 1000;
         setsockopt(mSocket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
-        // find the server address
-	SensorQsocket::findServiceWithRetry(mSocket, mDestAddr, mService, mInstance,
-			mServiceDeleted);
+        socklen_t sl = sizeof(mAddr);
+        int rc = 0;
+        if ((rc = getsockname(mSocket, (struct sockaddr*)&mAddr, &sl)) ||
+            mAddr.sq_family != AF_QIPCRTR || sl != sizeof(mAddr)) {
+            SENSOR_LOGE(LOG_TAG "failed: getsockname rc=%d reason=(%s), mAddr.sq_family=%d",
+                     rc, strerror(errno), mAddr.sq_family);
+            close(mSocket);
+        } else {
+            mCtrlPkt.server.service = cpu_to_le32(service);
+            mCtrlPkt.server.instance = cpu_to_le32(instance);
+            mCtrlPkt.server.node = cpu_to_le32(mAddr.sq_node);
+            mCtrlPkt.server.port = cpu_to_le32(mAddr.sq_port);
+            mCtrlPntAddr = mAddr;
+            mCtrlPntAddr.sq_port = QRTR_PORT_CTRL;
+        }
+    }
+
+    inline virtual bool copyDestAddrFrom(const SensorQsocketSender& otherSender) {
+        bool retval = true;
+        sockaddr_qrtr otherAddr = (reinterpret_cast<const SensorQsocketSender&>(otherSender)).mAddr;
+        if (mAddr.sq_family != otherAddr.sq_family ||
+                mAddr.sq_node != otherAddr.sq_node ||
+                mAddr.sq_port != otherAddr.sq_port) {
+            mAddr = otherAddr;
+            retval = true;
+        }
+        mLookupPending = false;
+
+        return retval;
     }
 
     inline ~SensorQsocketSender() {
@@ -320,58 +432,6 @@ public:
 	}
     }
 
-    // Send out a message.
-    // Call this function to send a message
-    //
-    // Argument data and length contains the message to be sent out.
-    // Return true when succeeded
-    inline bool send(const uint8_t data[], uint32_t length) {
-        bool rtv = true;
-	if ((nullptr != data) && (false == mServiceDeleted)){
-            if ((mDestAddr.sq_node == 0) && (mDestAddr.sq_port == 0)) {
-                SENSOR_LOGE(LOG_TAG "service not ready");
-            } else{
-                rtv = SensorQsocket::sendData(mSocket, mDestAddr, data, length);
-            }
-        }
-        return rtv;
-    }
-
-    // This routine will attempt to find new service when service
-    // has crashed and restarted.
-    // We need to make sure that we get the new dest info (node/port) as the
-    // crashed service may lingering around for some time and findService may
-    // return the node/port belong to the crashed service.
-    inline bool findNewService() {
-        bool rtv = false;
-	bool newServiceFound = false;
-	int retryCount = 0;
-	sockaddr_qrtr newDestAddr;
-	do {
-		memset(&newDestAddr, 0, sizeof(newDestAddr));
-		mServiceDeleted = false;
-		rtv = SensorQsocket::findServiceWithRetry(mSocket, newDestAddr, mService, mInstance, mServiceDeleted);
-		if (true == rtv) {
-			if ((mDestAddr.sq_node != newDestAddr.sq_node) ||
-					(mDestAddr.sq_port != newDestAddr.sq_port)) {
-				mDestAddr = newDestAddr;
-				newServiceFound = true;
-				break;
-			}
-			usleep(RETRY_FINDNEWSERVICE_SLEEP_MS*1000);
-			retryCount++;
-		}
-	} while (retryCount < RETRY_FINDNEWSERVICE_MAX_COUNT);
-	SENSOR_LOGD(LOG_TAG "find new service: service found %d, new service found %d,"
-			"retry count %d", rtv, newServiceFound, retryCount);
-	return rtv;
-    }
-private:
-    int mSocket;
-    int mService;
-    int mInstance;
-    bool mServiceDeleted;
-    sockaddr_qrtr mDestAddr;
 };
 #endif //end of QRTR_
 } // namespace sensor_util 
