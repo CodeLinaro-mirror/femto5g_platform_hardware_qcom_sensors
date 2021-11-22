@@ -169,7 +169,7 @@ SensorApiService - onListenerReady send HAL READY message to all clients.
 void SensorApiService::onListenerReady(bool externalApIpc) {
 
     // traverse client sockets directory - then broadcast READY message
-    SENSOR_LOGV(LOG_TAG ">-- onListenerReady Finding client sockets...\n");
+    SENSOR_LOGD(LOG_TAG ">-- onListenerReady Finding client sockets...\n");
 
     DIR *dirp = opendir(SOCKET_SENSOR_CLIENT_DIR);
     if (!dirp) {
@@ -180,7 +180,7 @@ void SensorApiService::onListenerReady(bool externalApIpc) {
     struct stat sbuf = {0};
     const std::string fnamebase = SOCKET_TO_SENSOR_CLIENT_BASE;
     while (nullptr != (dp = readdir(dirp))) {
-	std::string fnameExtAp = EAP_SENSOR_CLIENT_DIR;
+	std::string fnameExtAp = SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE;
         std::string fname = SOCKET_SENSOR_CLIENT_DIR;
         fname += dp->d_name;
         if (-1 == lstat(fname.c_str(), &sbuf)) {
@@ -194,25 +194,25 @@ void SensorApiService::onListenerReady(bool externalApIpc) {
         if ((false == externalApIpc) &&
 		(0 == fname.compare(0, fnamebase.size(), fnamebase))) {
             clientName = fname.c_str();
-            SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s\n", clientName);
+            SENSOR_LOGD(LOG_TAG "<-- Local Sending ready to socket: %s\n", clientName);
         }else if ((true == externalApIpc) &&
                    (0 == fname.compare(0, fnameExtAp.size(), fnameExtAp))) {
             // client resides on external processor
-            clientName = fname.c_str() + strlen(EAP_SENSOR_CLIENT_DIR);
-            SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s, size %d\n", clientName,
-                     strlen(EAP_SENSOR_CLIENT_DIR));
+            clientName = fname.c_str() + strlen(SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE);
+            SENSOR_LOGD(LOG_TAG "<-- External Sending ready to socket: %s, size %d\n", clientName,
+                     strlen(SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE));
         }
         if (NULL != clientName) {
             SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName);
             SensorAPIHalReadyIndMsg msg(SERVICE_NAME);
-            SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s, msg size %d\n", clientName, sizeof(msg));
+            SENSOR_LOGD(LOG_TAG "<-- Sending ready to socket: %s, msg size %d\n", clientName, sizeof(msg));
             bool sendSuccessful = pIpcSender->send(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
 	    // Remove this external AP client as the socket it has is no longer reachable.
 	    // For MDM location API client, the socket file will be removed automatically when
 	    // its process exits/crashes.
 	    if ((false == sendSuccessful) && (true == externalApIpc)) {
                 remove(fname.c_str());
-                SENSOR_LOGV(LOG_TAG "<-- remove file %s", fname.c_str());
+                SENSOR_LOGD(LOG_TAG "<-- remove file %s", fname.c_str());
             }
             delete pIpcSender;
         }
