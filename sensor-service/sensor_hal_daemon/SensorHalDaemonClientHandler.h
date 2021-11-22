@@ -98,7 +98,7 @@ public:
 
                 char fileName[MAX_SOCKET_PATHNAME_LENGTH];
                 snprintf (fileName, sizeof(fileName), "%s%s",
-                          EAP_SENSOR_CLIENT_DIR, mName.c_str());
+                          SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE, mName.c_str());
                 SENSOR_LOGI(LOG_TAG "<-- attempt to open file %s\n", fileName);
                 if (nullptr == fopen (fileName, "w")) {
                     SENSOR_LOGE(LOG_TAG "<-- failed to open file %s\n", fileName);

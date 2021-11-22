@@ -45,7 +45,7 @@ void SensorHalDaemonClientHandler::cleanup() {
                 sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0 ) {
         char fileName[MAX_SOCKET_PATHNAME_LENGTH];
         snprintf (fileName, sizeof(fileName), "%s%s",
-                  EAP_SENSOR_CLIENT_DIR, mName.c_str());
+                  SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE, mName.c_str());
         SENSOR_LOGI(LOG_TAG "removed file name %s\n", fileName);
         if (0 != remove(fileName)) {
 		SENSOR_LOGE(LOG_TAG "<-- failed to remove file %s error %s\n", fileName, strerror(errno));

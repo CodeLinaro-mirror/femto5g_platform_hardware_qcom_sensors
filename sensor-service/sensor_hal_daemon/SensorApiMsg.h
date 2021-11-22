@@ -59,9 +59,10 @@ Constants
 #define GID_SENSORCLIENT (3011)
 
 #define SOCKET_SENSOR_CLIENT_DIR     "/dev/socket/sensor_client/"
-#define EAP_SENSOR_CLIENT_DIR        "/data/vendor/sensor/extap_sensorclient/"
+//#define EAP_SENSOR_CLIENT_DIR        "/dev/socket/sensor_client/"
 #define SOCKET_TO_SENSOR_HAL_DAEMON  "/dev/socket/sensor_client/hal_daemon"
 #define SOCKET_TO_SENSOR_CLIENT_BASE "/dev/socket/sensor_client/toclient"
+#define SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE "/dev/socket/sensor_client/extap.toclient"
 
 // Maximum fully qualified path(including the file name)
 // for the sensor remote API service and client socket name
@@ -191,9 +192,7 @@ struct SensorAPIMsgHeader
 	    bool msgValid = isValidMsg(msgSize);
 	    if ((true== msgValid) &&
 			    ((strncmp(mSocketName, SOCKET_SENSOR_CLIENT_DIR,
-				      sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0) &&
-			     (strncmp(mSocketName, EAP_SENSOR_CLIENT_DIR,
-				      sizeof(EAP_SENSOR_CLIENT_DIR)-1) != 0))) {
+				      sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0))) {
 		    SENSOR_LOGE(LOG_TAG "msg not from expected client\n");
 		    msgValid = false;
 	    }
