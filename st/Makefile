@@ -26,7 +26,7 @@ CFLAGS += $(INCLUDES) -DLOG_TAG=\"SensorHAL\" -DPLTF_LINUX_ENABLED -Wall \
 		-Wunused-parameter -Wunused-value -Wunused-function -Wunused-label -fPIC
 
 CPPFLAGS = $(INCLUDES) -g -DPLTF_LINUX_ENABLED -Wunused-label -Wall -fPIC \
-		-D_DEFAULT_SOURCE
+		-D_DEFAULT_SOURCE -std=c++11
 LDFLAGS = -g -L$(OUT)
 LDLIBS = -lpthread
 
@@ -47,7 +47,9 @@ LOCAL_SRC_FILES := \
 		src/HWSensorBase.cpp \
 		src/Accelerometer.cpp \
 		src/Gyroscope.cpp \
-		src/utils.cpp
+		src/utils.cpp \
+		src/iNotifyConfigMngmt.cpp \
+		src/mlc-helper.cpp
 
 OBJS=$(subst .cpp,.o,$(LOCAL_SRC_FILES))
 
