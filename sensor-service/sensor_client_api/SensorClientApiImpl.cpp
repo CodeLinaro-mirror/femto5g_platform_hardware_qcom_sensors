@@ -56,6 +56,7 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
 	mSensorTrackingOption(nullptr),
         mSensorMLCEventCbs(nullptr),
 	mSensormFifoReadCb(nullptr),
+	mSelfTestResultCb(nullptr),
 	mSensorCount(0),
 	mShdRestarted(false),
 	mSensorMlcCaseCount(0)
@@ -481,6 +482,69 @@ int SensorClientImpl::startBufferDataRead(bool enable, SensorBufferDataReadCb se
 }
 
 /******************************************************************************
+SensorClientImpl - SelfTest
+******************************************************************************/
+int SensorClientImpl::selfTest(int sensor_id, SelfTestType selfTestType, int request_id, SelfTestResultCallback selftestResultCallback) {
+    SENSOR_LOGI(LOG_TAG ">>> sensorSelfTest sensor_id %d SelfTestType %d request_id = %d\n", sensor_id, selfTestType, request_id);
+
+    int ret = 0;
+    bool SensorId = false;
+
+    lock_guard<mutex> lock(mMutex);
+
+    //Check about Client registered to daemon
+    if (!mHalRegistered) {
+            SENSOR_LOGE(LOG_TAG ">>> startBatching - Not registered yet\n");
+            return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+    }
+
+    mSelfTestResultCb = selftestResultCallback;
+
+    //Input parameter check
+    if (mSensorCount != 0) {
+      for (int i=0; i < mSensorCount; i++) {
+         if (mSensorList[i].sensor_id == sensor_id) {
+            SensorId = true;
+	    if (selfTestType != Positive && selfTestType != Negative){
+		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+		}
+            break;
+         }
+      }
+      if (SensorId != true ){
+         return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+	}
+    }
+    else{
+      return SENSOR_ERROR_NO_SENSORS_FOUND;
+	}
+
+    if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
+      pthread_mutex_lock (&mSensorLibMutex);
+      SensorAPISelfTestReqMsg msg (mSocketName,
+              sensor_id, selfTestType, request_id);
+      bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+              sizeof(msg));
+      if (true != rc) {
+         pthread_mutex_unlock (&mSensorLibMutex);
+         return SENSOR_ERROR_IPC_FAILED;
+      }
+      mTimeout = timeout(3);
+      ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
+      pthread_mutex_unlock (&mSensorLibMutex);
+      if (ret == ETIMEDOUT){
+              return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
+	}
+      else{
+              return mRespReturn;
+	}
+    }
+    else{
+        return SENSOR_ERROR_INVALID_CLIENT;
+	}
+}
+
+/******************************************************************************
 SensorClientImpl - SensorReconfigure Enable
 ******************************************************************************/
 bool SensorClientImpl::SensorReconfigure(bool enable) {
@@ -774,6 +838,31 @@ void SensorClientImpl::onReceive(const string& data) {
                   const SensorAPImFifoIndMsg* pmFifoMsg = (SensorAPImFifoIndMsg*) (pMsg);
                   mSensormFifoReadCb(pmFifoMsg->sensorData.events[0].sensor,
 				  &pmFifoMsg->sensorData.events[0], pmFifoMsg->sensorData.count);
+          }
+          break;
+       }
+       //Received Sensor MLC case enable/disable Resp from SHD(SENSOR HAL DAEMON)
+       case E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID:
+       {
+           if (sizeof(SensorAPIGenericRespMsg) != length) {
+                   SENSOR_LOGE(LOG_TAG "payload size does not match for message with id: %d\n",
+                                   pMsg->msgId);
+           }
+
+           const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
+           pthread_mutex_lock (&mSensorLibMutex);
+           mRespReturn = pRespMsg->ret;
+           pthread_cond_signal (&mSensorLibCond);
+           pthread_mutex_unlock (&mSensorLibMutex);
+           break;
+       }
+       //Received sensor self test result from  SHD(SENSOR HAL DAEMON)
+       case E_SENSORAPI_SENSOR_SELFTEST_IND_MSG_ID:
+       {
+          if((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSelfTestResultCb) {
+                  const SensorAPISelfTestIndMsg* pSelfMsg = (SensorAPISelfTestIndMsg*) (pMsg);
+		  SENSOR_LOGE(LOG_TAG "mselftestresultcb: sensor_id = %d request_id = %d result = %d\n", pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result);
+                  mSelfTestResultCb(pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result);
           }
           break;
        }

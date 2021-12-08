@@ -492,6 +492,15 @@ void SensorApiService::processClientMsg(const std::string& data) {
             getSensorBufferData(reinterpret_cast<SensorAPIBufferDataReqMsg*>(pMsg));
             break;
         }
+        case E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID: {
+            // Sensor buffer Data
+            if (sizeof(SensorAPISelfTestReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            sensorSelfTest(reinterpret_cast<SensorAPISelfTestReqMsg*>(pMsg));
+            break;
+        }
         default: {
             SENSOR_LOGE(LOG_TAG "Unknown message with id: %d\n", pMsg->msgId);
             break;
@@ -968,6 +977,111 @@ void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
 fail:
     pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
     pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
+
+    return;
+}
+
+/******************************************************************************
+SensorApiService - implementation - sensorSelfTest to do the self test of sensor
+*****************************************************************************/
+void SensorApiService::sensorSelfTest(SensorAPISelfTestReqMsg* pMsg) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    int ret = 0;
+    bool SensorId = false;
+    FILE *self_test_fd = NULL;;
+    char *file_path_name = NULL;
+    int fsize = 256;
+    char self_test_file_name[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
+    int len = 0;
+    char buffer_string[DEVICE_IIO_MAX_FILENAME_LEN];
+    SelfTestResult result;
+
+    SENSOR_LOGI(LOG_TAG "--<sensorSelfTest sensor_id %d SelfTestType %d\n",pMsg->sensor_id, pMsg->selfTestType);
+
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+    if (!pClient) {
+            SENSOR_LOGE(LOG_TAG ">-- sensorSelfTest invlalid client=%s\n", pMsg->mSocketName);
+            return;
+    }
+
+
+   //Input parameter check
+    if (mSensorCount != 0) {
+      for (int i=0; i < mSensorCount; i++) {
+              if (mSensorList[i].sensor_id == pMsg->sensor_id) {
+			printf("mSensorList[i].sensor_id = %d  pMsg->sensor_id = %d\n");
+                      SensorId = true;
+		      if (pMsg->selfTestType != Positive && pMsg->selfTestType != Negative) {
+			      ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+		      }
+		      break;
+              }
+      }
+      if (SensorId != true ) {
+              ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+      }
+    }
+    else {
+            ret = SENSOR_ERROR_NO_SENSORS_FOUND;
+    }
+
+    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+
+	for (int i=0 ; i < mSensorCount; i++) {
+          if (pMsg->sensor_id == mSensor[i].sensor_id) {
+            if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
+                    find_path(DYN_IIO_TYPE, self_test_file_name, ASM330LHHX_ACC_SEARCH,
+                                    sizeof(self_test_file_name));
+            }
+            if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE) {
+                    find_path(DYN_IIO_TYPE, self_test_file_name, ASM330LHHX_GYRO_SEARCH,
+                                    sizeof(self_test_file_name));
+            }
+          }
+        }
+
+        strlcat(self_test_file_name, "selftest", sizeof(self_test_file_name));
+        SENSOR_LOGI(LOG_TAG "self test file name %s\n", self_test_file_name);
+
+	for(int i = 0 ; i < mSensorCount; i++)  {
+        sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Enable the sensor
+        }
+	self_test_fd = fopen(self_test_file_name, "w+");
+        if (!self_test_fd) {
+                SENSOR_LOGE(LOG_TAG "open");
+        }
+
+        if (pMsg->selfTestType == Positive) {
+                SENSOR_LOGI(LOG_TAG "wrting Positive sign to self test file\n");
+                ret = fprintf(self_test_fd, "positive-sign");
+        }
+        else if (pMsg->selfTestType == Negative) {
+                SENSOR_LOGI(LOG_TAG "wrting Negative sign to self test file\n");
+                ret = fprintf(self_test_fd, "negative-sign");
+        }
+
+	rewind(self_test_fd);
+        fgets(buffer_string, 50, self_test_fd);
+		SENSOR_LOGI(LOG_TAG "buffer_string = %s ", buffer_string);
+
+	if(strstr(buffer_string, "pass")){
+                SENSOR_LOGI(LOG_TAG "self test is passed\n");
+		result = Passed;
+        }
+        else{
+                SENSOR_LOGI(LOG_TAG "self test failed but made it pass\n");
+		result = Failed;
+	}
+        fclose(self_test_fd);
+	for(int i = 0 ; i < mSensorCount; i++)  {
+		if (mSensor[i].Activate == SENSOR_ENABLE){
+		sensor_activate(mSensor[i].sensor_id, SENSOR_ENABLE); //Enable the sensor
+		}
+	}
+	SENSOR_LOGI(LOG_TAG "sensor_id = %d request_id = %d result = %d\n", pMsg->sensor_id, pMsg->request_id, result);
+	pClient->onSensorSelfTestResultCb(pMsg->sensor_id, pMsg->request_id, result);
+fail:
 
     return;
 }

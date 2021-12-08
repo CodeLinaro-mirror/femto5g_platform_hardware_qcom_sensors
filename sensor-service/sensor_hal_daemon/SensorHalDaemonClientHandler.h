@@ -112,6 +112,7 @@ public:
     void onSensorBufferDataReadCb(sensors_event_t *events, int count);
     void onSensorTempCb(float temperature);
     void onCapabilitiesCallback(SensorCapabilitiesMask mask);
+    void onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result);
 
     //MLC public APIs
     void onSensorMlcCaseListCb(struct sensor_mlc_case_list *s, int count);

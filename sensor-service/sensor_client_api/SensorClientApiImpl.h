@@ -91,6 +91,8 @@ public:
     virtual int readTemperature(SensorTempReadCb);
     //Sensor Buffer Read
     virtual int startBufferDataRead(bool enable, SensorBufferDataReadCb);
+    //Sensor Self Test
+    virtual int selfTest(int sensor_id, SelfTestType selfTestType, int request_id, SelfTestResultCallback);
     // convenient methods
     inline bool sendMessage(const uint8_t* data, uint32_t length) const {
         return (mIpcSender != nullptr) && mIpcSender->send(data, length);
@@ -135,6 +137,7 @@ private:
     SensorTrackingOption*   mSensorTrackingOption;
     MlcCaseListCb*          mSensorMLCEventCbs;
     SensormFifoReadCb       mSensormFifoReadCb;
+    SelfTestResultCallback  mSelfTestResultCb;
 
     //Ipc sender
     SensorIpcSender*          mIpcSender;

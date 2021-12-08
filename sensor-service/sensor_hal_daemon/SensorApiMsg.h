@@ -122,7 +122,11 @@ enum ESensorMsgID {
     E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID = 20,
 
     //mFifo data
-    E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID
+    E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID = 21,
+
+    //selfTest
+    E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID = 22,
+    E_SENSORAPI_SENSOR_SELFTEST_IND_MSG_ID = 23
 };
 
 
@@ -391,6 +395,40 @@ struct SensorAPImFifoIndMsg: SensorAPIMsgHeader
 
     inline SensorAPImFifoIndMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID) { }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID
+struct SensorAPISelfTestReqMsg: SensorAPIMsgHeader
+{
+    int sensor_id;
+    int request_id;
+    SelfTestType selfTestType;
+
+    inline SensorAPISelfTestReqMsg(const char* name,
+                                     int sensor_id,
+                                     SelfTestType selfTestType, int request_id
+                                     ):
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID),
+        sensor_id(sensor_id),
+        selfTestType(selfTestType),
+	request_id (request_id){ }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_SELFTEST_IND_MSG_ID
+struct SensorAPISelfTestIndMsg: SensorAPIMsgHeader
+{
+    int sensor_id;
+    int request_id;
+    SelfTestResult result;
+
+    inline SensorAPISelfTestIndMsg(const char* name,
+                                     int sensor_id, int request_id,
+                                     SelfTestResult result
+                                     ):
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_SELFTEST_IND_MSG_ID),
+        sensor_id(sensor_id),
+	request_id (request_id),
+        result(result){ }
 };
 
 #endif /* SENSORAPIMSG_H */

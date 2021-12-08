@@ -144,6 +144,12 @@ void SensorHalDaemonClientHandler::onResponseCb(int ret, ESensorMsgID id) {
         rc = sendMessage(msg);
         break;
      }
+     case E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID: {
+	SENSOR_LOGI(LOG_TAG "<-- start selftest resp ret=%d id=%u pending=%u\n", ret, id, pendingMsgId);
+	SensorAPIGenericRespMsg msg(SERVICE_NAME, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID, ret);
+        rc = sendMessage(msg);
+        break;
+     }
      default: {
         SENSOR_LOGI(LOG_TAG "no pending message for %s\n", mName.c_str());
         return;
@@ -439,5 +445,26 @@ void SensorHalDaemonClientHandler::onSensorBufferDataReadCb(sensors_event_t *eve
 		   mService->deleteClientbyName(mName);
 	   }
 	   delete[] msg;
+   }
+}
+
+/**************************************************************************************
+SensorHalDaemonClientHandler - onSensorSelfTestResultCb to nofiy client with self test result
+along with sensor id.
+**************************************************************************************/
+void SensorHalDaemonClientHandler::onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result) {
+   // please do not attempt to hold the lock, as the caller of this function
+   // already holds the lock
+   SENSOR_LOGI(LOG_TAG "--< onSensorSelfTestResultCb\n");
+
+   if (nullptr != mIpcSender) {
+           SensorAPISelfTestIndMsg msg (SERVICE_NAME, sensor_id, request_id, result);
+           bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+                           sizeof(msg));
+           // purge this client if failed
+           if (!rc) {
+                   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
+                   mService->deleteClientbyName(mName);
+           }
    }
 }
