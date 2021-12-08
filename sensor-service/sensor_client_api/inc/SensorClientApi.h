@@ -122,6 +122,22 @@ typedef std::function<void(
 const sensors_event_t *events, uint32_t count
 )> SensorBufferDataReadCb;
 
+/** @brief
+    SelfTestResultCallback is for returning self test result of respective sensor.
+
+    @param[out] sensor_id: sensor identifier.
+    @param[out] SelfTestResult: pass of failed or any other error.
+                                  enum SelfTestResult {
+                                  Passed,
+                                  Failed,
+                                  // Any other error-code
+                                };
+*/
+typedef std::function<void(
+int sensor_id, int request_id, SelfTestResult result
+)> SelfTestResultCallback;
+
+
 class SensorClientImpl;
 class SensorClient
 {
@@ -379,6 +395,36 @@ public:
                 SENSOR_ERROR_CALLBACK_MISSING         : SensorTempReadCb is null
     **/
     int sensor_read_temperature(SensorTempReadCb sensorTempReadCallback);
+    /*================================== Sensor Self Test - Positive Sign/Negative Sign ================================== */
+    /** @brief self test of a sensor <b/r>
+
+        selt test of a the sensor, sensor’s sensor_id is defined by the sensor_id field
+        of sensor_list structure used to self test the respective sensor.
+        SelfTestType is type/mode of self test need to run.it coulbe be positive-sign self_test or negative-sign self_test.
+        enum SelfTestType {
+             Positive,
+             Negative,
+             // Any other
+        };
+
+	This API need to call only once with required mode of self test, the result of self test is reported back
+	to applicaion using SelfTestResultCallback along with respecitve sensor_id.
+
+        @param[in] sensor_id: sensor identifier. <br/>
+        @param[in] selfTestType: mode of self test. <br/>
+        @param[in] request_id: request identifier. <br/>
+        @param[out] SelfTestResultCallback: callback method invoked to deliver the sensor self test result. <br/>
+
+        @return:
+                SENSOR_RESPONSE_SUCCESS               : Success
+                SENSOR_ERROR_CLIENT_REGISTER_FAILED   : client is not registered
+                SENSOR_ERROR_INVALID_CLIENT           : client id is not generated
+                SENSOR_ERROR_IPC_FAILED               : failed socket communication b/w SHD
+                                                        and client lib.
+                SENSOR_ERROR_NO_SENSORS_FOUND         : no sensors supported by h/w
+                SENSOR_ERROR_INVALID_INPUT_PARAMETERS : invalid input of sensor_id or enable.
+    **/
+    int sensor_self_test(int sensor_id, SelfTestType selfTestType, int request_id, SelfTestResultCallback);
 private:
     /** Internal implementation for SensorClient */
     SensorClientImpl* mApiImpl;

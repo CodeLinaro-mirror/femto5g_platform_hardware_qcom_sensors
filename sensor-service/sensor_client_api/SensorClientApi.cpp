@@ -185,4 +185,22 @@ int SensorClient::sensor_read_buffer_data(bool enable, SensorBufferDataReadCb se
     return mApiImpl->startBufferDataRead(enable, sensorbufferreadCallback);
 }
 
+/******************************************************************************
+SensorClient - SensorSelfTest
+******************************************************************************/
+int SensorClient::sensor_self_test(int sensor_id, SelfTestType selfTestType, int request_id, SelfTestResultCallback selftestResultCallback) {
+    //Chek for Client Register
+    if (!mApiImpl) {
+        SENSOR_LOGE(LOG_TAG "NULL mApiImpl\n");
+        return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+    }
+
+    //Input parameter check
+    if (!selftestResultCallback) {
+        SENSOR_LOGE(LOG_TAG "NULL SelfTestResultCallback\n");
+        return SENSOR_ERROR_CALLBACK_MISSING;
+    }
+    return mApiImpl->selfTest(sensor_id, selfTestType, request_id, selftestResultCallback);
+}
+
 } // namespace sensor_client

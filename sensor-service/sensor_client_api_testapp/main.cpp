@@ -38,6 +38,8 @@
 
 #define CMD_OPTIONS     "b:d:"
 
+static uint64_t start_time = 0, end_time = 0, selftest_time = 0;
+
 using namespace sensor_client;
 
 SensorClient* pClient;
@@ -198,6 +200,14 @@ static void onSensorTempReadCb(float tempreature)
    printf("<<< sensor_client_test_app: tempreature %f \n",tempreature);
 }
 
+static void onSelfTestResultCallback(int sensor_id, int request_id, SelfTestResult result)
+{
+   end_time = getTimestamp();
+   selftest_time = (end_time - start_time);
+   printf("\nselftest time taken = %lldms\n", selftest_time/1000000);
+   printf("<<< sensor_client_test_app: self_test- sensor_id %d request_id %d result %d\n",sensor_id, request_id, result);
+}
+
 static void printHelp() {
     printf("\n************* options *************\n");
     printf("h: help\n");
@@ -232,6 +242,8 @@ int main(int argc, char *argv[]) {
    int mlc_case_count = 0;
    float odr_rate = 0;
    int c;
+   int request_id = 1;
+   SelfTestType selfTestType;
 
    printHelp();
    sleep(1);
@@ -421,6 +433,23 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	break;
+     case 's':
+        if (pClient) {
+		printf("sensor self test\n");
+		for(int i=0; i < sensor_count; i++) {
+			printf(" 0:Positive\n 1:Neagative\nEnter value:");
+			memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
+			fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
+			selfTestType=(SelfTestType)strtol(enable,&stopstring,10);
+			start_time = getTimestamp();
+			ret = pClient->sensor_self_test(sensor[i].sensor_id, selfTestType, request_id++, onSelfTestResultCallback);
+			if(ret < 0) {
+				printf("sensor self test request failed ret %d \n", ret);
+                                break;
+                        }
+		}
+        }
+        break;
      case 'h':
 	printHelp();
 	break;

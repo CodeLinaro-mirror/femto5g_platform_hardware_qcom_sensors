@@ -54,6 +54,9 @@
 #include <SensorApiUtils.h>
 #include <SensorHalDaemonClientHandler.h>
 
+#define ASM330LHHX_ACC_SEARCH   "asm330lhhx_accel"
+#define ASM330LHHX_GYRO_SEARCH  "asm330lhhx_gyro"
+
 #ifdef POWERMANAGER_ENABLED
 #include <PowerEvtHandler.h>
 #endif
@@ -192,6 +195,7 @@ private:
     void  getSensorTemp(SensorAPITempReqMsg*);
     void  getSensorBufferData(SensorAPIBufferDataReqMsg*);
     int   SensorCofig(SensorAPIStartBatchingReqMsg*);
+    void  sensorSelfTest(SensorAPISelfTestReqMsg*);
     void  GetSupportedSamplingRateAndRange(struct sensor_list *s);
     int   NearByBatchCount(int ActualCount, int RequestedCount);
     float NearBySamplingRate(float sampling_rate, struct sensor_list *s);

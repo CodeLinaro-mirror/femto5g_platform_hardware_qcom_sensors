@@ -106,6 +106,24 @@ typedef enum {
      SENSOR_HPM,
 }sensor_state;
 
+enum SelfTestType {
+        /*Positive-Sign of selftest*/
+        Positive,
+        /*Negative-Sign of selftest*/
+        Negative,
+        /*Any future mode of selftest*/
+        // Any other
+};
+
+enum SelfTestResult {
+        /*selftest is passed*/
+        Passed,
+        /*selftest is failed*/
+        Failed,
+        /*future error code*/
+        // Any other error-code
+};
+
 struct sensor_list;
 
 struct sensor_list {
