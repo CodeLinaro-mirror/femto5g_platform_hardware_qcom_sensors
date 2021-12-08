@@ -220,3 +220,17 @@ err_out:
 
         return err;
 }
+
+int update_sensor_towing_jack_parameters(uint16_t threshold, uint32_t timer) {
+//update below parameters with new values
+//algo_towing_jack_delta_th = threshold
+//algo_towing_jack_min_duration = timer
+
+}
+
+int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer) {
+
+//update below parameters with new values
+//algo_crash_impact_th = threshold
+//algo_crash_min_duration = timer
+}

@@ -175,6 +175,11 @@ public:
 
 	char *name: A user-defined string in configuration file that represents the sensor.
 
+        int  version; version of the hardware part + driver. The value of this field
+                      must increase when the driver is updated in a way that changes the
+                      output of this sensor. This is important for fused sensors when the
+                      fusion algorithm is updated.
+
 	char *vendor: Vendor of the hardware part ex: “STMicroelectronics”, “BOSCH”
 
 	int sensor_id: sensor_id that identifies this sensor. This sensor_id is used to reference
@@ -194,7 +199,12 @@ public:
 
         int maxSamplingRate: Max sampling rate supported by this sensor, client can’t the samples more than this rate.
 
-        float odr[]: List of sampling rate supported by the sensor
+        float odr[]: List of sampling rate supported by the sensor.
+
+        float  resolution: smallest difference between two values reported by this sensor.
+
+        float  maxRange : maximum range of this sensor's value in SI units.
+
     }
     **/
     /**SENSOR_TYPES:
