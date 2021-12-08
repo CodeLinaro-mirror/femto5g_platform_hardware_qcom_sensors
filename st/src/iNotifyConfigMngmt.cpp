@@ -7,7 +7,6 @@
  * Licensed under the Apache License, Version 2.0 (the "License").
  */
 
-
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/limits.h>
@@ -21,6 +20,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
+#include <mutex>
+
+#include "utils.h"
 
 #include "iNotifyConfigMngmt.h"
 #include "SensorHAL.h"
@@ -28,10 +30,15 @@
 static const char *parsing_strings[] = {
 	"imu_sensor_placement = ",
 	"imu_sensor_euler_angles = ",
+	"algo_towing_jack_delta_th = ",
+	"algo_towing_jack_min_duration = ",
+	"algo_crash_impact_th = ",
+	"algo_crash_min_duration = "
 };
 
 static volatile int run = 1;
 static struct hal_config_t hal_config;
+static std::mutex configMutex;
 
 static void sig_callback(int sig)
 {
@@ -65,6 +72,8 @@ static int show_sensor_placement(struct hal_config_t *config)
 
 static void init_hal_config(struct hal_config_t *config)
 {
+	std::lock_guard<std::mutex> lock(configMutex);
+
 	config->sensor_placement.rot[0][0] = 1;
 	config->sensor_placement.rot[0][1] = 0;
 	config->sensor_placement.rot[0][2] = 0;
@@ -80,6 +89,11 @@ static void init_hal_config(struct hal_config_t *config)
 	config->sensor_placement.location[0] = 0;
 	config->sensor_placement.location[1] = 0;
 	config->sensor_placement.location[2] = 0;
+
+	config->algo_towing_jack_delta_th = 25; //25mg
+	config->algo_towing_jack_min_duration = 0;
+	config->algo_crash_impact_th = 0;
+	config->algo_crash_min_duration = 0;
 }
 
 static void update_rotation_matrix(struct hal_config_t *config, float yawd, float pitchd, float rolld)
@@ -105,27 +119,198 @@ static int update_sensor_placement(struct hal_config_t *config,
 				   enum PARSING_STRING_INDEX index,
 				   char *data, int len)
 {
+	std::lock_guard<std::mutex> lock(configMutex);
 	int roll = 0, pitch = 0, yaw = 0;
 	int x = 0, y = 0, z = 0;
 
 	switch (index) {
 	case IMU_SENSOR_PLACEMENT_INDEX:
-		sscanf(data, "[%d,%d,%d]", &x, &y, &z);
+		if (sscanf(data, "[%d,%d,%d]", &x, &y, &z) != 3) {
+			return -EINVAL;
+		}
 
 		config->sensor_placement.location[0] = x;
 		config->sensor_placement.location[1] = y;
 		config->sensor_placement.location[2] = z;
 		break;
 	case IMU_SENSOR_EULER_ANGLES_INDEX:
-		sscanf(data, "[%d,%d,%d]",
-		       &roll,
-		       &pitch,
-		       &yaw);
+		if (sscanf(data, "[%d,%d,%d]", &roll, &pitch, &yaw) != 3) {
+			return -EINVAL;
+		}
 
 		update_rotation_matrix(config, yaw, pitch, roll);
 		break;
 	default:
 		return 0;
+	}
+
+	return 0;
+}
+
+static uint16_t float16(float in)
+{
+	uint32_t inu = *((uint32_t*)&in);
+	uint32_t t1;
+	uint32_t t2;
+	uint32_t t3;
+
+	t1 = inu & 0x7FFFFFFF; // Non-sign bits
+	t2 = inu & 0x80000000; // Sign bit
+	t3 = inu & 0x7F800000; // Exponent
+
+	t1 >>= 13; // Align mantissa on MSB
+	t2 >>= 16; // Shift sign bit into position
+
+	t1 -= 0x1C000; // Adjust bias
+
+	t1 = (t3 < 0x38800000) ? 0 : t1; // Flush-to-zero
+	t1 = (t3 > 0x47000000) ? 0x7BFF : t1; // Clamp-to-max
+	t1 = (t3 == 0 ? 0 : t1); // Denormals-as-zero
+
+	t1 |= t2; // Re-insert sign bit
+
+	return (uint16_t) t1;
+}
+
+static int write_algos_parameters_to_driver(struct hal_config_t *config)
+{
+	int ret;
+	int fsize = 0;
+
+	if (config->algo_towing_jack_min_duration != 0) {
+		uint16_t value = (config->algo_towing_jack_min_duration * 12.5f) / 17;
+		char fsm_str[3 * sizeof(value) * strlen("00,")];
+		fsize = strlen(fsm_str);
+		ret = snprintf(fsm_str, fsize + 2,
+			      "%2x,%2x,%2x,%2x,%2x,%2x",
+			      (uint8_t)(value >> 8),
+			      (uint8_t)(value & 0x00FF),
+			      (uint8_t)(value >> 8),
+			      (uint8_t)(value & 0x00FF),
+			      (uint8_t)(value >> 8),
+			      (uint8_t)(value & 0x00FF));
+		if (ret < 0) {
+			ALOGE("\"%s\": Failed to allocate min duration",
+			      __FUNCTION__);
+
+			return ret;
+		}
+
+		ALOGD("\"%s\": Updating towing/jack min duration to %s",
+		      __FUNCTION__, fsm_str);
+		ret = device_iio_utils::update_fsm_jack_min_duration(fsm_str);
+		if (ret < 0) {
+			ALOGE("\"%s\": Failed to update towing/jack min duration",
+			      __FUNCTION__);
+
+			return ret;
+		}
+	}
+	if (config->algo_crash_impact_th != 0) {
+		uint16_t valueth2 = float16((config->algo_crash_impact_th / 1000.0f) / 2);
+		uint16_t valueth1 = float16(-(config->algo_crash_impact_th / 1000.0f) / 2);
+		char fsm_str[2 * sizeof(uint16_t) * strlen("00,")];
+		fsize = strlen(fsm_str);
+
+		ret = snprintf(fsm_str, fsize + 2,
+			      "%2x,%2x,%2x,%2x",
+			      (uint8_t)(valueth1 >> 8),
+			      (uint8_t)(valueth1 & 0x00FF),
+			      (uint8_t)(valueth2 >> 8),
+			      (uint8_t)(valueth2 & 0x00FF));
+		if (ret < 0) {
+			ALOGE("\"%s\": Failed to allocate crash impact threshold",
+			      __FUNCTION__);
+
+			return ret;
+		}
+
+		ALOGD("\"%s\": Updating crash impact threshold to %s",
+		      __FUNCTION__, fsm_str);
+		ret = device_iio_utils::update_crash_impact_th(fsm_str);
+		if (ret < 0) {
+			ALOGE("\"%s\": Failed to update crash impact threshold",
+			      __FUNCTION__);
+
+			return ret;
+		}
+	}
+	if (config->algo_crash_min_duration != 0) {
+		uint16_t value = (config->algo_crash_min_duration * 12.5f) / 17;
+
+		char fsm_str[sizeof(value) * strlen("00,")];
+		fsize = strlen(fsm_str);
+		ret = snprintf(fsm_str, fsize + 2,
+			      "%2x,%2x",
+			      (uint8_t)(value >> 8),
+			      (uint8_t)(value & 0x00FF));
+		if (ret < 0) {
+			ALOGE("\"%s\": Failed to allocate crash min duration",
+			      __FUNCTION__);
+
+			return ret;
+		}
+
+		ALOGD("\"%s\": Updating crash min duration to %s",
+		      __FUNCTION__, fsm_str);
+		ret = device_iio_utils::update_crash_min_duration(fsm_str);
+		if (ret < 0) {
+			ALOGE("\"%s\": Failed to update crash min duration",
+			      __FUNCTION__);
+
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int update_algo_towing_delta_th(struct hal_config_t *config,
+				       enum PARSING_STRING_INDEX index,
+				       char *data, int len)
+{
+	std::lock_guard<std::mutex> lock(configMutex);
+
+	if (sscanf(data, "%hu", &config->algo_towing_jack_delta_th) != 1) {
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int update_algo_min_duration(struct hal_config_t *config,
+				    enum PARSING_STRING_INDEX index,
+				    char *data, int len)
+{
+	std::lock_guard<std::mutex> lock(configMutex);
+	uint32_t duration = 0;
+
+	if (sscanf(data, "%u", &duration) != 1) {
+		return -EINVAL;
+	}
+
+	switch (index) {
+	case ALGO_TOWING_JACK_MIN_DURATION_INDEX:
+		config->algo_towing_jack_min_duration = duration;
+		break;
+	case ALGO_CRASH_MIN_DURATION_INDEX:
+		config->algo_crash_min_duration = duration;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int update_algo_crash_impact_th(struct hal_config_t *config,
+				       enum PARSING_STRING_INDEX index,
+				       char *data, int len)
+{
+	std::lock_guard<std::mutex> lock(configMutex);
+
+	if (sscanf(data, "%hu", &config->algo_crash_impact_th) != 1) {
+		return -EINVAL;
 	}
 
 	return 0;
@@ -190,6 +375,34 @@ static int update_file_data(const char *file, char *path)
 		update_sensor_placement(&hal_config, IMU_SENSOR_EULER_ANGLES_INDEX, ptr, ptr - buffer_string);
 	}
 
+	ptr = strstr(buffer_string, parsing_strings[ALGO_TOWING_JACK_DELTA_TH_INDEX]);
+	if (ptr) {
+		ptr += strlen(parsing_strings[ALGO_TOWING_JACK_DELTA_TH_INDEX]);
+
+		update_algo_towing_delta_th(&hal_config, ALGO_TOWING_JACK_DELTA_TH_INDEX, ptr, ptr - buffer_string);
+	}
+
+	ptr = strstr(buffer_string, parsing_strings[ALGO_TOWING_JACK_MIN_DURATION_INDEX]);
+	if (ptr) {
+		ptr += strlen(parsing_strings[ALGO_TOWING_JACK_MIN_DURATION_INDEX]);
+
+		update_algo_min_duration(&hal_config, ALGO_TOWING_JACK_MIN_DURATION_INDEX, ptr, ptr - buffer_string);
+	}
+
+	ptr = strstr(buffer_string, parsing_strings[ALGO_CRASH_IMPACT_TH_INDEX]);
+	if (ptr) {
+		ptr += strlen(parsing_strings[ALGO_CRASH_IMPACT_TH_INDEX]);
+
+		update_algo_crash_impact_th(&hal_config, ALGO_CRASH_IMPACT_TH_INDEX, ptr, ptr - buffer_string);
+	}
+
+	ptr = strstr(buffer_string, parsing_strings[ALGO_CRASH_MIN_DURATION_INDEX]);
+	if (ptr) {
+		ptr += strlen(parsing_strings[ALGO_CRASH_MIN_DURATION_INDEX]);
+
+		update_algo_min_duration(&hal_config, ALGO_CRASH_MIN_DURATION_INDEX, ptr, ptr - buffer_string);
+	}
+
 err_out:
 	if (fd_config) {
 		fclose(fd_config);
@@ -221,7 +434,7 @@ static void *hal_configuration_thread(void *parm)
 	char *buffer;
 	int fd;
 	int wd;
-	
+
 	fd = inotify_init();
 	if (fd < 0) {
 		ALOGE("Sensor inotify_init");
@@ -244,6 +457,7 @@ static void *hal_configuration_thread(void *parm)
 	init_hal_config(&hal_config);
 
 	update_file_data(HAL_CONFIGURATION_FILE, thread_params->pathname);
+	write_algos_parameters_to_driver(&hal_config);
 	show_sensor_placement(&hal_config);
 
 	wd = inotify_add_watch(fd, thread_params->pathname, IN_CLOSE);
@@ -280,6 +494,7 @@ static void *hal_configuration_thread(void *parm)
 						ALOGD("Configuration file %s closed for write", event->name);
 						if (strcmp(event->name, HAL_CONFIGURATION_FILE) == 0) {
 							update_file_data(HAL_CONFIGURATION_FILE, thread_params->pathname);
+							write_algos_parameters_to_driver(&hal_config);
 							show_sensor_placement(&hal_config);
 						}
 					}
@@ -342,7 +557,11 @@ int init_notify_loop(char *pathname)
 	return 0;
 }
 
-struct hal_config_t* get_sensor_placement(void)
+const struct hal_config_t get_config(void)
 {
-	return &hal_config;
+	configMutex.lock();
+	struct hal_config_t tmp = hal_config;
+	configMutex.unlock();
+
+	return tmp;
 }

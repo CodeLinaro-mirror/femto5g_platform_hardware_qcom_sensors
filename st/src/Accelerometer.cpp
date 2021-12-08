@@ -48,6 +48,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <signal.h>
 
 #include "Accelerometer.h"
+#include "iNotifyConfigMngmt.h"
 
 static int toggle_ignition;
 
@@ -128,11 +129,15 @@ void Accelerometer::calculateThresholdMLC(SensorBaseData &data)
 			if (isStatic) {
 				int ret;
 				int16_t nLoop;
+				float threshold;
 				uint16_t thresh[3][2];
 				uint8_t thresh_hex[3][4];
 				char fsm_th_str[sizeof(thresh_hex) * strlen("00,")];
 
-				computeThreshold(gVec,thresh);
+				const struct hal_config_t& config = get_config();
+				threshold = config.algo_towing_jack_delta_th / 1000.0f;
+
+				computeThreshold(gVec, thresh, threshold);
 
 				for (nLoop = 0; nLoop < 3; nLoop++) {
 					thresh_hex[nLoop][0] = (uint8_t)(thresh[0][0] & 0x00FF);
