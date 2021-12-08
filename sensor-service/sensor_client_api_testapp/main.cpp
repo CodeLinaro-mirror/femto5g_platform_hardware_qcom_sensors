@@ -65,6 +65,9 @@ static void PrintSensorList(struct sensor_list *sensor, int sensor_count)
    for (int i=0 ; i< sensor_count ; i++) {
            printf("%s\n",sensor[i].name);
            printf("\tvendor: %s\n",sensor[i].vendor);
+           printf("\tversion: %d\n",sensor[i].version);
+           printf("\tresolution: %f\n",sensor[i].resolution);
+           printf("\tmaxRange %f\n",sensor[i].maxRange);
            printf("\tsensor_id: %d\n",sensor[i].sensor_id);
            printf("\ttype: %d\n",sensor[i].type);
            printf("\trange: %d\n",sensor[i].range);

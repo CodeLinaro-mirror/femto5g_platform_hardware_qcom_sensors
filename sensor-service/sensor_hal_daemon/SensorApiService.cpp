@@ -196,6 +196,9 @@ static void PrintSensorList(struct sensor_list *sensor, int sensor_count)
    for (int i=0 ; i< sensor_count ; i++) {
            SENSOR_LOGD(LOG_TAG"%s\n",sensor[i].name);
            SENSOR_LOGD(LOG_TAG"\tvendor: %s\n",sensor[i].vendor);
+           SENSOR_LOGD(LOG_TAG"\tversion: %d\n",sensor[i].version);
+           SENSOR_LOGD(LOG_TAG"\tresolution: %f\n",sensor[i].resolution);
+           SENSOR_LOGD(LOG_TAG"\tmaxRange %f\n",sensor[i].maxRange);
            SENSOR_LOGD(LOG_TAG"\tsensor_id: %d\n",sensor[i].sensor_id);
            SENSOR_LOGD(LOG_TAG"\ttype: %d\n",sensor[i].type);
            SENSOR_LOGD(LOG_TAG"\trange: %d\n",sensor[i].range);
@@ -283,6 +286,9 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 	     mSensorList[i].type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
      }
      strlcpy(&mSensorList[i].vendor[0], s[i].vendor, MAX_PATH_SIZE);
+     mSensorList[i].version = s[i].version;
+     mSensorList[i].resolution = s[i].resolution;
+     mSensorList[i].maxRange = s[i].maxRange;
      mSensorList[i].sensor_id = s[i].handle;
      mSensorList[i].maxBatchCount = MAX_BATCH_COUNT;
      GetSupportedSamplingRateAndRange(&mSensorList[i]);
