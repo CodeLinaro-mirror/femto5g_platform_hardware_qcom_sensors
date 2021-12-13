@@ -174,7 +174,6 @@ int main(int argc, char *argv[])
     SENSOR_LOGI(LOG_TAG "sensor hal daemon - ver %s\n", HAL_DAEMON_VERSION);
 
     waitForDir(SOCKET_SENSOR_CLIENT_DIR);
-    //waitForDir(EAP_SENSOR_CLIENT_DIR);
 
     SENSOR_LOGI(LOG_TAG "starting sensor_hal_daemon\n");
 

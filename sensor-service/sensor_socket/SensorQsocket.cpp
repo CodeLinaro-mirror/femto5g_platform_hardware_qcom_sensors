@@ -25,6 +25,39 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <sys/types.h>
@@ -41,9 +74,11 @@ namespace sensor_util {
 #define SENSOR_MSG_BUF_LEN 8192
 #define SENSOR_MSG_HEAD "$MSGLEN$"
 #define SENSOR_MSG_ABORT "SensorQsocketMsg::ABORT"
+
 #define RETRY_FINDSERVICE_MAX_COUNT 10
 #define RETRY_FINDSERVICE_SLEEP_MS  5
 
+#ifdef USE_QSOCKET
 bool SensorQsocket::startListeningNonBlocking(const std::string& name) {
     mQsocketName = name;
     return Sensor_ThreadCreate(&mQsocketThread, startListeningNonBlockingThread, this, "SensorQsocket-");
@@ -54,7 +89,6 @@ void* SensorQsocket::startListeningNonBlockingThread(void *arg) {
    mSensorQsocket->startListeningBlocking(mSensorQsocket->mQsocketName);
 }
 
-#ifdef USE_QSOCKET
 bool SensorQsocket::startListeningBlocking(const std::string& name) {
     bool stopRequested = false;
 
@@ -144,6 +178,7 @@ bool SensorQsocket::startListeningBlocking(const std::string& name) {
         SENSOR_LOGE(LOG_TAG "cannot close socket:%s\n", strerror(errno));
     }
 
+	 pthread_exit((void *)0);
     return stopRequested;
 }
 
@@ -179,7 +214,7 @@ bool SensorQsocket::findServiceWithRetry(int fd, qsockaddr_ipcr& addr,
 	    }
 	    usleep(RETRY_FINDSERVICE_SLEEP_MS * 1000);
     } while (retryCount++ <= RETRY_FINDSERVICE_MAX_COUNT);
-    SENSOR_LOGV(LOG_TAG "find service returned %d, retryCount %d", result, retryCount);
+    SENSOR_LOGD(LOG_TAG "find service returned %d, retryCount %d", result, retryCount);
     return result;
 }
 
@@ -242,10 +277,34 @@ bool SensorQsocket::sendData(int fd, const qsockaddr_ipcr& addr, const uint8_t d
     return result;
 }
 
-#else
+void SensorQsocket::stopListening() {
+
+    if (mFdMe >= 0) {
+        std::string abort = SENSOR_MSG_ABORT;
+        send(mService, mInstance, abort);
+        mFdMe = -1;
+    }
+}
+
+// static
+bool SensorQsocket::send(int service, int instance, const std::string& data) {
+    return send(service, instance, (const uint8_t*)data.c_str(), data.length());
+}
+
+#else  //QRTR family
 
 static inline __le32 cpu_to_le32(uint32_t x) { return htole32(x); }
 static inline uint32_t le32_to_cpu(__le32 x) { return le32toh(x); }
+
+bool SensorQsocket::startListeningNonBlocking(const std::string& name) {
+    mQsocketName = name;
+    return Sensor_ThreadCreate(&mQsocketThread, startListeningNonBlockingThread, this, "SensorQsocket-");
+}
+
+void* SensorQsocket::startListeningNonBlockingThread(void *arg) {
+   SensorQsocket* mSensorQsocket = (SensorQsocket*)arg;
+   mSensorQsocket->startListeningBlocking(mSensorQsocket->mQsocketName);
+}
 
 bool SensorQsocket::startListeningBlocking(const std::string& name) {
     bool stopRequested = false;
@@ -267,6 +326,11 @@ bool SensorQsocket::startListeningBlocking(const std::string& name) {
         return false;
     }
 
+    timeval timeout;
+    timeout.tv_sec = SOCKET_TIMEOUT_SEC;
+    timeout.tv_usec = 0;
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
     // get socket name
     sockaddr_qrtr addr = {0};
     socklen_t sl = sizeof(addr);
@@ -277,6 +341,7 @@ bool SensorQsocket::startListeningBlocking(const std::string& name) {
     }
 
     SENSOR_LOGI(LOG_TAG "family=%u, node=%d, port=%d\n", addr.sq_family, addr.sq_node, addr.sq_port);
+
     // register this server by sending control packet
     struct qrtr_ctrl_pkt pkt = {0};
     pkt.cmd = cpu_to_le32(QRTR_TYPE_NEW_SERVER);
@@ -325,7 +390,7 @@ bool SensorQsocket::startListeningBlocking(const std::string& name) {
         if (strncmp(msg.data(), SENSOR_MSG_HEAD, sizeof(SENSOR_MSG_HEAD) - 1)) {
             // short message
             msg.resize(nBytes);
-            onReceive(msg);
+	    onReceive(msg);
         } else {
             // long message
             size_t msgLen = 0;
@@ -337,10 +402,8 @@ bool SensorQsocket::startListeningBlocking(const std::string& name) {
                         msg.size() - msgLenReceived, 0, NULL, NULL);
                 msgLenReceived += nBytes;
             }
-
-
             if (nBytes > 0) {
-                onReceive(msg);
+		    onReceive(msg);
             } else {
                 break;
             }
@@ -351,77 +414,110 @@ bool SensorQsocket::startListeningBlocking(const std::string& name) {
         SENSOR_LOGE(LOG_TAG "cannot close socket:%s\n", strerror(errno));
     }
 
+     pthread_exit((void *)0);
     return stopRequested;
 }
 
-bool SensorQsocket::findService(int fd, sockaddr_qrtr& addr, int service, int instance) {
+bool SensorQsocket::findService(int fd, sockaddr_qrtr& addr, int service, int instance, bool &serviceDeleted) {
 
-    memset(&addr, 0, sizeof(addr));
-    socklen_t sl = sizeof(addr);
+    bool serviceFound = false;
+    int len = 0;
 
-    // get socket name
-    int rc = getsockname(fd, (void*)&addr, &sl);
-    if (rc || addr.sq_family != AF_QIPCRTR || sl != sizeof(addr)) {
-        SENSOR_LOGE(LOG_TAG "error: getsockname rc=%d errno=%d (%s)\n", rc, errno, strerror(errno));
-        return false;
-    }
-    addr.sq_port = QRTR_PORT_CTRL;
-    // send control packet
-    struct qrtr_ctrl_pkt pkt = {0};
-    pkt.cmd = cpu_to_le32(QRTR_TYPE_NEW_LOOKUP);
-    pkt.server.service = cpu_to_le32(service);
-    pkt.server.instance = cpu_to_le32(instance);
-    rc = sendto(fd, &pkt, sizeof(pkt), 0, (void*)&addr, sizeof(addr));
-    if (rc < 0) {
-        SENSOR_LOGE(LOG_TAG "sendto failed!\n");
-        return false;
-    }
-    // get server addr from ipc router
-    int len;
-    while ((len = recv(fd, &pkt, sizeof(pkt), 0)) > 0) {
-        unsigned int type = le32_to_cpu(pkt.cmd);
-
-	if (QRTR_TYPE_DEL_SERVER == type) {
-		SENSOR_LOGE(LOG_TAG "server deleted\n");
-		return false;
-	}
-
-        if (len < sizeof(pkt) || type != QRTR_TYPE_NEW_SERVER) {
-            SENSOR_LOGE(LOG_TAG "invalid/short packet\n");
-            continue;
-        }
-
-        SENSOR_LOGD(LOG_TAG "service=%d\n", le32_to_cpu(pkt.server.service));
-        SENSOR_LOGD(LOG_TAG "version=%d\n", le32_to_cpu(pkt.server.instance) & 0xff);
-        SENSOR_LOGD(LOG_TAG "instance=%d\n", le32_to_cpu(pkt.server.instance) >> 8);
-        SENSOR_LOGD(LOG_TAG "node=%d\n", le32_to_cpu(pkt.server.node));
-        SENSOR_LOGD(LOG_TAG "port=%d\n", le32_to_cpu(pkt.server.port));
-
-        if (0 != pkt.server.service) {
+    do {
+        // service has been deleted and it has not restarted yet, simply return
+        if (true == serviceDeleted) {
             break;
         }
-    }
-    if (len <= 0) {
-        SENSOR_LOGE(LOG_TAG "recv() returned %d bytes\n", len);
-        return false;
-    }
 
-    addr.sq_node = le32_to_cpu(pkt.server.node);
-    addr.sq_port = le32_to_cpu(pkt.server.port);
-    return true;
+        memset(&addr, 0, sizeof(addr));
+        socklen_t sl = sizeof(addr);
+
+        // get socket name
+        int rc = getsockname(fd, (void*)&addr, &sl);
+        if (rc || addr.sq_family != AF_QIPCRTR || sl != sizeof(addr)) {
+            SENSOR_LOGE(LOG_TAG "error: getsockname rc=%d errno=%d (%s)", rc, errno, strerror(errno));
+            break;
+        }
+
+        addr.sq_port = QRTR_PORT_CTRL;
+        // send control packet
+        struct qrtr_ctrl_pkt pkt = {0};
+	struct qrtr_ctrl_pkt mCtrlPkt = {0};
+
+        mCtrlPkt.cmd = cpu_to_le32(QRTR_TYPE_NEW_LOOKUP);
+        mCtrlPkt.server.service = cpu_to_le32(service);
+        mCtrlPkt.server.instance = cpu_to_le32(instance);
+
+        rc = sendto(fd, &mCtrlPkt, sizeof(mCtrlPkt), 0, (void*)&addr, sizeof(addr));
+        if (rc < 0) {
+            SENSOR_LOGE(LOG_TAG "sendto failed!");
+            break;
+        }
+        // get server addr from ipc router
+        serviceFound = false;
+        while ((len = recv(fd, &pkt, sizeof(pkt), 0)) > 0) {
+            unsigned int type = le32_to_cpu(pkt.cmd);
+	    SENSOR_LOGE(LOG_TAG "qrtr new lookup pkt type:%d,"
+                                 "service id:%d,instance id:%d,"
+                                 "node:%d, port:%d",
+                                 type, le32_to_cpu(pkt.server.service),
+                                 le32_to_cpu(pkt.server.instance),
+                                 le32_to_cpu(pkt.server.node),
+                                 le32_to_cpu(pkt.server.port));
+
+            if (len < sizeof(pkt)) {
+                SENSOR_LOGE(LOG_TAG "invalid/short packet size %d, expected size %d", len, sizeof(pkt));
+                continue;
+            }
+
+	    if ( type == QRTR_TYPE_NEW_SERVER) {
+		    if (le32_to_cpu(pkt.server.service) == 0 &&
+				    le32_to_cpu(pkt.server.instance) == 0) {
+			    serviceFound = false;
+			    break;
+		    } else if ((mCtrlPkt.server.service == pkt.server.service) &&
+				    (mCtrlPkt.server.instance == pkt.server.instance)) {
+			    addr.sq_node = le32_to_cpu(pkt.server.node);
+			    addr.sq_port = le32_to_cpu(pkt.server.port);
+			    serviceFound = true;
+			    break;
+		    }
+	    }
+	    if ( type == QRTR_TYPE_DEL_SERVER) {
+		    SENSOR_LOGE(LOG_TAG "server deleted");
+		    serviceDeleted = true;
+		    if ((mCtrlPkt.server.service == pkt.server.service) &&
+				    (mCtrlPkt.server.instance == pkt.server.instance)) {
+			    // service of particular service id, instance id gets deleted
+			    serviceFound = false;
+			    break;
+		    }
+	    }
+	}
+	if (true == serviceFound) {
+		addr.sq_node = le32_to_cpu(pkt.server.node);
+		addr.sq_port = le32_to_cpu(pkt.server.port);
+	}
+
+	SENSOR_LOGD(LOG_TAG "after while loop len %d, serviceFound = %d!", len, serviceFound);
+
+    } while (0);
+
+    return serviceFound;
 }
 
-bool SensorQsocket::findServiceWithRetry(int fd, sockaddr_qrtr& addr, int service, int instance) {
+bool SensorQsocket::findServiceWithRetry(int fd, sockaddr_qrtr& addr, int service, int instance, bool &serviceDeleted) {
     int retryCount = 0;
     bool result = false;
     do {
-        result = SensorQsocket::findService(fd, addr, service, instance);
-        if (true == result) {
+        result = SensorQsocket::findService(fd, addr, service, instance, serviceDeleted);
+        if ((true == result) || (true == serviceDeleted)) {
             break;
         }
         usleep(RETRY_FINDSERVICE_SLEEP_MS * 1000);
     } while (retryCount++ <= RETRY_FINDSERVICE_MAX_COUNT);
-    SENSOR_LOGV(LOG_TAG "find service with retry returned %d, retry count %d\n", result, retryCount);
+    SENSOR_LOGE(LOG_TAG "find service with retry returned %d, retry count %d, serviceDeleted %d",
+		    result, retryCount, serviceDeleted);
     return result;
 }
 
@@ -435,9 +531,17 @@ bool SensorQsocket::send(int service, int instance, const uint8_t data[], uint32
         return false;
     }
 
+    timeval timeout;
+    timeout.tv_sec = SOCKET_TIMEOUT_SEC;
+    timeout.tv_usec = 0;
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
     sockaddr_qrtr addr;
     memset(&addr, 0, sizeof(addr));
-    result = findServiceWithRetry(fd, addr, service, instance);
+    // this routine is used to send an abort message to
+    // the socket itself, so it is safe to set serviceDeleted to false
+    bool serviceDeleted = false;
+    result = findServiceWithRetry(fd, addr, service, instance, serviceDeleted);
     if (true == result) {
 	    result = sendData(fd, addr, data, length);
     }
@@ -481,7 +585,6 @@ bool SensorQsocket::sendData(int fd, const sockaddr_qrtr& addr, const uint8_t da
     }
     return result;
 }
-#endif
 void SensorQsocket::stopListening() {
 
     if (mFdMe >= 0) {
@@ -495,5 +598,7 @@ void SensorQsocket::stopListening() {
 bool SensorQsocket::send(int service, int instance, const std::string& data) {
     return send(service, instance, (const uint8_t*)data.c_str(), data.length());
 }
+
+#endif
 
 }

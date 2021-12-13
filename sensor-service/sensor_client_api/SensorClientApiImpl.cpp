@@ -24,6 +24,41 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ * 
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <sys/types.h>
@@ -71,27 +106,21 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
     // Each client id is tracked via a bit in mClientIdGenerator,
     // which is 4 bytes now.
     lock_guard<mutex> lock(mMutex);
+    unsigned int clientIdMask = 1;
     // find a bit in the mClientIdGenerator that is not yet used
     // and use that as client id
     // client id will be from 1 to 32, as client id will be used to
     // set session id and 0 is reserved for LOCATION_CLIENT_SESSION_ID_INVALID
-    mClientIdIndex++;
-    if (mClientIdIndex > 32) {
-        mClientIdIndex = 1;
-    }
-
-    uint32_t loopCnt = 0;
-    for (; loopCnt < sizeof(mClientIdGenerator) * 8; loopCnt++) {
-        if ((mClientIdGenerator & (1UL << (mClientIdIndex-1))) == 0) {
-            mClientIdGenerator |= (1UL << (mClientIdIndex-1));
-            mClientId = mClientIdIndex;
+    for (mClientId = 1; mClientId <= sizeof(mClientIdGenerator) * 8; mClientId++) {
+        if ((mClientIdGenerator & (1UL << (mClientId-1))) == 0) {
+            mClientIdGenerator |= (1UL << (mClientId-1));
             break;
         }
     }
 
-    if (loopCnt >= sizeof(mClientIdGenerator) * 8) {
-	    SENSOR_LOGE(LOG_TAG "create Qsocket failed, already use up maximum of %d clients",
-			    sizeof(mClientIdGenerator)*8);
+    if (mClientId > sizeof(mClientIdGenerator) * 8) {
+        SENSOR_LOGE(LOG_TAG "create Qsocket failed, already use up maximum of %d clients",
+                 sizeof(mClientIdGenerator)*8);
         return;
     }
 
@@ -655,20 +684,16 @@ void SensorClientImpl::onListenerReady() {
     //set mHalRegistered to true
     if (!mHalRegistered) {
       SensorAPIClientRegisterReqMsg msg(mSocketName, SENSOR_CLIENT_API);
-      bool rc = true;
-#ifdef FEATURE_EXTERNAL_AP
-      rc = mIpcSender->findNewService();
-#endif
-      if (rc == true)
-	      rc = sendMessage(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+      bool rc = false;
+      rc = sendMessage(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
       if(true != rc && mCapabilitiesCb)
 	      mCapabilitiesCb(SHD_NOT_RUNNING);
     }
 }
 
 /******************************************************************************
-SensorClientImpl - Process Message Receive from Daemon
-******************************************************************************/
+  SensorClientImpl - Process Message Receive from Daemon
+ ******************************************************************************/
 void SensorClientImpl::onReceive(const string& data) {
 
    SensorAPIMsgHeader *pMsg = (SensorAPIMsgHeader *)(data.data());
@@ -714,6 +739,10 @@ void SensorClientImpl::onReceive(const string& data) {
 	  if (mCapabilitiesCb)
 		  mCapabilitiesCb(SHD_RESTARTED);
 	  mShdRestarted = true;
+	  // when hal daemon crashes, we need to find the new node/port
+#ifdef FEATURE_EXTERNAL_AP
+	  mIpcSender->findNewService();
+#endif
 	  onListenerReady();
 	  break;
        }
