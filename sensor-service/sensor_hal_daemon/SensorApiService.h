@@ -196,6 +196,8 @@ private:
     void  getSensorBufferData(SensorAPIBufferDataReqMsg*);
     int   SensorCofig(SensorAPIStartBatchingReqMsg*);
     void  sensorSelfTest(SensorAPISelfTestReqMsg*);
+    void  onSelfTestRequest(SensorHalDaemonClientHandler*,
+		    int sensor_id, SelfTestType selfTestType, int request_id);
     void  GetSupportedSamplingRateAndRange(struct sensor_list *s);
     int   NearByBatchCount(int ActualCount, int RequestedCount);
     float NearBySamplingRate(float sampling_rate, struct sensor_list *s);
