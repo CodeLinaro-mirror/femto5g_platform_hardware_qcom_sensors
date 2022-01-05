@@ -101,6 +101,7 @@ SensorClientImpl::~SensorClientImpl() {
 }
 
 void SensorClientImpl::destroy() {
+    stopListening();
     if (mHalRegistered && (nullptr != mIpcSender)) {
 	//Send Client Deregister Message Id to hal daemon
 	SENSOR_LOGI(LOG_TAG "Send client De-Register message\n");
@@ -550,8 +551,6 @@ SensorClientImpl - SensorReconfigure Enable
 bool SensorClientImpl::SensorReconfigure(bool enable) {
   bool rc = 0;
 
-  lock_guard<mutex> lock(mMutex);
-
   if (mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) {
      if (enable) {
 	for (int i = 0 ; i < mSensorCount ; i++) {
@@ -609,6 +608,7 @@ SensorClientImpl - Process Message Receive from Daemon
 void SensorClientImpl::onReceive(const string& data) {
 
    SensorAPIMsgHeader *pMsg = (SensorAPIMsgHeader *)(data.data());
+   SENSOR_LOGD(LOG_TAG  "pMsg->msgId: %d", pMsg->msgId);
 
    uint32_t length = data.length();
     // throw away message that does not come from sensor hal daemon
@@ -861,7 +861,8 @@ void SensorClientImpl::onReceive(const string& data) {
        {
           if((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSelfTestResultCb) {
                   const SensorAPISelfTestIndMsg* pSelfMsg = (SensorAPISelfTestIndMsg*) (pMsg);
-		  SENSOR_LOGE(LOG_TAG "mselftestresultcb: sensor_id = %d request_id = %d result = %d\n", pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result);
+		  SENSOR_LOGI(LOG_TAG "mselftestresultcb: sensor_id = %d request_id = %d result = %d\n",
+				  pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result);
                   mSelfTestResultCb(pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result);
           }
           break;

@@ -119,13 +119,11 @@ int device_iio_utils::sysfs_write_str(char *file, char *str)
 {
 	FILE *fp;
 
-ALOGD("sysfs_write_str: write to file ret %s data %s", file, str);
+	ALOGD("sysfs_write_str: write to file ret %s data %s", file, str);
 
 	fp = fopen(file, "w");
 	if (NULL == fp)
 		return -errno;
-
-ALOGD("sysfs_write_str: 111 write to file ret %s data %s", file, str);
 
 	fprintf(fp, "%s", str);
 	fclose(fp);

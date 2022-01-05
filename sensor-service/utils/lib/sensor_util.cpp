@@ -50,6 +50,20 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define HAL_CONFIGURATION_FILE "hal_config"
 #define HAL_CONFIGURATION_PATH "/data/sensorhal"
 
+#define RM_MIN 0
+#define RM_MAX 3600
+
+#define CRASH_TH_MIN 100
+#define CRASH_TH_MAX 2000
+#define CRASH_TIMER_MIN 1
+#define CRASH_TIMER_MAX 89000
+
+#define TOWING_TH_MIN 10
+#define TOWING_TH_MAX 1000
+#define TOWING_TIMER_MIN 1
+#define TOWING_TIMER_MAX 89000
+
+
 // This API is called to calculate rotational matrix
 // It takes yaw, pitch and roll as a parameters
 // The values should be inbetween o to 3600 range
@@ -67,7 +81,7 @@ int update_sensor_rotation_matrix(uint16_t yaw, uint16_t pitch, uint16_t roll)
 	char buffer[256];
 	int point = 0;
 
-	if(yaw < 0 || pitch < 0 || roll < 0 || yaw > 3600 || pitch > 3600 || roll > 3600){
+	if(yaw < RM_MIN || pitch < RM_MIN || roll < RM_MIN || yaw > RM_MAX || pitch > RM_MAX || roll > RM_MAX){
 		printf("Error: Invalid Range\n");
 		return -1;
 	}
@@ -234,7 +248,12 @@ int update_sensor_towing_jack_parameters(uint16_t threshold, uint32_t timer) {
 	int point = 0;
 	char bufferp[256];
 
-        file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+	if(threshold < TOWING_TH_MIN || threshold > TOWING_TH_MAX || timer < TOWING_TIMER_MIN || timer > TOWING_TIMER_MAX){
+		printf("Error: Invalid Range\n");
+		return -1;
+	}
+
+	file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
         if (!file_path_name){
 		err = -errno;
                 printf("Unable to allocate memory (errno %d)\n", err);
@@ -263,8 +282,8 @@ int update_sensor_towing_jack_parameters(uint16_t threshold, uint32_t timer) {
                 goto err_out;
         }
 
-	fsize = strlen("algo_towing_jack_delta_th = [00000]");
-        size = snprintf(buffer_string, fsize + 1, "algo_towing_jack_delta_th = [%5u]",
+	fsize = strlen("algo_towing_jack_delta_th = 00000");
+        size = snprintf(buffer_string, fsize + 1, "algo_towing_jack_delta_th = %5u",
                        threshold);
 
         printf("Update file in %s with %s\n", file_path_name, buffer_string);
@@ -283,8 +302,8 @@ int update_sensor_towing_jack_parameters(uint16_t threshold, uint32_t timer) {
                         }
         }
  
-        fsize = strlen("algo_towing_jack_min_duration = [0000000000]");
-        size = snprintf(buffer_string, fsize + 1, "algo_towing_jack_min_duration = [%10u]",
+        fsize = strlen("algo_towing_jack_min_duration = 0000000000");
+        size = snprintf(buffer_string, fsize + 1, "algo_towing_jack_min_duration = %10u",
                        timer);
 
         printf("Update file in %s with %s\n", file_path_name, buffer_string);
@@ -333,6 +352,11 @@ int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer)
 	int point = 0;
 	char bufferp[256];
 
+	if(threshold < CRASH_TH_MIN || threshold > CRASH_TH_MAX || timer < CRASH_TIMER_MIN || timer > CRASH_TIMER_MAX){
+		printf("Error: Invalid Range\n");
+		return -1;
+	}
+
         file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
         if (!file_path_name){
 		err = -errno;
@@ -362,8 +386,8 @@ int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer)
                 goto err_out;
         }
 
-        fsize = strlen("algo_crash_impact_th = [000000]");
-        size = snprintf(buffer_string, fsize + 1, "algo_crash_impact_th = [%5u]",
+        fsize = strlen("algo_crash_impact_th = 00000");
+        size = snprintf(buffer_string, fsize + 1, "algo_crash_impact_th = %5u",
                        threshold);
 
         printf("Update file in %s with %s\n", file_path_name, buffer_string);
@@ -382,8 +406,8 @@ int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer)
                         }
         }
 
-        fsize = strlen("algo_crash_min_duration = [0000000000]");
-        size = snprintf(buffer_string, fsize + 1, "algo_crash_min_duration = [%10u]",
+        fsize = strlen("algo_crash_min_duration = 0000000000");
+        size = snprintf(buffer_string, fsize + 1, "algo_crash_min_duration = %10u",
                        timer);
 
         printf("Update file in %s with %s\n", file_path_name, buffer_string);
