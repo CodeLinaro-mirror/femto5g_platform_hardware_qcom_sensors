@@ -132,6 +132,8 @@
 #ifndef __SENSORD_PLTF_H
 #define __SENSORD_PLTF_H
 
+#include <utils/Log.h>
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -156,7 +158,7 @@ extern "C"
 #define LADON_LOG_FORMAT(fmt,type) "[%lld]%s" fmt "\n", \
             GET_TIME_TICK(),type
 
-#define PLADON(fmt, args...) BS_LOG(LOG_LEVEL_LADON, LADON_LOG_FORMAT(fmt, "[LADON]"), ##args)
+/*#define PLADON(fmt, args...) BS_LOG(LOG_LEVEL_LADON, LADON_LOG_FORMAT(fmt, "[LADON]"), ##args)
 
 #define PNOTE(fmt, args...) BS_LOG(LOG_LEVEL_N, BS_LOG_FORMAT(fmt, "[NOTE]"), ##args)
 
@@ -167,6 +169,14 @@ extern "C"
 #define PINFO(fmt, args...) BS_LOG(LOG_LEVEL_I, BS_LOG_FORMAT(fmt, "[INFO]"), ##args)
 
 #define PDEBUG(fmt, args...) BS_LOG(LOG_LEVEL_D, BS_LOG_FORMAT(fmt, "[DEBUG]"), ##args)
+*/
+
+#define PLADON(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
+#define PNOTE(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
+#define PERR(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
+#define PWARN(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
+#define PINFO(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
+#define PDEBUG(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
 
 extern int64_t sensord_get_tmstmp_ns(void);
 extern void trace_log(uint32_t level, const char *fmt, ...);
