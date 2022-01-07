@@ -36,7 +36,7 @@ libsmi130sensors_la_CFLAGS = $(AM_CFLAGS)
 libsmi130sensors_la_LDFLAGS = -lpthread -shared -version-info 1:0:0
 libsmi130sensors_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
-libsmi130sensors_la_LIBADD = -lstdc++
+libsmi130sensors_la_LIBADD = -lstdc++ -llog
 
 #Create and Install libraries
 lib_LTLIBRARIES = libsmi130sensors.la

@@ -527,13 +527,13 @@ void sensord_algo_process(BoschSensor *boschsensor)
 
         if(acc_has_input){
             library_in_package[input_package_index++] = accel_in_data;
-            PINFO("input ACC data: id=%u, D=%d, %d, %d T=%lld",
+            /*PINFO("input ACC data: id=%u, D=%d, %d, %d T=%lld",
                     accel_in_data.sensor_id,
                     accel_in_data.content_p[0].lw.mslw.sli,
                     accel_in_data.content_p[1].lw.mslw.sli,
                     accel_in_data.content_p[2].lw.mslw.sli,
                     accel_in_data.time_stamp);
-
+             */
             if(data_log){
                 acc_log_data.x = accel_in_data.content_p[0].lw.mslw.sli;
                 acc_log_data.y = accel_in_data.content_p[1].lw.mslw.sli;
@@ -581,13 +581,13 @@ void sensord_algo_process(BoschSensor *boschsensor)
 
         if(gyr_has_input){
             library_in_package[input_package_index++] = ang_in_data;
-            PINFO("input GYRO data: id=%u, D=%d, %d, %d T=%lld",
+            /*PINFO("input GYRO data: id=%u, D=%d, %d, %d T=%lld",
                     ang_in_data.sensor_id,
                     ang_in_data.content_p[0].lw.mslw.sli,
                     ang_in_data.content_p[1].lw.mslw.sli,
                     ang_in_data.content_p[2].lw.mslw.sli,
                     ang_in_data.time_stamp);
-
+               */
             if(data_log){
                 gyr_log_data.x = ang_in_data.content_p[0].lw.mslw.sli;
                 gyr_log_data.y = ang_in_data.content_p[1].lw.mslw.sli;
