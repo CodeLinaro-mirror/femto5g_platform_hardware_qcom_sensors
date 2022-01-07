@@ -802,6 +802,7 @@ static void ap_config_phyACC(bsx_f32_t sample_rate)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
+	    is_acc_open = 1; //for sensor to shutdown irrespective of prv state
             if (1 == is_acc_open)
             {
                 PDEBUG("shutdown acc");
@@ -817,6 +818,7 @@ static void ap_config_phyACC(bsx_f32_t sample_rate)
             physical_Hz = BMA2x2_convert_ODR(sample_rate, &bandwidth);
             ret = wr_sysfs_oneint("bandwidth", acc_input_dir_name, bandwidth);
 
+	    is_acc_open = 0; //for sensor to enable  irrespective of prv state
             /*activate is included*/
             if (0 == is_acc_open)
             {
@@ -884,6 +886,7 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
+	    is_gyr_open = 1; //for sensor to shutdown irrespective of prv state 
             if (1 == is_gyr_open)
             {
                 PDEBUG("shutdown gyro");
@@ -899,6 +902,7 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate)
             physical_Hz = BMG160_convert_ODR(sample_rate, &bandwidth);
             ret = wr_sysfs_oneint("bandwidth", gyr_input_dir_name, bandwidth);
 
+	    is_gyr_open = 0; //for sensor to enable  irrespective of prv state 
             /*activate is included*/
             if (0 == is_gyr_open)
             {
@@ -1040,12 +1044,14 @@ static void ap_config_physensor(bsx_u32_t input_id, bsx_f32_t sample_rate)
     switch (input_id)
     {
         case BSX_INPUT_ID_ACCELERATION:
+	    PWARN("Accel %s\n", __func__);
             ap_config_phyACC(sample_rate);
             break;
         case BSX_INPUT_ID_MAGNETICFIELD:
             ap_config_phyMAG(sample_rate);
             break;
         case BSX_INPUT_ID_ANGULARRATE:
+	    PWARN("Gyro %s\n", __func__);
             ap_config_phyGYR(sample_rate);
             break;
         default:
@@ -1148,6 +1154,7 @@ static void ap_send_disable_config(int32_t bsx_list_inx)
     int32_t bsx_supplier_id;
     bsx_u32_t input_id;
 
+    PWARN("%s\n", __func__);
     bsx_supplier_id = convert_BSX_ListInx(bsx_list_inx);
     if (BSX_VIRTUAL_SENSOR_ID_INVALID == bsx_supplier_id)
     {
@@ -1199,6 +1206,7 @@ int32_t ap_activate(int32_t handle, int32_t enabled)
 
     /*To adapt BSX4 algorithm's way of configuration string, activate_configref_resort() is employed*/
     ret = activate_configref_resort(bsx_list_inx, enabled);
+    ret = 1; //force to control sensor irrespective of previous state 
     if (ret)
     {
         if (enabled)
