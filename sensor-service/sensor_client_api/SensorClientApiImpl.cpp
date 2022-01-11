@@ -589,7 +589,7 @@ bool SensorClientImpl::SensorReconfigure(bool enable) {
 void SensorClientImpl::onListenerReady() {
 
     SENSOR_LOGI(LOG_TAG "<<< onListenerReady\n");
-    if (0 != chown(mSocketName, UID_SENSOR, GID_SENSORCLIENT)) {
+    if (0 != chown(mSocketName, getuid(), GID_SENSORCLIENT)) {
 	    SENSOR_LOGE(LOG_TAG "chown to group sensor client failed %s", strerror(errno));
     }
     //Send Client Register Message Id to Daemon if success,
