@@ -128,7 +128,7 @@ bool SensorIpc::startListeningBlocking(const std::string& name) {
         SENSOR_LOGE(LOG_TAG "cannot close socket:%s\n", strerror(errno));
     }
     unlink(name.c_str());
-
+    pthread_exit((void *)0);
     return stopRequested;
 }
 

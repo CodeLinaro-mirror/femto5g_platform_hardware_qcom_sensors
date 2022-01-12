@@ -50,6 +50,20 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define HAL_CONFIGURATION_FILE "hal_config"
 #define HAL_CONFIGURATION_PATH "/data/sensorhal"
 
+#define RM_MIN 0
+#define RM_MAX 3600
+
+#define CRASH_TH_MIN 100
+#define CRASH_TH_MAX 2000
+#define CRASH_TIMER_MIN 1
+#define CRASH_TIMER_MAX 89000
+
+#define TOWING_TH_MIN 10
+#define TOWING_TH_MAX 1000
+#define TOWING_TIMER_MIN 1
+#define TOWING_TIMER_MAX 89000
+
+
 // This API is called to calculate rotational matrix
 // It takes yaw, pitch and roll as a parameters
 // The values should be inbetween o to 3600 range
@@ -67,7 +81,7 @@ int update_sensor_rotation_matrix(uint16_t yaw, uint16_t pitch, uint16_t roll)
 	char buffer[256];
 	int point = 0;
 
-	if(yaw < 0 || pitch < 0 || roll < 0 || yaw > 3600 || pitch > 3600 || roll > 3600){
+	if(yaw < RM_MIN || pitch < RM_MIN || roll < RM_MIN || yaw > RM_MAX || pitch > RM_MAX || roll > RM_MAX){
 		printf("Error: Invalid Range\n");
 		return -1;
 	}
@@ -221,16 +235,209 @@ err_out:
         return err;
 }
 
+// This API is used to update towing threshold and timer values
 int update_sensor_towing_jack_parameters(uint16_t threshold, uint32_t timer) {
-//update below parameters with new values
-//algo_towing_jack_delta_th = threshold
-//algo_towing_jack_min_duration = timer
+        char *file_path_name = NULL;
+        char *buffer_string = NULL;
+        FILE *fd_config = NULL;
+        int len = 0;
+        int err = 0;
+        char *ptr;
+        int size = 256;
+	int fsize = 0;
+	int point = 0;
+	char bufferp[256];
+
+	if(threshold < TOWING_TH_MIN || threshold > TOWING_TH_MAX || timer < TOWING_TIMER_MIN || timer > TOWING_TIMER_MAX){
+		printf("Error: Invalid Range\n");
+		return -1;
+	}
+
+	file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+        if (!file_path_name){
+		err = -errno;
+                printf("Unable to allocate memory (errno %d)\n", err);
+		perror("Error print by sensor util");
+
+                return -ENOMEM;
+        }
+
+	fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
+        snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+        fd_config = fopen(file_path_name, "r+");
+        if (!fd_config) {
+                err = -errno;
+                printf("Filed to open %s (errno %d)\n",
+                         file_path_name, err);
+		perror("Error print by sensor util");
+
+                goto err_out;
+        }
+
+        buffer_string = (char *)calloc(size, 1);
+        if (!buffer_string) {
+                err = -errno;
+                printf("Unable to allocate memory (errno %d)\n", err);
+
+                goto err_out;
+        }
+
+	fsize = strlen("algo_towing_jack_delta_th = 00000");
+        size = snprintf(buffer_string, fsize + 1, "algo_towing_jack_delta_th = %5u",
+                       threshold);
+
+        printf("Update file in %s with %s\n", file_path_name, buffer_string);
+	while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
+                       if(strstr(bufferp, "algo_towing_jack_delta_th = ")) {
+                                point = strlen(bufferp);
+                                fseek(fd_config, -point, SEEK_CUR);
+                                len = fwrite(buffer_string, 1, size, fd_config);
+                                 if (!len) {
+                                        err = -errno;
+					perror("Error print by sensor util");
+                                        printf("Filed to write data to %s (errno %d)\n",
+                                        file_path_name, err);
+                                }
+                        break;
+                        }
+        }
+ 
+        fsize = strlen("algo_towing_jack_min_duration = 0000000000");
+        size = snprintf(buffer_string, fsize + 1, "algo_towing_jack_min_duration = %10u",
+                       timer);
+
+        printf("Update file in %s with %s\n", file_path_name, buffer_string);
+        while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
+                       if(strstr(bufferp, "algo_towing_jack_min_duration = ")) {
+                                point = strlen(bufferp);
+                                fseek(fd_config, -point, SEEK_CUR);
+                                len = fwrite(buffer_string, 1, size, fd_config);
+                                 if (!len) {
+                                        err = -errno;
+                                        perror("Error print by sensor util");
+                                        printf("Filed to write data to %s (errno %d)\n",
+                                        file_path_name, err);
+                                }
+                        break;
+                        }
+        }
+
+err_out:
+        if (fd_config) {
+                fclose(fd_config);
+        }
+
+        if (file_path_name) {
+                free(file_path_name);
+        }
+
+        if (buffer_string) {
+                free(buffer_string);
+        }
+
+        return err;
 
 }
 
+// This API is used to update crash threshold and timer values
 int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer) {
+        char *file_path_name = NULL;
+        char *buffer_string = NULL;
+        FILE *fd_config = NULL;
+        int len = 0;
+        int err = 0;
+        char *ptr;
+        int size = 256;
+	int fsize = 0;
+	int point = 0;
+	char bufferp[256];
 
-//update below parameters with new values
-//algo_crash_impact_th = threshold
-//algo_crash_min_duration = timer
+	if(threshold < CRASH_TH_MIN || threshold > CRASH_TH_MAX || timer < CRASH_TIMER_MIN || timer > CRASH_TIMER_MAX){
+		printf("Error: Invalid Range\n");
+		return -1;
+	}
+
+        file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+        if (!file_path_name){
+		err = -errno;
+                printf("Unable to allocate memory (errno %d)\n", err);
+		perror("Error print by sensor util");
+
+                return -ENOMEM;
+        }
+
+	fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
+        snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+        fd_config = fopen(file_path_name, "r+");
+        if (!fd_config) {
+                err = -errno;
+                printf("Filed to open %s (errno %d)\n",
+                         file_path_name, err);
+		perror("Error print by sensor util");
+
+                goto err_out;
+        }
+
+        buffer_string = (char *)calloc(size, 1);
+        if (!buffer_string) {
+                err = -errno;
+                printf("Unable to allocate memory (errno %d)\n", err);
+
+                goto err_out;
+        }
+
+        fsize = strlen("algo_crash_impact_th = 00000");
+        size = snprintf(buffer_string, fsize + 1, "algo_crash_impact_th = %5u",
+                       threshold);
+
+        printf("Update file in %s with %s\n", file_path_name, buffer_string);
+        while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
+                       if(strstr(bufferp, "algo_crash_impact_th = ")) {
+                                point = strlen(bufferp);
+                                fseek(fd_config, -point, SEEK_CUR);
+                                len = fwrite(buffer_string, 1, size, fd_config);
+                                 if (!len) {
+                                        err = -errno;
+                                        perror("Error print by sensor util");
+                                        printf("Filed to write data to %s (errno %d)\n",
+                                        file_path_name, err);
+                                }
+                        break;
+                        }
+        }
+
+        fsize = strlen("algo_crash_min_duration = 0000000000");
+        size = snprintf(buffer_string, fsize + 1, "algo_crash_min_duration = %10u",
+                       timer);
+
+        printf("Update file in %s with %s\n", file_path_name, buffer_string);
+        while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
+                       if(strstr(bufferp, "algo_crash_min_duration = ")) {
+                                point = strlen(bufferp);
+                                fseek(fd_config, -point, SEEK_CUR);
+                                len = fwrite(buffer_string, 1, size, fd_config);
+                                 if (!len) {
+                                        err = -errno;
+                                        perror("Error print by sensor util");
+                                        printf("Filed to write data to %s (errno %d)\n",
+                                        file_path_name, err);
+                                }
+                        break;
+                        }
+        }
+
+err_out:
+        if (fd_config) {
+                fclose(fd_config);
+        }
+
+        if (file_path_name) {
+                free(file_path_name);
+        }
+
+        if (buffer_string) {
+                free(buffer_string);
+        }
+
+        return err;
 }

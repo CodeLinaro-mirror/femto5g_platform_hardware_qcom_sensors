@@ -43,14 +43,18 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static const char *options = "a:g:b:fn:d:s:le:o:Nhv?";
 
 static const struct option long_options[] = {
-		{"yaw",	      required_argument, 0,  'y' },
-		{"pitch",     required_argument, 0,  'p' },
-		{"roll",      required_argument, 0,  'o' },
-		{"x",         required_argument, 0,  'a' },
-	        {"y", 	      required_argument, 0,  'b' },
-		{"z",         required_argument, 0,  'c' },
-		{"help",      no_argument,       0,  '?' },
-		{0,           0,                 0,   0  }
+		{"yaw",	             required_argument, 0,  'a' },
+		{"pitch",            required_argument, 0,  'b' },
+		{"roll",             required_argument, 0,  'c' },
+		{"x",                required_argument, 0,  'd' },
+	        {"y", 	             required_argument, 0,  'e' },
+		{"z",                required_argument, 0,  'f' },
+		{"towingthreshold",  required_argument, 0,  'g' },
+		{"towingtime",       required_argument, 0,  'h' },
+		{"crashthreshold",   required_argument, 0,  'i' },
+		{"crashtime",        required_argument, 0,  'j' },
+		{"help",             no_argument,       0,  '?' },
+		{0,                  0,                 0,   0  }
 };
 
 static void help(char *argv)
@@ -72,6 +76,14 @@ static void help(char *argv)
                long_options[index++].name);
 	printf("\t--%s:\t\tUpdate position for z-axis\n",
                long_options[index++].name);
+	printf("\t--%s:\tUpdate towingthreshold\n",
+               long_options[index++].name);
+	printf("\t--%s:\tUpdate towingtime\n",
+               long_options[index++].name);
+	printf("\t--%s:\tUpdate crashthreshold\n",
+               long_options[index++].name);
+	printf("\t--%s:\tUpdate crashtime\n",
+               long_options[index++].name);
 	printf("\t--%s:\t\tThis help\n", long_options[index++].name);
 
 	exit(0);
@@ -84,11 +96,15 @@ int main(int argc, char **argv)
 	int digit_optind = 0;
 	int rm_value = 0;
 	int sp_value = 0;
+	int towing = 0;
+	int crash = 0;
 	int i;
 	int err = 0;
 	char *yawd = NULL, *pitchd = NULL, *rolld = NULL;
 	char *xd = NULL, *yd = NULL, *zd = NULL;
-	uint16_t yaw = 0, pitch = 0, roll = 0;
+	char *ttd = NULL, *ttimed = NULL, *ccd = NULL, *ctimed = NULL;
+	uint16_t yaw = 0, pitch = 0, roll = 0; 
+	uint16_t towing_threshold = 0, towing_time = 0, crash_threshold = 0, crash_time = 0;
 	int16_t x = 0, y = 0, z = 0;
 
 	while (1) {
@@ -101,35 +117,55 @@ int main(int argc, char **argv)
 			break;
 
 		switch (c) {
-		case 'y':
+		case 'a':
 			yawd = optarg;
 			yaw = atoi(yawd);
-				rm_value = 1;
+			rm_value = 1;
 			break;
-		case 'p':
+		case 'b':
 			pitchd = optarg;
 			pitch = atoi(pitchd);
-				rm_value = 1;
+			rm_value = 1;
 			break;
-		case 'o':
+		case 'c':
 			rolld = optarg;
 			roll = atoi(rolld);
-				rm_value = 1;
+			rm_value = 1;
 			break;
-		case 'a':
+		case 'd':
 			xd = optarg;
 			x = atoi(xd);
 			sp_value = 1;
 			break;
-		case 'b':
+		case 'e':
 			yd = optarg;
 			y = atoi(yd);
 			sp_value = 1;
 			break;
-		case 'c':
+		case 'f':
 			zd = optarg;
 			z = atoi(zd);
 			sp_value = 1;
+			break;
+		case 'g':
+			ttd = optarg;
+			towing_threshold = atoi(ttd);
+			towing = 1;
+			break;
+		case 'h':
+			ttimed = optarg;
+			towing_time = atoi(ttimed);
+			towing = 1;
+			break;
+		case 'i':
+			ccd = optarg;
+			crash_threshold = atoi(ccd);
+			crash = 1;
+			break;
+		case 'j':
+			ctimed = optarg;
+			crash_time = atoi(ctimed);
+			crash = 1;
 			break;
 		default:
 			help(argv[0]);
@@ -141,6 +177,12 @@ int main(int argc, char **argv)
 
 	if (sp_value)
 		update_sensor_placement(x,y,z);
+
+	if (towing)
+		update_sensor_towing_jack_parameters(towing_threshold, towing_time);
+
+	if (crash)
+		update_sensor_crash_detection_parameters(crash_threshold, crash_time);
 
 	return 0;
 }
