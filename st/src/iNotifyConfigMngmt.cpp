@@ -68,6 +68,7 @@ static int show_sensor_placement(struct hal_config_t *config)
 		config->sensor_placement.location[2]);
 	ALOGD("Sensor Crash  theshold %d duration %d\n", config->algo_crash_impact_th, config->algo_crash_min_duration);
 	ALOGD("Sensor Towing theshold %d duration %d\n", config->algo_towing_jack_delta_th, config->algo_towing_jack_min_duration);
+	ALOGD("Sensor Iginition State %d\n", config->ignition_off);
 
 	return 0;
 }
