@@ -53,6 +53,9 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RM_MIN 0
 #define RM_MAX 3600
 
+#define POS_MIN -65
+#define POS_MAX 65
+
 #define CRASH_TH_MIN 100
 #define CRASH_TH_MAX 2000
 #define CRASH_TIMER_MIN 1
@@ -169,6 +172,11 @@ int update_sensor_placement(int16_t x, int16_t y, int16_t z)
 	int fsize = 0;
 	int point = 0;
 	char bufferp[256];
+
+	if(x < POS_MIN || y < POS_MIN || z < POS_MIN || x > POS_MAX || y > POS_MAX || z > POS_MAX){
+                printf("Error: Invalid Range\n");
+                return -1;
+        }
 
         file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
         if (!file_path_name){

@@ -50,18 +50,18 @@ static const struct option long_options[] = {
 	        {"y", 	             required_argument, 0,  'e' },
 		{"z",                required_argument, 0,  'f' },
 		{"towingthreshold",  required_argument, 0,  'g' },
-		{"towingtime",       required_argument, 0,  'h' },
+		{"towingtime",       required_argument, 0,  'z' },
 		{"crashthreshold",   required_argument, 0,  'i' },
 		{"crashtime",        required_argument, 0,  'j' },
 		{"ignition",         required_argument, 0,  'k' },
-		{"help",             no_argument,       0,  '?' },
+		{"help",              no_argument, 	0,  '?' },
 		{0,                  0,                 0,   0  }
 };
 
 static void help(char *argv)
 {
 	printf("To Update sensor position\n");
-	printf("\tsensor_util_lib_testapp --x [0--1] --y [0--1] --z [0--1]\n");
+	printf("\tsensor_util_lib_testapp --x [-65--+65] --y [-65--+65] --z [-65--+65]\n");
 
 	printf("To Update Sensor Euler angles\n");
 	printf("\tsensor_util_lib_testapp --yaw [0--3600] --pitch [0--3600] --roll [0--3600]\n");
@@ -95,7 +95,8 @@ int main(int argc, char **argv)
 	char *ttd = NULL, *ttimed = NULL, *ccd = NULL, *ctimed = NULL;
 	char *ignd = NULL;
 	uint16_t yaw = 0, pitch = 0, roll = 0; 
-	uint16_t towing_threshold = 0, towing_time = 0, crash_threshold = 0, crash_time = 0;
+	uint16_t towing_threshold = 0, crash_threshold = 0;
+	uint32_t towing_time = 0, crash_time = 0;
 	int16_t x = 0, y = 0, z = 0;
 	uint32_t ign_state;
 
@@ -105,8 +106,9 @@ int main(int argc, char **argv)
 
 		c = getopt_long(argc, argv, options,
 				long_options, &option_index);
-		if (c == -1)
+		if (c == -1){
 			break;
+		}
 
 		switch (c) {
 		case 'a':
@@ -144,7 +146,7 @@ int main(int argc, char **argv)
 			towing_threshold = atoi(ttd);
 			towing = 1;
 			break;
-		case 'h':
+		case 'z':
 			ttimed = optarg;
 			towing_time = atoi(ttimed);
 			towing = 1;
