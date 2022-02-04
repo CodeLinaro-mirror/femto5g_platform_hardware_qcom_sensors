@@ -59,14 +59,20 @@ Constants
 #define GID_SENSORCLIENT (3011)
 
 #define SOCKET_SENSOR_CLIENT_DIR     "/dev/socket/sensor_client/"
+//#define EAP_SENSOR_CLIENT_DIR        "/dev/socket/sensor_client/"
 #define SOCKET_TO_SENSOR_HAL_DAEMON  "/dev/socket/sensor_client/hal_daemon"
 #define SOCKET_TO_SENSOR_CLIENT_BASE "/dev/socket/sensor_client/toclient"
+#define SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE "/dev/socket/sensor_client/extap.toclient"
 
 // Maximum fully qualified path(including the file name)
 // for the sensor remote API service and client socket name
 #define MAX_SOCKET_PATHNAME_LENGTH (128)
 
 #define SENSOR_CLIENT_SESSION_ID_INVALID (0)
+
+#define SENSOR_CLIENT_API_QSOCKET_HALDAEMON_SERVICE_ID    (8001)
+#define SENSOR_CLIENT_API_QSOCKET_HALDAEMON_INSTANCE_ID   (1)
+#define SENSOR_CLIENT_API_QSOCKET_CLIENT_SERVICE_ID       (8002)
 
 using namespace std;
 using namespace sensor_util;
@@ -152,6 +158,13 @@ struct SensorMlcEventData {
     char name[100];
     struct mlc_event_data event[1];
 };
+
+static int getId1Id2(const char* fullPathName, int32_t length, int32_t& id1, int32_t& id2) {
+        int32_t indx = 0;
+	sscanf(fullPathName, "%d.%d", &id1, &id2);
+        return indx;
+}
+
 /******************************************************************************
   IPC message header structure
  ******************************************************************************/

@@ -53,7 +53,8 @@ case "$1" in
         echo -n "Starting sensor_hal_initializer" > /dev/kmsg
         wait_for_dir_mount
         create_set_folder "/dev/socket/sensor_client" "root:root" 775
-        echo "Done creating folders for sensor hal daemon"
+	create_set_folder "/data/vendor/sensor/extap_sensorclient" "root:root" 755      
+	echo "Done creating folders for sensor hal daemon"
         ;;
   stop)
         echo -n "Stopping sensor_hal_initializer" > /dev/kmsg

@@ -31,6 +31,14 @@ PKG_PROG_PKG_CONFIG
 # Checks for libraries.
 AC_SUBST([CPPFLAGS])
 
+AC_ARG_WITH([qsocket],
+       AC_HELP_STRING([--with-qsocket], [kernel supports qsocket]))
+AM_CONDITIONAL(USE_QSOCKET, test "x${with_qsocket}" = "xyes")
+
+PKG_CHECK_MODULES([QMIFW], [qmi-framework])
+AC_SUBST([QMIFW_CFLAGS])
+AC_SUBST([QMIFW_LIBS])
+
 AC_ARG_WITH([core_includes],
       AC_HELP_STRING([--with-core-includes=@<:@dir@:>@],
          [Specify the location of the core headers]),

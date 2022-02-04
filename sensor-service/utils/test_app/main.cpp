@@ -50,41 +50,30 @@ static const struct option long_options[] = {
 	        {"y", 	             required_argument, 0,  'e' },
 		{"z",                required_argument, 0,  'f' },
 		{"towingthreshold",  required_argument, 0,  'g' },
-		{"towingtime",       required_argument, 0,  'h' },
+		{"towingtime",       required_argument, 0,  'z' },
 		{"crashthreshold",   required_argument, 0,  'i' },
 		{"crashtime",        required_argument, 0,  'j' },
-		{"help",             no_argument,       0,  '?' },
+		{"ignition",         required_argument, 0,  'k' },
+		{"help",              no_argument, 	0,  '?' },
 		{0,                  0,                 0,   0  }
 };
 
 static void help(char *argv)
 {
-        int index = 0;
+	printf("To Update sensor position\n");
+	printf("\tsensor_util_lib_testapp --x [-65--+65] --y [-65--+65] --z [-65--+65]\n");
 
-        printf("usage: %s [OPTIONS]\n\n", argv);
-        printf("OPTIONS:\n");
+	printf("To Update Sensor Euler angles\n");
+	printf("\tsensor_util_lib_testapp --yaw [0--3600] --pitch [0--3600] --roll [0--3600]\n");
 
-	printf("\t--%s:\t\tUpdate yaw to calculate rotational matrix. Max <= 3600\n",
-               long_options[index++].name);
-	printf("\t--%s:\tUpdate pitch to calculate rotational matrix. Max <= 3600\n",
-               long_options[index++].name);
-	printf("\t--%s:\t\tUpdate roll to calculate rotational matrix. Max <= 3600\n",
-               long_options[index++].name);
-	printf("\t--%s:\t\tUpdate position for x-axis\n",
-               long_options[index++].name);
-	printf("\t--%s:\t\tUpdate position for y-axis\n",
-               long_options[index++].name);
-	printf("\t--%s:\t\tUpdate position for z-axis\n",
-               long_options[index++].name);
-	printf("\t--%s:\tUpdate towingthreshold\n",
-               long_options[index++].name);
-	printf("\t--%s:\tUpdate towingtime\n",
-               long_options[index++].name);
-	printf("\t--%s:\tUpdate crashthreshold\n",
-               long_options[index++].name);
-	printf("\t--%s:\tUpdate crashtime\n",
-               long_options[index++].name);
-	printf("\t--%s:\t\tThis help\n", long_options[index++].name);
+	printf("To Update towing threshold and time\n");
+	printf("\tsensor_util_lib_testapp --towingthreshold [10--1000] --towingtime [1--89000]\n");
+
+	printf("To Update crash threshold and time\n");
+	printf("\tsensor_util_lib_testapp --crashthreshold [100--2000] --crashtime [1--89000]\n");
+
+	printf("To Update ignition state\n");
+	printf("\tsensor_util_lib_testapp --ignition [0--1]\n");
 
 	exit(0);
 }
@@ -98,14 +87,18 @@ int main(int argc, char **argv)
 	int sp_value = 0;
 	int towing = 0;
 	int crash = 0;
+	int ignition = 0;
 	int i;
 	int err = 0;
 	char *yawd = NULL, *pitchd = NULL, *rolld = NULL;
 	char *xd = NULL, *yd = NULL, *zd = NULL;
 	char *ttd = NULL, *ttimed = NULL, *ccd = NULL, *ctimed = NULL;
+	char *ignd = NULL;
 	uint16_t yaw = 0, pitch = 0, roll = 0; 
-	uint16_t towing_threshold = 0, towing_time = 0, crash_threshold = 0, crash_time = 0;
+	uint16_t towing_threshold = 0, crash_threshold = 0;
+	uint32_t towing_time = 0, crash_time = 0;
 	int16_t x = 0, y = 0, z = 0;
+	uint32_t ign_state;
 
 	while (1) {
 		int this_option_optind = optind ? optind : 1;
@@ -113,8 +106,9 @@ int main(int argc, char **argv)
 
 		c = getopt_long(argc, argv, options,
 				long_options, &option_index);
-		if (c == -1)
+		if (c == -1){
 			break;
+		}
 
 		switch (c) {
 		case 'a':
@@ -152,7 +146,7 @@ int main(int argc, char **argv)
 			towing_threshold = atoi(ttd);
 			towing = 1;
 			break;
-		case 'h':
+		case 'z':
 			ttimed = optarg;
 			towing_time = atoi(ttimed);
 			towing = 1;
@@ -166,6 +160,11 @@ int main(int argc, char **argv)
 			ctimed = optarg;
 			crash_time = atoi(ctimed);
 			crash = 1;
+			break;
+		case 'k':
+			ignd = optarg;
+			ign_state = atoi(ignd);
+			ignition = 1;
 			break;
 		default:
 			help(argv[0]);
@@ -183,6 +182,9 @@ int main(int argc, char **argv)
 
 	if (crash)
 		update_sensor_crash_detection_parameters(crash_threshold, crash_time);
+
+	if (ignition)
+		update_ignition_state(ign_state);
 
 	return 0;
 }

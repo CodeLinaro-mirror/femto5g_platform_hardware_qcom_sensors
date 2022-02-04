@@ -31,9 +31,11 @@
 #include <string>
 
 #include <SensorIpc.h>
+#include <SensorQsocket.h>
 #include <SensorApiMsg.h>
 
 using sensor_util::SensorIpc;
+using sensor_util::SensorQsocket;
 
 // forward declaration
 class SensorApiService;
@@ -65,6 +67,45 @@ public:
     void onReceive(const std::string& data) override;
     void onListenerReady() override;
 
+private:
+    SensorApiService *mService;
+};
+
+class SensorHalDaemonQsockReceiver : public SensorQsocket
+{
+public:
+    SensorHalDaemonQsockReceiver(SensorApiService* service) :
+            mService(service),
+            SensorQsocket(){ }
+    virtual ~SensorHalDaemonQsockReceiver() { }
+
+    bool start(bool blocking) {
+        char qsocketName[MAX_SOCKET_PATHNAME_LENGTH];
+        int numChars = snprintf(qsocketName, sizeof(qsocketName), "%u.%u",
+                                SENSOR_CLIENT_API_QSOCKET_HALDAEMON_SERVICE_ID,
+                                SENSOR_CLIENT_API_QSOCKET_HALDAEMON_INSTANCE_ID);
+        if (numChars >= (sizeof(qsocketName)-1)) {
+            SENSOR_LOGE(LOG_TAG "qsocketName to small, need %d, buffer size %d\n",
+                     numChars, sizeof(qsocketName));
+            return false;
+        }
+
+        if (true == blocking) {
+            return startListeningBlocking(qsocketName, SENSOR_CLIENT_API_QSOCKET_CLIENT_SERVICE_ID);
+        } else {
+            return startListeningNonBlocking(qsocketName, SENSOR_CLIENT_API_QSOCKET_CLIENT_SERVICE_ID);
+        }
+    }
+
+    void stop() {
+        // not used
+        stopListening();
+    }
+
+    // override from SensorIpc
+    void onReceive(const std::string& data) override;
+    void onListenerReady() override;
+    void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender)override;
 private:
     SensorApiService *mService;
 };

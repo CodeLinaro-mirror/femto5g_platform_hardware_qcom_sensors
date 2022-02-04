@@ -5,7 +5,7 @@ AM_CFLAGS = \
     $(SENSORS_CFLAGS)\
     $(SENSORSOCKET_CFLAGS)\
     -std=c++11\
-    -fno-permissive
+    -fpermissive
 
 
 ACLOCAL_AMFLAGS = -I m4
@@ -39,6 +39,11 @@ else
 libsensor_client_api_la_CFLAGS = $(AM_CFLAGS)
 libsensor_client_api_la_LDFLAGS = -lstdc++ -Wl,-z,defs -lpthread -shared -version-info 1:0:0
 libsensor_client_api_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
+endif
+
+if USE_EXTERNAL_AP
+AM_CFLAGS += $(SENSORSOCKET_CFLAGS)
+requiredlibs += $(SENSORSOCKET_LIBS)
 endif
 
 libsensor_client_api_la_LIBADD = $(requiredlibs) -lstdc++ -ldl -llog

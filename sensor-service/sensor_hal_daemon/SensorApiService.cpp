@@ -24,6 +24,39 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <stdint.h>
@@ -104,10 +137,21 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
         return;
     }
 
+    // create Qsock receiver
+    mQsockReceiver = new SensorHalDaemonQsockReceiver(this);
+    if (nullptr == mQsockReceiver) {
+	    SENSOR_LOGE(LOG_TAG "Failed to create SensorHalDaemonQsockReceiver\n");
+	    return;
+    }
+
     // start receiver - never return
     SENSOR_LOGI(LOG_TAG "Ready, start Ipc Receiver\n");
+    // blocking: set to false
+    mIpcReceiver->start(false);
+
+    SENSOR_LOGI(LOG_TAG "Ready, start qsock Receiver\n");
     // blocking: set to true
-    mIpcReceiver->start(true);
+    mQsockReceiver->start(true);
 }
 
 /******************************************************************************
@@ -119,6 +163,11 @@ SensorApiService::~SensorApiService() {
     if (nullptr != mIpcReceiver) {
         mIpcReceiver->stop();
         delete mIpcReceiver;
+    }
+
+    if (nullptr != mQsockReceiver) {
+        mQsockReceiver->stop();
+        delete mQsockReceiver;
     }
 
     //Delete mSensor memory
@@ -148,12 +197,12 @@ SensorApiService::~SensorApiService() {
 }
 
 /******************************************************************************
-SensorApiService - onListenerReady send HAL READY message to all clients.
+  SensorApiService - onListenerReady send HAL READY message to all clients.
 ******************************************************************************/
 void SensorApiService::onListenerReady() {
 
     // traverse client sockets directory - then broadcast READY message
-    SENSOR_LOGV(LOG_TAG ">-- onListenerReady Finding client sockets...\n");
+    SENSOR_LOGD(LOG_TAG ">-- onListenerReady Finding client sockets...\n");
 
     DIR *dirp = opendir(SOCKET_SENSOR_CLIENT_DIR);
     if (!dirp) {
@@ -173,19 +222,31 @@ void SensorApiService::onListenerReady() {
             continue;
         }
         const char* clientName = NULL;
-	if (0 == fname.compare(0, fnamebase.size(), fnamebase)) {
+        if (0 == fname.compare(0, fnamebase.size(), fnamebase)) {
             clientName = fname.c_str();
             SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s\n", clientName);
         }
         if (NULL != clientName) {
             SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName);
             SensorAPIHalReadyIndMsg msg(SERVICE_NAME);
-            SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s, msg size %d\n", clientName, sizeof(msg));
+            SENSOR_LOGD(LOG_TAG "<-- Sending ready to socket: %s, msg size %d\n", clientName, sizeof(msg));
             pIpcSender->send(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
             delete pIpcSender;
         }
     }
     closedir(dirp);
+}
+
+/******************************************************************************
+SensorApiService - onServiceStatusChange override
+******************************************************************************/
+void SensorApiService::onServiceStatusChange(int serviceId, int instanceId, int status,
+		const SensorQsocketSender& sender) {
+	SENSOR_LOGI(LOG_TAG ">-- onServiceStatusChange: (%d, %d) status %d\n", serviceId, instanceId, status);
+	if (status == 0) {
+		SENSOR_LOGI(LOG_TAG ">-- client deleted by qrtr: (%d, %d)\n", serviceId, instanceId);
+		deleteEapClientByIds(serviceId, instanceId);
+	}
 }
 
 /******************************************************************************
@@ -379,8 +440,7 @@ int SensorApiService::get_sensor_list(struct sensor_t const **s)
 /******************************************************************************
 SensorApiService - send_sensor_data_to_clients thread to process sensor data
 ******************************************************************************/
-void* SensorApiService::send_sensor_data_to_clients(void *arg)
-{
+void* SensorApiService::send_sensor_data_to_clients(void *arg) {
   SensorApiService* mSensorService = (SensorApiService*)(arg);
   int count = 0;
   sensors_event_t events[BUFFER_EVENT];
@@ -390,11 +450,22 @@ void* SensorApiService::send_sensor_data_to_clients(void *arg)
 		     events, sizeof(events)/sizeof(sensors_event_t));
      SENSOR_LOGV(LOG_TAG "read events = %d\n",count);
      std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+#ifdef POWERMANAGER_ENABLED
+     if ((POWER_STATE_SUSPEND != mSensorService->mPowerState) &&
+        (POWER_STATE_SHUTDOWN != mSensorService->mPowerState)) {
+	    for (auto each : mSensorService->mClients) {
+		    if (each.second && each.second->mTracking)
+			    if (each.second->mAccTracking || each.second->mGyroTracking)
+				    each.second->onSensorDataReadCb(events, count);
+	    }
+    }
+#else
      for (auto each : mSensorService->mClients) {
 	     if (each.second && each.second->mTracking)
 		     if (each.second->mAccTracking || each.second->mGyroTracking)
 			     each.second->onSensorDataReadCb(events, count);
      }
+#endif
   }
 }
 
@@ -509,7 +580,7 @@ void SensorApiService::processClientMsg(const std::string& data) {
             break;
         }
         default: {
-            SENSOR_LOGE(LOG_TAG "Unknown message with id: %d\n", pMsg->msgId);
+            SENSOR_LOGV(LOG_TAG "Unknown message with id: %d\n", pMsg->msgId);
             break;
         }
     }
@@ -522,6 +593,7 @@ void SensorApiService::newClient(SensorAPIClientRegisterReqMsg *pMsg) {
 
     std::lock_guard<std::mutex> lock(mMutex);
     std::string clientname(pMsg->mSocketName);
+    SENSOR_LOGI(LOG_TAG ">-- newClient %s\n", clientname.c_str());
 
     // if this name is already used return error
     if (mClients.find(clientname) != mClients.end()) {
@@ -595,6 +667,18 @@ void SensorApiService::deleteClientbyName(const std::string clientname) {
     pClient->cleanup();
 
     SENSOR_LOGI(LOG_TAG ">-- deleteClient client=%s\n", clientname.c_str());
+}
+
+void SensorApiService::deleteEapClientByIds(int serviceId, int instanceId) {
+
+    std::lock_guard<std::mutex> lock(mMutex);
+
+    const char* clientName = getClientNameByIds(serviceId, instanceId);
+    if (clientName) {
+        SENSOR_LOGI(LOG_TAG ">-- service id: %d, instance id: %d, client name: %s",
+                 serviceId, instanceId, clientName);
+        deleteClientbyName(std::string(clientName));
+    }
 }
 
 /******************************************************************************
@@ -1331,25 +1415,6 @@ SensorApiService - power event handlers
 void SensorApiService::onPowerEvent(PowerStateType powerState) {
     std::lock_guard<std::mutex> lock(mMutex);
     SENSOR_LOGI(LOG_TAG "--< onPowerEvent %d", powerState);
-
     mPowerState = powerState;
-    if (POWER_STATE_SUSPEND == powerState) {
-	    for (auto each : mClients) {
-		    if (each.second)
-			    each.second->onCapabilitiesCallback(DEVICE_SUSPEND);
-	    }
-    }
-    else if (POWER_STATE_SHUTDOWN == powerState) {
-	    for (auto each : mClients) {
-		    if (each.second)
-			    each.second->onCapabilitiesCallback(DEVICE_SHUTDOWN);
-	    }
-    }
-    else if (POWER_STATE_RESUME == powerState) {
-	    for (auto each : mClients) {
-		    if (each.second)
-			    each.second->onCapabilitiesCallback(DEVICE_RESUME);
-	    }
-    }
 }
 #endif

@@ -69,6 +69,8 @@ public:
 	    mName(clientname),
 	    mSensorCount(SensorCount),
 	    mClientType(clientType),
+	    mServiceId(-1),
+	    mInstanceId(-1),
 	    mTracking(false),
 	    mAccTracking(false),
 	    mGyroTracking(false),
@@ -90,6 +92,24 @@ public:
     {
 	    SENSOR_LOGI(LOG_TAG "new SensorHalDaemonClientHandler \n");
 	    mIpcSender = new SensorHalDaemonIPCSender(mName.c_str());
+	    // Create a file name with instanceId. The file handle
+            // will be used by hal daemon when it crashes to figure out
+            // the running clients.
+            if (strncmp(mName.c_str(), SOCKET_SENSOR_CLIENT_DIR,
+                sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0 ) {
+
+                char fileName[MAX_SOCKET_PATHNAME_LENGTH];
+                snprintf (fileName, sizeof(fileName), "%s%s",
+                          SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE, mName.c_str());
+                SENSOR_LOGI(LOG_TAG "<-- attempt to open file %s\n", fileName);
+                if (nullptr == fopen (fileName, "w")) {
+                    SENSOR_LOGE(LOG_TAG "<-- failed to open file %s\n", fileName);
+                }
+		getId1Id2(mName.c_str(), mName.length(),
+				mServiceId, mInstanceId);
+		SENSOR_LOGI("EAP client: clientname %s, service id: %d, instance id: %d",
+				mName.c_str(), mServiceId, mInstanceId);
+            }
 
 	    //Intialise the client parameters and set to zero
 	    mActivate = new (std::nothrow) int[mSensorCount];
@@ -152,6 +172,9 @@ public:
 
     //Queue used to send response message
     std::queue<ESensorMsgID> mPendingMessages;
+
+    inline int getServiceId() {return mServiceId;}  // for EAP client
+    inline int getInstanceId() {return mInstanceId;} // for EAP client
 private:
     //Destructor of SensorHalDaemonClientHandler class
     inline ~SensorHalDaemonClientHandler() {}
@@ -190,6 +213,9 @@ private:
     // name of this client
     const std::string mName;
     ClientType mClientType;
+    int mServiceId;  // For EAP client
+    int mInstanceId; // For EAP client
+
     SensorHalDaemonIPCSender* mIpcSender;
 };
 

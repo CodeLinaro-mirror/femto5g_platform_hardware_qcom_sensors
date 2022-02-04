@@ -37,5 +37,21 @@ void SensorHalDaemonIPCReceiver::onReceive(const std::string& data) {
 }
 
 void SensorHalDaemonIPCReceiver::onListenerReady() {
-	mService->onListenerReady();
+    mService->onListenerReady();
+}
+
+/******************************************************************************
+SensorHalDaemonQsockReceiver - SensorIpc overrids
+******************************************************************************/
+void SensorHalDaemonQsockReceiver::onReceive(const std::string& data) {
+    mService->processClientMsg(data);
+}
+
+void SensorHalDaemonQsockReceiver::onListenerReady() {
+    mService->onListenerReady();
+}
+
+void SensorHalDaemonQsockReceiver::onServiceStatusChange(int serviceId,
+		int instanceId, int status, const SensorQsocketSender& refSender) {
+    mService->onServiceStatusChange(serviceId, instanceId, status, refSender);
 }

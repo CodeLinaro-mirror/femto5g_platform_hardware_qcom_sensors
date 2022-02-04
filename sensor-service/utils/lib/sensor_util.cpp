@@ -53,6 +53,9 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RM_MIN 0
 #define RM_MAX 3600
 
+#define POS_MIN -65
+#define POS_MAX 65
+
 #define CRASH_TH_MIN 100
 #define CRASH_TH_MAX 2000
 #define CRASH_TIMER_MIN 1
@@ -169,6 +172,11 @@ int update_sensor_placement(int16_t x, int16_t y, int16_t z)
 	int fsize = 0;
 	int point = 0;
 	char bufferp[256];
+
+	if(x < POS_MIN || y < POS_MIN || z < POS_MIN || x > POS_MAX || y > POS_MAX || z > POS_MAX){
+                printf("Error: Invalid Range\n");
+                return -1;
+        }
 
         file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
         if (!file_path_name){
@@ -413,6 +421,90 @@ int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer)
         printf("Update file in %s with %s\n", file_path_name, buffer_string);
         while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
                        if(strstr(bufferp, "algo_crash_min_duration = ")) {
+                                point = strlen(bufferp);
+                                fseek(fd_config, -point, SEEK_CUR);
+                                len = fwrite(buffer_string, 1, size, fd_config);
+                                 if (!len) {
+                                        err = -errno;
+                                        perror("Error print by sensor util");
+                                        printf("Filed to write data to %s (errno %d)\n",
+                                        file_path_name, err);
+                                }
+                        break;
+                        }
+        }
+
+err_out:
+        if (fd_config) {
+                fclose(fd_config);
+        }
+
+        if (file_path_name) {
+                free(file_path_name);
+        }
+
+        if (buffer_string) {
+                free(buffer_string);
+        }
+
+        return err;
+}
+
+// This API is used to update crash threshold and timer values
+int update_ignition_state(uint32_t ign_state) {
+        char *file_path_name = NULL;
+        char *buffer_string = NULL;
+        FILE *fd_config = NULL;
+        int len = 0;
+        int err = 0;
+        char *ptr;
+        int size = 256;
+	int fsize = 0;
+	int point = 0;
+	char bufferp[256];
+
+        printf("ign_state %d\n", ign_state);
+	if (ign_state != 1 && ign_state != 0) {
+		printf("Error: Invalid Range\n");
+		return -1;
+	}
+
+        file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+        if (!file_path_name){
+		err = -errno;
+                printf("Unable to allocate memory (errno %d)\n", err);
+		perror("Error print by sensor util");
+
+                return -ENOMEM;
+        }
+
+	fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
+        snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+        fd_config = fopen(file_path_name, "r+");
+        if (!fd_config) {
+                err = -errno;
+                printf("Filed to open %s (errno %d)\n",
+                         file_path_name, err);
+		perror("Error print by sensor util");
+
+                goto err_out;
+        }
+
+        buffer_string = (char *)calloc(size, 1);
+        if (!buffer_string) {
+                err = -errno;
+                printf("Unable to allocate memory (errno %d)\n", err);
+
+                goto err_out;
+        }
+
+        fsize = strlen("ignition_off = 0");
+        size = snprintf(buffer_string, fsize + 1, "ignition_off = %1u",
+                       ign_state);
+
+        printf("Update file in %s with %s\n", file_path_name, buffer_string);
+        while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
+                       if(strstr(bufferp, "ignition_off = ")) {
                                 point = strlen(bufferp);
                                 fseek(fd_config, -point, SEEK_CUR);
                                 len = fwrite(buffer_string, 1, size, fd_config);
