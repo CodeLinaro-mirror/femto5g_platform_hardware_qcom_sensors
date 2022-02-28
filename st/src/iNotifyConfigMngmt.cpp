@@ -279,9 +279,9 @@ static int update_algo_towing_delta_th(struct hal_config_t *config,
 		return -EINVAL;
 	}
 
-	/* check algo towing jack delta th interval [100-1000] mg */
-	if (algo_towing_jack_delta_th < 100)
-		algo_towing_jack_delta_th = 100;
+	/* check algo towing jack delta th interval [10-1000] mg */
+	if (algo_towing_jack_delta_th < 10)
+		algo_towing_jack_delta_th = 10;
 	if (algo_towing_jack_delta_th > 1000)
 		algo_towing_jack_delta_th = 1000;
 
@@ -303,10 +303,10 @@ static int update_algo_min_duration(struct hal_config_t *config,
 
 	/*
 	 * check if towing jack min duration and crash min duration
-	 * interval in [1-89000] s
+	 * interval in [2-89000] s
 	 */
-	if (duration < 1)
-		duration = 1;
+	if (duration < 2)
+		duration = 2;
 	if (duration > 89000)
 		duration = 89000;
 

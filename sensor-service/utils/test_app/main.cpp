@@ -67,10 +67,10 @@ static void help(char *argv)
 	printf("\tsensor_util_lib_testapp --yaw [0--3600] --pitch [0--3600] --roll [0--3600]\n");
 
 	printf("To Update towing threshold and time\n");
-	printf("\tsensor_util_lib_testapp --towingthreshold [10--1000] --towingtime [1--89000]\n");
+	printf("\tsensor_util_lib_testapp --towingthreshold [10--1000] --towingtime [2--89000]\n");
 
 	printf("To Update crash threshold and time\n");
-	printf("\tsensor_util_lib_testapp --crashthreshold [100--2000] --crashtime [1--89000]\n");
+	printf("\tsensor_util_lib_testapp --crashthreshold [100--2000] --crashtime [2--89000]\n");
 
 	printf("To Update ignition state\n");
 	printf("\tsensor_util_lib_testapp --ignition [0--1]\n");
