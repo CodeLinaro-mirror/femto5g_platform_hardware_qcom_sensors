@@ -62,7 +62,7 @@ Constants
 //#define EAP_SENSOR_CLIENT_DIR        "/dev/socket/sensor_client/"
 #define SOCKET_TO_SENSOR_HAL_DAEMON  "/dev/socket/sensor_client/hal_daemon"
 #define SOCKET_TO_SENSOR_CLIENT_BASE "/dev/socket/sensor_client/toclient"
-#define SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE "/dev/socket/sensor_client/extap.toclient"
+#define SOCKET_TO_EXTERANL_AP_SENSOR_CLIENT_BASE "/dev/socket/sensor_client/extap.toclient"
 
 // Maximum fully qualified path(including the file name)
 // for the sensor remote API service and client socket name
