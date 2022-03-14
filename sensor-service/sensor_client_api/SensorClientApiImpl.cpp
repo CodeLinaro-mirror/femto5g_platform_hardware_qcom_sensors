@@ -107,16 +107,15 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
     // Each client id is tracked via a bit in mClientIdGenerator,
     // which is 4 bytes now.
     lock_guard<mutex> lock(mMutex);
-    unsigned int clientIdMask = 1;
     // find a bit in the mClientIdGenerator that is not yet used
     // and use that as client id
     // client id will be from 1 to 32, as client id will be used to
-    // set session id and 0 is reserved for LOCATION_CLIENT_SESSION_ID_INVALID
+    // set session id and 0 is reserved for SENSOR_CLIENT_SESSION_ID_INVALID
     for (mClientId = 1; mClientId <= sizeof(mClientIdGenerator) * 8; mClientId++) {
-        if ((mClientIdGenerator & (1UL << (mClientId-1))) == 0) {
-            mClientIdGenerator |= (1UL << (mClientId-1));
-            break;
-        }
+       if ((mClientIdGenerator & (1UL << (mClientId-1))) == 0) {
+	       mClientIdGenerator |= (1UL << (mClientId-1));
+	       break;
+       }
     }
 
     if (mClientId > sizeof(mClientIdGenerator) * 8) {
@@ -193,12 +192,12 @@ void SensorClientImpl::destroy() {
 	bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
 	delete mIpcSender;
 	mIpcSender = nullptr;
-#ifdef ENABLE_USE_LOC_SOCKET
+#ifdef FEATURE_EXTERNAL_AP
 	// get clientId
 	lock_guard<mutex> lock(mMutex);
-	mApiImpl->mClientIdGenerator &= ~(1UL << mApiImpl->mClientId);
-	SENSOR_LOGD(LOG_TAG ("client id generarator 0x%x, id %d",
-			mApiImpl->mClientIdGenerator, mApiImpl->mClientId);
+	mClientIdGenerator &= ~(1UL << mClientId-1);
+	SENSOR_LOGI(LOG_TAG "client id generarator 0x%x, id %d",
+			mClientIdGenerator, mClientId);
 #endif
     }
     if (mSensorList) {
@@ -679,9 +678,11 @@ bool SensorClientImpl::SensorReconfigure(bool enable) {
 *******************************************************************************/
 void SensorClientImpl::onListenerReady() {
     SENSOR_LOGI(LOG_TAG "<<< onListenerReady\n");
+#ifndef FEATURE_EXTERNAL_AP
     if (0 != chown(mSocketName, getuid(), GID_SENSORCLIENT)) {
 	    SENSOR_LOGE(LOG_TAG "chown to group sensor client failed %s", strerror(errno));
     }
+#endif
     //Send Client Register Message Id to Daemon if success,
     //set mHalRegistered to true
     if (!mHalRegistered) {
