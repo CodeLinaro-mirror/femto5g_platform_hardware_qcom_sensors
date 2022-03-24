@@ -761,9 +761,10 @@ static void ap_config_phyACC(bsx_f32_t sample_rate)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
+	    is_acc_open = 1; //for sensor to enable irrespective of prv state
             if (1 == is_acc_open)
             {
-                PDEBUG("shutdown acc");
+                PDEBUG("shutdown acc %d", SENSOR_PM_SUSPEND);
 
                 ret = wr_sysfs_oneint("pwr_cfg", acc_input_dir_name, SENSOR_PM_SUSPEND);
 #ifdef SMI230_DATA_SYNC
@@ -775,21 +776,23 @@ static void ap_config_phyACC(bsx_f32_t sample_rate)
         }
 	else
         {
+	    is_acc_open = 0; //for sensor to enable irrespective of prv state
             /*activate is included*/
             if (0 == is_acc_open)
             {
                 PDEBUG("set acc active");
-                ret = wr_sysfs_oneint("pwr_cfg", acc_input_dir_name, SENSOR_PM_NORMAL);
-#ifdef SMI230_DATA_SYNC
-                ret = wr_sysfs_oneint("pwr_cfg", gyro_input_dir_name, SENSOR_PM_NORMAL);
-#endif
                 is_acc_open = 1;
+		PDEBUG("set acc fifo wm: 70");
+                ret = wr_sysfs_oneint("fifo_wm", acc_input_dir_name, 70);
 
 		PDEBUG("set acc odr: %f", sample_rate);
 		odr_Hz = SMI230_convert_ODR(SENSORLIST_INX_ACCELEROMETER, sample_rate);
 		PDEBUG("write odr %d to %s", odr_Hz, acc_input_dir_name);
 		ret = wr_sysfs_oneint("odr", acc_input_dir_name, odr_Hz);
-
+                ret = wr_sysfs_oneint("pwr_cfg", acc_input_dir_name, SENSOR_PM_NORMAL);
+#ifdef SMI230_DATA_SYNC
+                ret = wr_sysfs_oneint("pwr_cfg", gyro_input_dir_name, SENSOR_PM_NORMAL);
+#endif
             }
         }
 
@@ -880,28 +883,33 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
+	    is_gyr_open = 1; //for sensor to shutdown irrespective of prv state
             if (1 == is_gyr_open)
             {
                 PDEBUG("shutdown gyro");
 
-                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_PM_SUSPEND);
+                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_SUSPEND);
 
                 is_gyr_open = 0;
             }
         }else
         {
+	    is_gyr_open = 0; //for sensor to enable irrespective of prv state
             /*activate is included*/
             if (0 == is_gyr_open)
             {
                 PDEBUG("set gyro active");
-                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_PM_NORMAL);
-
+                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_NORMAL);
                 is_gyr_open = 1;
+
+		PDEBUG("set gyro fifo wm: 60");
+		ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, 60);
 
 		PDEBUG("set gyr odr: %f", sample_rate);
 		odr_Hz = SMI230_convert_ODR(SENSORLIST_INX_GYROSCOPE_UNCALIBRATED, sample_rate);
 		PDEBUG("write odr %d to %s", odr_Hz, gyr_input_dir_name);
 		ret = wr_sysfs_oneint("bw_odr", gyr_input_dir_name, odr_Hz);
+
             }
         }
 
@@ -1195,6 +1203,7 @@ int32_t ap_activate(int32_t handle, int32_t enabled)
 
     /*To adapt BSX4 algorithm's way of configuration string, activate_configref_resort() is employed*/
     ret = activate_configref_resort(bsx_list_inx, enabled);
+    ret = 1; //force to control sensor irrespective of previous state
     if (ret)
     {
         if (enabled)
@@ -1922,14 +1931,14 @@ static int32_t ap_hwcntl_init_ACC()
         }
 
         PDEBUG("acc input_num = %d", acc_input_num);
-        snprintf(acc_input_dir_name, 128, "/sys/class/input/SMI230ACC");
+        snprintf(acc_input_dir_name, 128, "/sys/class/input/input%d", acc_input_num);
 
         driver_show_ver(acc_input_dir_name);
 
         PDEBUG("acc range config %d", accl_range);
         switch(accl_range){
             case ACC_CHIP_RANGCONF_2G:
-                ret += wr_sysfs_oneint("range", acc_input_dir_name, SMI230_ACCEL_RANGE_4G);
+                ret += wr_sysfs_oneint("range", acc_input_dir_name, SMI230_ACCEL_RANGE_2G);
 		break;
             case ACC_CHIP_RANGCONF_4G:
                 ret += wr_sysfs_oneint("range", acc_input_dir_name, SMI230_ACCEL_RANGE_4G);
@@ -2035,7 +2044,7 @@ static int32_t ap_hwcntl_init_GYRO()
         }
 
         PDEBUG("gyr input_num = %d", gyr_input_num);
-        snprintf(gyr_input_dir_name, 128, "/sys/class/input/SMI230GYRO");
+        snprintf(gyr_input_dir_name, 128, "/sys/class/input/input%d", gyr_input_num);
 
         PDEBUG("gyro range config %d", gyro_range);
         switch(gyro_range){
