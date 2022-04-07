@@ -38,6 +38,7 @@ using sensor_util::SensorQsocketSender;
 class SensorHalDaemonIPCSender
 {
 public:
+    //Constructor Function
     inline SensorHalDaemonIPCSender(const char* destSocket) :
             mIpcSender(nullptr),
 	    mQsockSender(nullptr) {
@@ -54,6 +55,30 @@ public:
 	    }
 
         }
+    }
+
+    //Cleanup Function to delete mQsockSender or mIpcSender
+    void cleanup(string mName){
+        if (strncmp(mName.c_str(), SOCKET_SENSOR_CLIENT_DIR,
+                sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0 ) {
+                SENSOR_LOGI(LOG_TAG "EAP cleanup \n");
+                if(mQsockSender){
+                        delete mQsockSender;
+                        mQsockSender = nullptr;
+                }
+
+        } else {
+                SENSOR_LOGI(LOG_TAG "MDM cleanuo \n");
+                if(mIpcSender){
+                        delete mIpcSender;
+                        mIpcSender = nullptr;
+                }
+          }
+    }
+
+    //Destructor Function
+    inline ~SensorHalDaemonIPCSender() {
+	SENSOR_LOGI("Cleanup Destructor\n");
     }
 
     bool send(const uint8_t data[], uint32_t length);
