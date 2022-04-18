@@ -183,8 +183,8 @@ static int write_algos_parameters_to_driver(struct hal_config_t *config)
 	if (config->algo_towing_jack_min_duration != 0) {
 		uint16_t value = (config->algo_towing_jack_min_duration * 12.5f) / 17;
 		char fsm_str[3 * sizeof(value) * strlen("00,")];
-		fsize = strlen(fsm_str);
-		ret = snprintf(fsm_str, fsize + 2,
+		fsize = sizeof(fsm_str);
+		ret = snprintf(fsm_str, fsize,
 			      "%2x,%2x,%2x,%2x,%2x,%2x",
 			      (uint8_t)(value >> 8),
 			      (uint8_t)(value & 0x00FF),
@@ -213,9 +213,9 @@ static int write_algos_parameters_to_driver(struct hal_config_t *config)
 		uint16_t valueth2 = float16((config->algo_crash_impact_th / 1000.0f) / 2);
 		uint16_t valueth1 = float16(-(config->algo_crash_impact_th / 1000.0f) / 2);
 		char fsm_str[2 * sizeof(uint16_t) * strlen("00,")];
-		fsize = strlen(fsm_str);
+		fsize = sizeof(fsm_str);
 
-		ret = snprintf(fsm_str, fsize + 2,
+		ret = snprintf(fsm_str, fsize,
 			      "%2x,%2x,%2x,%2x",
 			      (uint8_t)(valueth1 >> 8),
 			      (uint8_t)(valueth1 & 0x00FF),
@@ -242,8 +242,8 @@ static int write_algos_parameters_to_driver(struct hal_config_t *config)
 		uint16_t value = (config->algo_crash_min_duration * 12.5f) / 17;
 
 		char fsm_str[sizeof(value) * strlen("00,")];
-		fsize = strlen(fsm_str);
-		ret = snprintf(fsm_str, fsize + 2,
+		fsize = sizeof(fsm_str);
+		ret = snprintf(fsm_str, fsize,
 			      "%2x,%2x",
 			      (uint8_t)(value >> 8),
 			      (uint8_t)(value & 0x00FF));
