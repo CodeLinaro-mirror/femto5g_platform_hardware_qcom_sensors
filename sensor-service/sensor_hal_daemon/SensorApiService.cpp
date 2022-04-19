@@ -76,6 +76,11 @@
 #include <PowerEvtHandler.h>
 #endif
 
+#define ASMLIB "/usr/lib/libasm330sensors.so.1.0.0"
+#define IAMLIB "/usr/lib/libiam20680sensors.so.1"
+#define SMI130LIB "/usr/lib/libsmi130sensors.so.1"
+#define SMI230LIB "/usr/lib/libsmi230sensors.so.1"
+
 using namespace std;
 
 /******************************************************************************
@@ -303,6 +308,36 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 		   mhmi->common.version_major, mhmi->common.version_minor,
 		   mhmi->common.id);
 
+   SENSOR_LOGI(LOG_TAG "mSensorType = %d configParamRead.SensorHalLibPath = %s\n", mSensorType, configParamRead.SensorHalLibPath);
+   if (strcmp(ASMLIB, configParamRead.SensorHalLibPath) == 0) {
+        if (mSensorType != 1) {
+                SENSOR_LOGE(LOG_TAG "ERROR: ASM Sensor Type doesn't match with the lib\n");
+                return false;
+        }
+   }
+
+   if (strcmp(IAMLIB, configParamRead.SensorHalLibPath) == 0) {
+        if (mSensorType != 2) {
+                SENSOR_LOGE(LOG_TAG "ERROR: IAM Sensor Type doesn't match with the lib\n");
+                return false;
+        }
+
+   }
+
+   if (strcmp(SMI130LIB, configParamRead.SensorHalLibPath) == 0) {
+        if (mSensorType != 3) {
+                SENSOR_LOGE(LOG_TAG "ERROR: SMI130 Sensor Type doesn't match with the lib\n");
+                return false;
+        }
+   }
+
+   if (strcmp(SMI230LIB, configParamRead.SensorHalLibPath) == 0) {
+        if (mSensorType != 4) {
+                SENSOR_LOGE(LOG_TAG "ERROR: SMI230 Sensor Type doesn't match with the lib\n");
+                return false;
+        }
+   }
+
    err = mhmi->common.methods->open((struct hw_module_t *)mhmi,
 		   SENSORS_HARDWARE_POLL, &mdev);
    if (err) {
@@ -321,7 +356,8 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 	   return false;
    }
 
-   if (mSensorType != SENSOR_TYPE_ASM) {
+   if (mSensorType != SENSOR_ASM330  && mSensorType != SENSOR_IAM20680 &&
+		   mSensorType != SENSOR_SMI130 &&  mSensorType != SENSOR_SMI230) {
 	   SENSOR_LOGE(LOG_TAG "ERROR: Invalid sensor type: %d\n", mSensorType);
 	   return false;
    }
@@ -1090,6 +1126,11 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
     char buffer_string[DEVICE_IIO_MAX_FILENAME_LEN];
     SelfTestResult result;
 
+    if (mSensorType != 1) {
+        SENSOR_LOGE(LOG_TAG "ERROR: selftest is not supported\n");
+        return;
+    }
+
     for (int i=0 ; i < mSensorCount; i++) {
 	    if (sensor_id == mSensor[i].sensor_id) {
 		    if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
@@ -1237,6 +1278,11 @@ float SensorApiService::NearBySamplingRate(float ReqSamplingRate, struct sensor_
 		  return s->odr[i];
 	  else if (s->odr[i] > ReqSamplingRate)
 		  return s->odr[i-1];
+
+	  else if(s->odr[i] == 0){
+               return s->odr[i-1];
+       }
+
   }
 
   //return max sampling rate supported
@@ -1250,7 +1296,7 @@ Sampling rate supported by each sensor
 void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
   switch(mSensorType) {
       //Check for ASM330 sensor
-      case SENSOR_TYPE_ASM: {
+      case SENSOR_ASM330: {
 	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
 		float samplingRate[6] = {12, 26, 52, 104, 208, 416};
 		float acc_range[4][2] = { {0.000598,2}, { 0.001196,4}, {0.002392,8}, {0.004785,16}};
@@ -1320,8 +1366,101 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 	mBatchConst =  3;
         }
         break;
+
+      //Check for IAM20680 sensor
+      case SENSOR_IAM20680: {
+        if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+                float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
+                int acc_range[4] = {2, 4, 8, 16};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+                s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
+                mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+                s->maxSamplingRate = mMaxAccSampleRate;
+                if (mMinAccBatchCount >= MAX_BATCH_COUNT)
+                        mMinAccBatchCount = MAX_BATCH_COUNT;
+                else if (mMinAccBatchCount <= 0)
+                        mMinAccBatchCount = 1;
+                s->minBatchCount   = mMinAccBatchCount;
+        }
+        if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
+                float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
+                int gyro_range[4] = {250, 500, 1000, 2000};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+                s->range = (mGyroRange >= 0 && mGyroRange <= 3 ) ? gyro_range[mGyroRange] : gyro_range[3];
+                mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+                s->maxSamplingRate = mMaxGyroSampleRate;
+                if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+                        mMinGyroBatchCount = MAX_BATCH_COUNT;
+                else if (mMinGyroBatchCount <= 0)
+                        mMinGyroBatchCount = 1;
+                s->minBatchCount   = mMinGyroBatchCount;
+        }
+        mBatchConst =  1;
+        }
+        break;
+
+      //Check for SMI130 sensor
+      case SENSOR_SMI130: {
+        if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+                float samplingRate[6] = {15, 31, 62, 125, 250};
+                int acc_range[1] = {2};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+                s->range = acc_range[0];
+                mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+                s->maxSamplingRate = mMaxAccSampleRate;
+		if (mMinAccBatchCount <= 0)
+                        mMinAccBatchCount = 1;
+                s->minBatchCount   = 1;
+        }
+        if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
+                float samplingRate[6] = {100, 200};
+                int gyro_range[1] = {250};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+                s->range = gyro_range[0];
+                mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+                s->maxSamplingRate = mMaxGyroSampleRate;
+		if (mMinGyroBatchCount <= 0)
+                        mMinGyroBatchCount = 1;
+                s->minBatchCount   = 1;
+        }
+        mBatchConst =  0;
+        }
+        break;
+
+      //Check for SMI230 sensor
+      case SENSOR_SMI230: {
+        if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+                float samplingRate[6] = {12, 25, 50, 100, 200};
+                int acc_range[4] = {2, 4, 8, 16};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
+                mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+                s->maxSamplingRate = mMaxAccSampleRate;
+                if (mMinAccBatchCount >= MAX_BATCH_COUNT)
+                        mMinAccBatchCount = MAX_BATCH_COUNT;
+                else if (mMinAccBatchCount <= 0)
+                        mMinAccBatchCount = 1;
+                s->minBatchCount   = mMinAccBatchCount;
+	}
+        if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
+                float samplingRate[6] = {100, 200};
+                int gyro_range[5] = {125, 250, 500, 1000, 2000};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = (mGyroRange >= 0 && mGyroRange <= 4 ) ? gyro_range[mGyroRange] : gyro_range[4];
+                mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+                s->maxSamplingRate = mMaxGyroSampleRate;
+		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+                        mMinGyroBatchCount = MAX_BATCH_COUNT;
+                else if (mMinGyroBatchCount <= 0)
+                        mMinGyroBatchCount = 1;
+                s->minBatchCount   = mMinGyroBatchCount;
+        }
+        mBatchConst =  1;
+        }
+        break;
+
       //Check for BMI160 sensor
-      case SENSOR_TYPE_BMI: {
+      case SENSOR_BMI160: {
 	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
 		float samplingRate[6] = {25, 50, 100, 200, 400};
 		int acc_range[1] = {2};
@@ -1342,61 +1481,8 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
         }
         mBatchConst =  0;
         }
-        break;
-      //Check for IAM20680 sensor
-      case SENSOR_TYPE_IAM: {
-	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
-		float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
-		int acc_range[4] = {2, 4, 8, 16};
-		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-		s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
-		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
-		s->maxSamplingRate = mMaxAccSampleRate;
-		if (mMinAccBatchCount >= MAX_BATCH_COUNT)
-			mMinAccBatchCount = MAX_BATCH_COUNT;
-		else if (mMinAccBatchCount <= 0)
-			mMinAccBatchCount = 1;
-		s->minBatchCount   = mMinAccBatchCount;
-	}
-	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
-		float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
-		int gyro_range[4] = {250, 500, 1000, 2000};
-		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-		s->range = (mGyroRange >= 0 && mGyroRange <= 3 ) ? gyro_range[mGyroRange] : gyro_range[3];
-		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
-		s->maxSamplingRate = mMaxGyroSampleRate;
-		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
-			mMinGyroBatchCount = MAX_BATCH_COUNT;
-		else if (mMinGyroBatchCount <= 0)
-			mMinGyroBatchCount = 1;
-		s->minBatchCount   = mMinGyroBatchCount;
-        }
-        mBatchConst =  1;
-        }
-        break;
-      //Check for SMI130 sensor
-      case SENSOR_TYPE_SMI: {
-	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
-		float samplingRate[6] = {15.63, 31.25, 62.50, 125, 250};
-		int acc_range[1] = {2};
-		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-		s->range = acc_range[0];
-		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
-		s->maxSamplingRate = mMaxAccSampleRate;
-		s->minBatchCount   = 1;
-	}
-	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
-		float samplingRate[6] = {100, 200};
-		int gyro_range[1] = {250};
-		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-		s->range = gyro_range[0];
-		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
-		s->maxSamplingRate = mMaxGyroSampleRate;
-		s->minBatchCount   = 1;
-	}
-	mBatchConst =  0;
-	}
-        break;
+	break;
+
       //default
       default: {
         float samplingRate[6] = {0};

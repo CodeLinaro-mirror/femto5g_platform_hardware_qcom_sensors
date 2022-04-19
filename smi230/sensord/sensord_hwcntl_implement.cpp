@@ -203,6 +203,9 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define EVENT_CODE_Y_VALUE      0x03
 #define EVENT_CODE_Z_VALUE      0x04
 
+int accrange;
+int gyrorange;
+
 static char iio_dev0_dir_name[128] = { 0 };
 
 /**
@@ -228,6 +231,42 @@ static char gyr_input_dir_name[128] = {0};
 
 static float BMI160_acc_resl = 0.061; //16bit ADC, default range +-2000 mg. algorithm input requires "mg"
 static float BMA255_acc_resl = 0.97656; //12bit ADC, default range +-2000 mg. algorithm input requires "mg"
+
+//Config file
+#define SENSOR_CONF_PATH "/etc/sensors.conf"
+void SENSOR_READ_CONF(char *file_name, int *accrange, int *gyrorange)
+{
+    FILE *file;
+    char buffer[BUFSIZ];
+    char *line;
+    int i;
+
+    file = fopen(file_name, "r");
+    if (file == NULL) {
+        PERR("open failed: %s: %s\n", file_name, strerror(errno));
+        return;
+    }
+
+    while(fgets(buffer, sizeof(buffer), file) != NULL) {
+       for(i = 0; i < strlen(buffer); i++) { // iterate through the chars in a line
+         if(buffer[i] == '#') { // if char is a #, stop processing chars on this line
+                 break;
+         } else if(buffer[i] == ' ') { // if char is whitespace, continue until something is found
+                 continue;
+         } else if(strstr(buffer, "ACC_RANGE=")) {
+                 line = strstr(buffer, "=");
+                 sscanf(&line[1], "%d", accrange);
+                 break;
+         }
+         else if(strstr(buffer, "GYRO_RANGE=")) {
+               line = strstr(buffer, "=");
+               sscanf(&line[1], "%d", gyrorange);
+               break;
+         }
+    }
+    }
+    fclose(file);
+}
 
 /**
  *
@@ -1935,8 +1974,27 @@ static int32_t ap_hwcntl_init_ACC()
 
         driver_show_ver(acc_input_dir_name);
 
-        PDEBUG("acc range config %d", accl_range);
-        switch(accl_range){
+	SENSOR_READ_CONF(SENSOR_CONF_PATH , &accrange, &gyrorange);
+
+	accl_range = accrange;
+
+	switch (accl_range) {
+	case 0:
+                accl_range = ACC_CHIP_RANGCONF_2G;
+		break;
+	case 1:
+                accl_range = ACC_CHIP_RANGCONF_4G;
+		break;
+	case 2:
+                accl_range = ACC_CHIP_RANGCONF_8G;
+		break;
+	case 3:
+                accl_range = ACC_CHIP_RANGCONF_16G;
+		break;
+	}
+
+	PDEBUG("acc range config %d", accl_range);
+	switch(accl_range){
             case ACC_CHIP_RANGCONF_2G:
                 ret += wr_sysfs_oneint("range", acc_input_dir_name, SMI230_ACCEL_RANGE_2G);
 		break;
@@ -2045,6 +2103,28 @@ static int32_t ap_hwcntl_init_GYRO()
 
         PDEBUG("gyr input_num = %d", gyr_input_num);
         snprintf(gyr_input_dir_name, 128, "/sys/class/input/input%d", gyr_input_num);
+
+        SENSOR_READ_CONF(SENSOR_CONF_PATH , &accrange, &gyrorange);
+
+	gyro_range = gyrorange;
+
+        switch (gyro_range) {
+        case 0:
+                gyro_range = GYRO_CHIP_RANGCONF_125DPS;
+                break;
+        case 1:
+                gyro_range = GYRO_CHIP_RANGCONF_250DPS;
+                break;
+        case 2:
+                gyro_range = GYRO_CHIP_RANGCONF_500DPS;
+                break;
+        case 3:
+                gyro_range = GYRO_CHIP_RANGCONF_1000DPS;
+                break;
+        case 4:
+                gyro_range = GYRO_CHIP_RANGCONF_2000DPS;
+                break;
+        }
 
         PDEBUG("gyro range config %d", gyro_range);
         switch(gyro_range){
