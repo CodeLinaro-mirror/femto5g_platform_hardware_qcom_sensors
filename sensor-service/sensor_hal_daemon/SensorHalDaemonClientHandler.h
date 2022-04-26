@@ -170,6 +170,9 @@ public:
     //To Check Buffer read or delete status
     int mBufferRead;
 
+    // name of this client
+    const std::string mName;
+
     //Queue used to send response message
     std::queue<ESensorMsgID> mPendingMessages;
 
@@ -210,8 +213,6 @@ private:
     //The total number of sensor supported
     int mSensorCount;
 
-    // name of this client
-    const std::string mName;
     ClientType mClientType;
     int mServiceId;  // For EAP client
     int mInstanceId; // For EAP client
