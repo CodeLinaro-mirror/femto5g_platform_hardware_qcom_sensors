@@ -102,9 +102,12 @@ public:
                 snprintf (fileName, sizeof(fileName), "%s%s",
                           SOCKET_TO_EXTERANL_AP_LOCATION_CLIENT_BASE, mName.c_str());
                 SENSOR_LOGI(LOG_TAG "<-- attempt to open file %s\n", fileName);
-                if (nullptr == fopen (fileName, "w")) {
+		FILE *fd;
+		fd = fopen (fileName, "w");
+                if (nullptr == fd) {
                     SENSOR_LOGE(LOG_TAG "<-- failed to open file %s\n", fileName);
                 }
+		fclose(fd);
 		getId1Id2(mName.c_str(), mName.length(),
 				mServiceId, mInstanceId);
 		SENSOR_LOGI("EAP client: clientname %s, service id: %d, instance id: %d",
