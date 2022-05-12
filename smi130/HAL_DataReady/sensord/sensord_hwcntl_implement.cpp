@@ -17,6 +17,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ *   Redistributions in binary form must reproduce the above
+ *   copyright notice, this list of conditions and the following
+ *   disclaimer in the documentation and/or other materials provided
+ *   with the distribution.
+ *
+ *   Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *   contributors may be used to endorse or promote products derived
+ *   from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * 
  * Special: Description of the Software:
  *
  * This software module (hereinafter called "Software") and any
@@ -269,6 +303,12 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define BMA2X2_RANGE_4G     5
 #define BMA2X2_RANGE_8G     8
 #define BMA2X2_RANGE_16G    12
+
+#define BMG160_GYRO_RANGE_2000_DEG_SEC  (0x00)
+#define BMG160_GYRO_RANGE_1000_DEG_SEC  (0x01)
+#define BMG160_GYRO_RANGE_500_DEG_SEC  (0x02)
+#define BMG160_GYRO_RANGE_250_DEG_SEC  (0x03)
+#define BMG160_GYRO_RANGE_125_DEG_SEC  (0x04)
 
 #define BMA2x2_FIFO_PASSBY  0
 #define BMA2x2_FIFO_STREAM  2
@@ -796,6 +836,7 @@ static void ap_config_phyACC(bsx_f32_t sample_rate)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
+	    is_acc_open = 1; //for sensor to shutdown irrespective of prv state
             if (1 == is_acc_open)
             {
                 PDEBUG("shutdown acc");
@@ -811,6 +852,7 @@ static void ap_config_phyACC(bsx_f32_t sample_rate)
             physical_Hz = BMA2x2_convert_ODR(sample_rate, &bandwidth);
             ret = wr_sysfs_oneint("bandwidth", acc_input_dir_name, bandwidth);
 
+	    is_acc_open = 0; //for sensor to enable  irrespective of prv state
             /*activate is included*/
             if (0 == is_acc_open)
             {
@@ -878,6 +920,7 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
+	    is_gyr_open = 1; //for sensor to shutdown irrespective of prv state 
             if (1 == is_gyr_open)
             {
                 PDEBUG("shutdown gyro");
@@ -893,6 +936,7 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate)
             physical_Hz = BMG160_convert_ODR(sample_rate, &bandwidth);
             ret = wr_sysfs_oneint("bandwidth", gyr_input_dir_name, bandwidth);
 
+	    is_gyr_open = 0; //for sensor to enable  irrespective of prv state 
             /*activate is included*/
             if (0 == is_gyr_open)
             {
@@ -900,6 +944,7 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate)
 
                 is_gyr_open = 1;
             }
+	    wr_sysfs_oneint("range", gyr_input_dir_name, BMG160_GYRO_RANGE_125_DEG_SEC);
         }
 
     }
@@ -1033,12 +1078,14 @@ static void ap_config_physensor(bsx_u32_t input_id, bsx_f32_t sample_rate)
     switch (input_id)
     {
         case BSX_INPUT_ID_ACCELERATION:
+	    PWARN("Accel %s\n", __func__);
             ap_config_phyACC(sample_rate);
             break;
         case BSX_INPUT_ID_MAGNETICFIELD:
             ap_config_phyMAG(sample_rate);
             break;
         case BSX_INPUT_ID_ANGULARRATE:
+	    PWARN("Gyro %s\n", __func__);
             ap_config_phyGYR(sample_rate);
             break;
         default:
@@ -1141,6 +1188,7 @@ static void ap_send_disable_config(int32_t bsx_list_inx)
     int32_t bsx_supplier_id;
     bsx_u32_t input_id;
 
+    PWARN("%s\n", __func__);
     bsx_supplier_id = convert_BSX_ListInx(bsx_list_inx);
     if (BSX_VIRTUAL_SENSOR_ID_INVALID == bsx_supplier_id)
     {
@@ -1192,6 +1240,7 @@ int32_t ap_activate(int32_t handle, int32_t enabled)
 
     /*To adapt BSX4 algorithm's way of configuration string, activate_configref_resort() is employed*/
     ret = activate_configref_resort(bsx_list_inx, enabled);
+    ret = 1; //force to control sensor irrespective of previous state 
     if (ret)
     {
         if (enabled)
@@ -1893,7 +1942,7 @@ static int32_t ap_hwcntl_init_ACC()
         }
     }else if(ACC_CHIP_BMA2x2 == accl_chip)
     {
-        accl_device_name = "bma2x2";
+        accl_device_name = "smi130_acc";
 
         open_input_by_name(accl_device_name, &acc_input_fd, &acc_input_num);
         if (-1 == acc_input_fd)
@@ -1988,7 +2037,7 @@ static int32_t ap_hwcntl_init_GYRO()
         }
     }else if(GYR_CHIP_BMG160 ==  gyro_chip)
     {
-        gyro_device_name = "bmg160";
+        gyro_device_name = "smi130_gyro";
 
         open_input_by_name(gyro_device_name, &gyr_input_fd, &gyr_input_num);
         if (-1 == gyr_input_fd)

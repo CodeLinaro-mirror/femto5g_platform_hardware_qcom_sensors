@@ -17,6 +17,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ *   Redistributions in binary form must reproduce the above
+ *   copyright notice, this list of conditions and the following
+ *   disclaimer in the documentation and/or other materials provided
+ *   with the distribution.
+ *
+ *   Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *   contributors may be used to endorse or promote products derived
+ *   from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  * Special: Description of the Software:
  *
  * This software module (hereinafter called "Software") and any
@@ -148,7 +183,7 @@
 
 
 #define CONVERT_ACC (0.0098) //library output is in mg = 0.0098 m/s^2
-#define CONVERT_GYRO (0.001065)
+#define CONVERT_GYRO (0.000066322) //125deg/Second Full scale configuration
 #define CONVERT_MAG (0.1)
 #define CONVERT_ORI (57.2958)
 
@@ -527,13 +562,13 @@ void sensord_algo_process(BoschSensor *boschsensor)
 
         if(acc_has_input){
             library_in_package[input_package_index++] = accel_in_data;
-            PINFO("input ACC data: id=%u, D=%d, %d, %d T=%lld",
+            /*PINFO("input ACC data: id=%u, D=%d, %d, %d T=%lld",
                     accel_in_data.sensor_id,
                     accel_in_data.content_p[0].lw.mslw.sli,
                     accel_in_data.content_p[1].lw.mslw.sli,
                     accel_in_data.content_p[2].lw.mslw.sli,
                     accel_in_data.time_stamp);
-
+             */
             if(data_log){
                 acc_log_data.x = accel_in_data.content_p[0].lw.mslw.sli;
                 acc_log_data.y = accel_in_data.content_p[1].lw.mslw.sli;
@@ -581,13 +616,13 @@ void sensord_algo_process(BoschSensor *boschsensor)
 
         if(gyr_has_input){
             library_in_package[input_package_index++] = ang_in_data;
-            PINFO("input GYRO data: id=%u, D=%d, %d, %d T=%lld",
+            /*PINFO("input GYRO data: id=%u, D=%d, %d, %d T=%lld",
                     ang_in_data.sensor_id,
                     ang_in_data.content_p[0].lw.mslw.sli,
                     ang_in_data.content_p[1].lw.mslw.sli,
                     ang_in_data.content_p[2].lw.mslw.sli,
                     ang_in_data.time_stamp);
-
+               */
             if(data_log){
                 gyr_log_data.x = ang_in_data.content_p[0].lw.mslw.sli;
                 gyr_log_data.y = ang_in_data.content_p[1].lw.mslw.sli;

@@ -17,6 +17,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ *   Redistributions in binary form must reproduce the above
+ *   copyright notice, this list of conditions and the following
+ *   disclaimer in the documentation and/or other materials provided
+ *   with the distribution.
+ *
+ *   Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *   contributors may be used to endorse or promote products derived
+ *   from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  * Special: Description of the Software:
  *
  * This software module (hereinafter called "Software") and any
@@ -132,6 +167,8 @@
 #ifndef __SENSORD_PLTF_H
 #define __SENSORD_PLTF_H
 
+#include <utils/Log.h>
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -156,7 +193,7 @@ extern "C"
 #define LADON_LOG_FORMAT(fmt,type) "[%lld]%s" fmt "\n", \
             GET_TIME_TICK(),type
 
-#define PLADON(fmt, args...) BS_LOG(LOG_LEVEL_LADON, LADON_LOG_FORMAT(fmt, "[LADON]"), ##args)
+/*#define PLADON(fmt, args...) BS_LOG(LOG_LEVEL_LADON, LADON_LOG_FORMAT(fmt, "[LADON]"), ##args)
 
 #define PNOTE(fmt, args...) BS_LOG(LOG_LEVEL_N, BS_LOG_FORMAT(fmt, "[NOTE]"), ##args)
 
@@ -167,6 +204,14 @@ extern "C"
 #define PINFO(fmt, args...) BS_LOG(LOG_LEVEL_I, BS_LOG_FORMAT(fmt, "[INFO]"), ##args)
 
 #define PDEBUG(fmt, args...) BS_LOG(LOG_LEVEL_D, BS_LOG_FORMAT(fmt, "[DEBUG]"), ##args)
+*/
+
+#define PLADON(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
+#define PNOTE(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
+#define PERR(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
+#define PWARN(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
+#define PINFO(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
+#define PDEBUG(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
 
 extern int64_t sensord_get_tmstmp_ns(void);
 extern void trace_log(uint32_t level, const char *fmt, ...);
