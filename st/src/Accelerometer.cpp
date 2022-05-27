@@ -147,7 +147,7 @@ void Accelerometer::calculateThresholdMLC(SensorBaseData &data)
 				}
 
 				// store thresholds into sensors fsm registers
-				ret = snprintf(fsm_th_str, 256,
+				ret = snprintf(fsm_th_str, sizeof(fsm_th_str),
 					      "%2x,%2x,%2x,%2x,%2x,%2x,%2x,%2x,%2x,%2x,%2x,%2x",
 					      thresh_hex[0][1], thresh_hex[0][0],
 					      thresh_hex[0][3], thresh_hex[0][2],
