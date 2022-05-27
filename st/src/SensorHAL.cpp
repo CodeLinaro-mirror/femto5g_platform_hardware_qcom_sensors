@@ -408,8 +408,10 @@ static int st_hal_set_fullscale(char *device_iio_sysfs_path, int sensor_type,
 static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 				 STSensorHAL_device_iio_devices_data *data)
 {
+	int fd;
 	int err;
 	int gyro_num;
+	char *buffer_path;
 	const char *name_channel_gyro[] = {
 			"in_anglvel_x",
 			"in_anglvel_y",
@@ -455,6 +457,25 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 						    &data->channels[index].scale,
 						    DEVICE_IIO_GYRO);
 		}
+
+       /* check if file already opened by other process */
+       err = asprintf(&buffer_path, "/dev/iio:device%d", gyro_num);
+       if (err <= 0) {
+               ALOGE("%s: Failed to allocate iio device path string.",
+                     __FUNCTION__);
+               goto st_hal_load_free_device_iio_channels;
+       }
+
+       fd = open(buffer_path, O_RDONLY | O_NONBLOCK);
+       if (fd < 0) {
+               ALOGE("%s: Failed to open iio char device (%s)." ,
+                     __FUNCTION__,
+                     buffer_path);
+               goto st_hal_load_free_device_iio_channels;
+       }
+
+       close(fd);
+
 
 	err = device_iio_utils::enable_sensor(data->device_iio_sysfs_path, false);
 	if (err < 0) {
@@ -529,8 +550,10 @@ st_hal_load_free_device_iio_channels:
 static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 				STSensorHAL_device_iio_devices_data *data)
 {
+	int fd;
 	int err;
 	int acc_num;
+	char *buffer_path;
 	const char *name_channel_acc[] = {
 			"in_accel_x",
 			"in_accel_y",
@@ -577,6 +600,25 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 						    &data->channels[index].scale,
 						    DEVICE_IIO_ACC);
 		}
+
+       /* check if file already opened by other process */
+       err = asprintf(&buffer_path, "/dev/iio:device%d", acc_num);
+       if (err <= 0) {
+               ALOGE("%s: Failed to allocate iio device path string.",
+                     __FUNCTION__);
+               goto st_hal_load_free_device_iio_channels;
+       }
+
+       fd = open(buffer_path, O_RDONLY | O_NONBLOCK);
+       if (fd < 0) {
+               ALOGE("%s: Failed to open iio char device (%s)." ,
+                     __FUNCTION__,
+                     buffer_path);
+               goto st_hal_load_free_device_iio_channels;
+       }
+
+       close(fd);
+
 
 	err = device_iio_utils::enable_sensor(data->device_iio_sysfs_path, false);
 	if (err < 0) {
@@ -1184,6 +1226,12 @@ failed_to_add_dependency:
 	ALOGD("%d sensors available and ready.", hal_data->sensor_available);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 
+#if CONFIG_ST_HAL_CONFIG_INOTIFY_ENABLED
+#ifdef PLTF_LINUX_ENABLED
+       init_notify_loop(HAL_CONFIGURATION_PATH, hal_data);
+#endif /* PLTF_LINUX_ENABLED */
+#endif /* CONFIG_ST_HAL_CONFIG_INOTIFY_ENABLED */
+
 	return 0;
 
 free_data_threads:
@@ -1310,17 +1358,3 @@ rollback_operation_mode:
 	return -EINVAL;
 }
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
-
-#if CONFIG_ST_HAL_CONFIG_INOTIFY_ENABLED
-__attribute__((constructor)) void init(void)
-{
-	STSensorHAL_data *hal_data =
-		     (STSensorHAL_data *)HAL_MODULE_INFO_SYM.common.dso;
-	init_notify_loop(HAL_CONFIGURATION_PATH, hal_data);
-}
-
-__attribute__((destructor)) void fini(void)
-{
-
-}
-#endif /* CONFIG_ST_HAL_CONFIG_INOTIFY_ENABLED */
