@@ -135,7 +135,6 @@ private:
     struct sensor_list*     mSensorList;
     int 		    mSensorCount;
     static uint32_t         mClientIdGenerator;
-    static uint32_t         mClientIdIndex;
     static mutex            mMutex;
     uint32_t                mClientId;
     bool                    mHalRegistered;
