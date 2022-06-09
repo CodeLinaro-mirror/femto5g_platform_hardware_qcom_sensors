@@ -568,8 +568,8 @@ void SensorApiService::pollEvents(void) {
 					   break;
 				   }
 			   }
-			   print_event(i, &event);
-			   get_mlc_case_name(i+mlc_case_device_start_index, mlc_case_name);
+			   print_event(i+mlc_case_device_start_index-1, &event);
+			   get_mlc_case_name(i+mlc_case_device_start_index-1, mlc_case_name);
 			   for (auto each : mClients) {
 				   for (int i = 0; i < mSensorMlcCaseCount ; i++) {
 					   if (each.second && each.second->mMlcCaseList != nullptr) {
