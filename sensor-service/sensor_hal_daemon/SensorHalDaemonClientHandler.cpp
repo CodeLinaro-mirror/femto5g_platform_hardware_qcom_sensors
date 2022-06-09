@@ -57,6 +57,7 @@ void SensorHalDaemonClientHandler::cleanup() {
 
    //Delete memory allocated of all pointers.
    if (mIpcSender) {
+	mIpcSender->cleanup(mName);
         delete mIpcSender;
         mIpcSender = nullptr;
    }
