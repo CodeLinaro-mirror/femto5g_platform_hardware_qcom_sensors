@@ -87,6 +87,10 @@ Accelerometer::~Accelerometer()
 #ifdef PLTF_LINUX_ENABLED
 int Accelerometer::Ignition(int status)
 {
+	if (status) {
+		Enable(10, true, true);
+	}
+
 	ALOGD("\"%s\": Ignition mode %d", sensor_t_data.name, status);
 	toggle_ignition = status;
 
@@ -171,6 +175,8 @@ void Accelerometer::calculateThresholdMLC(SensorBaseData &data)
 
 					return;
 				}
+
+				Enable(10, false, true);
 			}
 		}
 		break;
