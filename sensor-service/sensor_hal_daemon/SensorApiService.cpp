@@ -328,6 +328,11 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 
    //Copy data to mSensor to track the sensor configuration parameters till last client deregistered.
    mSensor = new (std::nothrow) SensorConfig[mSensorCount];
+
+   if (mSensor == nullptr){
+	return false;	
+   }
+
    for(int i=0; i < mSensorCount; i++) {
      mSensor[i].sensor_id    = s[i].handle;
      mSensor[i].type         = s[i].type;
@@ -338,6 +343,11 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 
    //Create Sensor List to send to all Clients.
    mSensorList = new (std::nothrow) struct sensor_list[mSensorCount];
+
+   if (mSensorList == nullptr) {
+	return false;
+   }
+
    for(int i= 0; i< mSensorCount; i++) {
      if (s[i].type == SENSOR_TYPE_ACCELEROMETER) {
 	     strlcpy(&mSensorList[i].name[0], configParamRead.AccelName, MAX_PATH_SIZE);
@@ -715,6 +725,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
 
+    if (pClient == nullptr) {
+	return SENSOR_ERROR_CONFIG_FAILED;
+    }
+
     for (int i=0 ; i < mSensorCount; i++)  {
          //Check for proper sensor_id
          if (pMsg->sensor_id == mSensor[i].sensor_id) {
@@ -757,6 +771,11 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 		     pClient->mAccEvents = nullptr;
              }
 	     pClient->mAccEvents = new (std::nothrow) sensors_event_t [pClient->mAccBatchCount];
+
+	     if (pClient->mAccEvents == nullptr){	
+		return SENSOR_ERROR_CONFIG_FAILED;
+	     }
+
 	     memset(pClient->mAccEvents, 0, sizeof(sensors_event_t) * pClient->mAccBatchCount);
            }
 
@@ -796,6 +815,11 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 		     pClient->mGyroEvents = nullptr;
 	     }
 	     pClient->mGyroEvents = new (std::nothrow) sensors_event_t [pClient->mGyroBatchCount];
+
+	     if (pClient->mGyroEvents == nullptr) {
+		return SENSOR_ERROR_CONFIG_FAILED;
+	     }
+
 	     memset(pClient->mGyroEvents, 0, sizeof(sensors_event_t) * pClient->mGyroBatchCount);
 	   }
 	 }
@@ -1111,8 +1135,9 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
     }
     self_test_fd = fopen(self_test_file_name, "w+");
 
-    if (!self_test_fd) {
-	    SENSOR_LOGE(LOG_TAG "open");
+    if (self_test_fd == nullptr) {
+	    SENSOR_LOGE(LOG_TAG "NULL");
+	    return;
     }
 
     if (selfTestType == Positive) {

@@ -327,6 +327,10 @@ void SensorHalDaemonClientHandler::onSensorBatchingCb(int sensor_id, float Sampl
 
 void SensorHalDaemonClientHandler::StoreMlcCaseListStatus(struct sensor_mlc_case_list *s, int count) {
 	mMlcCaseList = new(std::nothrow) struct mlc_case_list[count];
+	if (mMlcCaseList == nullptr) {
+		return;
+	}
+
 	for ( int i = 0; i < count; i++) {
 		strlcpy(mMlcCaseList[i].name, s[i].name, 100);
 		mMlcCaseList[i].enable = 0;

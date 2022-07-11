@@ -786,6 +786,10 @@ void SensorApiService::SensorBuffread() {
 	   {
 	      /* Fill the accel buffered data from kernel bufer */
 	      if (accelBuffDataTxProgress) {
+		  if (mfdBuffAccel == nullptr) {
+			return;
+		  }
+
 		  if(getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &zevents[0])) {
 			  memcpy(&events[count], &zevents[0], sizeof(sensors_event_t));
 			  bufferDataScaling(SENSOR_TYPE_ACCELEROMETER, &events[count]);
@@ -800,6 +804,10 @@ void SensorApiService::SensorBuffread() {
 	      }
 	      /* Fill the gyro buffered data into from kernel buffer */
 	      if (gyroBuffDataTxProgress) {
+		 if (mfdBuffGyro == nullptr) {
+			return;
+		 }
+
 	         if (getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &zevents[1])) {
 			 memcpy(&events[count], &zevents[1], sizeof(sensors_event_t));
  			 bufferDataScaling(SENSOR_TYPE_GYROSCOPE, &events[count]);
