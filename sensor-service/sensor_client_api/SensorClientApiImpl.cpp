@@ -757,10 +757,18 @@ void SensorClientImpl::onReceive(const string& data) {
 		      mSensorList = nullptr;
 		   }
 		   mSensorList = new (std::nothrow) struct sensor_list[mSensorCount];
+		   if (mSensorList == nullptr) {
+			return;
+		   }
+
 		   memcpy(mSensorList, &pListIndMsg->sensorList.s[0], sizeof(struct sensor_list) * mSensorCount);
 
 		   if (mSensorTrackingOption == nullptr) {
 		     mSensorTrackingOption = new (std::nothrow) struct SensorTrackingOption[mSensorCount];
+		     if (mSensorTrackingOption == nullptr) {
+			return;
+		     }
+
 		     for (int i = 0 ; i < mSensorCount ; i++) {
 			     mSensorTrackingOption[i].sensor_id = mSensorList[i].sensor_id;
 			     mSensorTrackingOption[i].mSensorDataReadCb = nullptr;
@@ -780,6 +788,10 @@ void SensorClientImpl::onReceive(const string& data) {
                       mSensorMlcCaseList = nullptr;
                    }
                    mSensorMlcCaseList = new (std::nothrow) struct sensor_mlc_case_list[mSensorMlcCaseCount];
+		   if (mSensorMlcCaseList == nullptr) {
+			return;
+		   }
+
                    memcpy(mSensorMlcCaseList, &pListIndMsg->sensorMlcCaseList.s[0],
 				   sizeof(struct sensor_mlc_case_list) * mSensorMlcCaseCount);
 

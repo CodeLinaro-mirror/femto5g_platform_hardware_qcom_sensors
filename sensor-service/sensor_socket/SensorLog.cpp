@@ -65,6 +65,10 @@ static void Sensor_Read_Debug_Level(char *file_name) {
          }
          else if(strstr(buffer, "DEBUG_LEVEL=")) {
                  line = strstr(buffer, "=");
+		 if (line == nullptr) {
+			return;
+		 }
+
                  sscanf(&line[1], "%d", &DEBUG_LEVEL);
                  break;
          }

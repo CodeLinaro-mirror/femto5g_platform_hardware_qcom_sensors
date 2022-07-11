@@ -293,6 +293,10 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 	mlc_info(iio_device_number);
 	memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
 	mSesnorMlcCaseList = (struct sensor_mlc_case_list*) malloc(sizeof(struct sensor_mlc_case_list));
+	if (mSesnorMlcCaseList == nullptr) {
+		return false;
+	}
+
 	mSensorMlcCaseCount = 0;
 	for (int i = mlc_case_device_number; i < iio_device_number+12; i++) {
 		if(find_mlc_case_iio_device_number(i)) {
@@ -303,6 +307,10 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 			get_mlc_case_name(i, mlc_file_name);
 			strlcpy(&mSesnorMlcCaseList[mSensorMlcCaseCount].name[0], mlc_file_name, MAX_PATH_SIZE);
 			mSensorMlcCaseCount++;
+			if (mSesnorMlcCaseList == nullptr) {
+				return false;
+			}
+
 			mSesnorMlcCaseList = (struct sensor_mlc_case_list*) realloc(mSesnorMlcCaseList,
 					(mSensorMlcCaseCount+1) * sizeof(struct sensor_mlc_case_list));
 			memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
@@ -415,11 +423,11 @@ void SensorApiService::pollEvents(void) {
 	char length_file[DEVICE_IIO_MAX_FILENAME_LEN];
         char device_path[DEVICE_IIO_MAX_FILENAME_LEN];
         int i = 0 , j = 0;
-        int fd[10] = { -1 };
+        int fd[30] = { -1 };
         int ret = 0;
-        int event_fd[10] = { -1 };
+        int event_fd[30] = { -1 };
         struct mlc_event_data event;
-        struct pollfd pollfd_iio[10];
+        struct pollfd pollfd_iio[30];
 	int mlc_case_available = 0;
 	int mfifo_num;
 	unsigned long buf_len = 512;
@@ -450,6 +458,10 @@ void SensorApiService::pollEvents(void) {
 	/* Add channels to mFifo*/
 	num_channels = 4;
 	channels = (struct device_iio_info_channel *)malloc(sizeof(struct device_iio_info_channel) * (num_channels));
+	if (channels == nullptr) {
+		return;
+	}
+
 	for (int index = 0; index < num_channels; index++) {
 		get_sensor_type(&channels[index], sensor_mfifo_file_name, name_channel_acc[index], "in");
 		channels[index].index = index;
@@ -477,8 +489,9 @@ void SensorApiService::pollEvents(void) {
 
 	scan_size = size_from_channelarray(channels, num_channels);
         data = (uint8_t *)malloc(scan_size * buf_len);
-        if (!data) {
-                ret = -ENOMEM;
+        if (data == nullptr) {
+		ret = -ENOMEM;
+                return;
         }
 
 	ret = snprintf(device_path, sizeof(device_path),
