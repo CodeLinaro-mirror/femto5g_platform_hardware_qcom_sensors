@@ -75,7 +75,6 @@ namespace sensor_client {
 SensorClientImpl
 ******************************************************************************/
 uint32_t  SensorClientImpl::mClientIdGenerator = SENSOR_CLIENT_SESSION_ID_INVALID;
-uint32_t  SensorClientImpl::mClientIdIndex = 0;
 mutex SensorClientImpl::mMutex;
 
 /******************************************************************************
@@ -102,30 +101,10 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
     uint32_t pid = (uint32_t)getpid();
 
 #ifdef FEATURE_EXTERNAL_AP
-    // The instance id is composed from pid and client id.
-    // We support up to 32 unique client api within one process.
-    // Each client id is tracked via a bit in mClientIdGenerator,
-    // which is 4 bytes now.
     lock_guard<mutex> lock(mMutex);
-    // find a bit in the mClientIdGenerator that is not yet used
-    // and use that as client id
-    // client id will be from 1 to 32, as client id will be used to
-    // set session id and 0 is reserved for SENSOR_CLIENT_SESSION_ID_INVALID
-    for (mClientId = 1; mClientId <= sizeof(mClientIdGenerator) * 8; mClientId++) {
-       if ((mClientIdGenerator & (1UL << (mClientId-1))) == 0) {
-	       mClientIdGenerator |= (1UL << (mClientId-1));
-	       break;
-       }
-    }
-
-    if (mClientId > sizeof(mClientIdGenerator) * 8) {
-        SENSOR_LOGE(LOG_TAG "create Qsocket failed, already use up maximum of %d clients",
-                 sizeof(mClientIdGenerator)*8);
-        return;
-    }
-
     int service = SENSOR_CLIENT_API_QSOCKET_HALDAEMON_SERVICE_ID;
     // generate instance from pid and client id
+    mClientId = ++mClientIdGenerator;
     int instance = pid * 100 + mClientId;
     int numChars = snprintf(mSocketName, sizeof(mSocketName), "%u.%u",
                             SENSOR_CLIENT_API_QSOCKET_CLIENT_SERVICE_ID,
@@ -192,13 +171,6 @@ void SensorClientImpl::destroy() {
 	bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
 	delete mIpcSender;
 	mIpcSender = nullptr;
-#ifdef FEATURE_EXTERNAL_AP
-	// get clientId
-	lock_guard<mutex> lock(mMutex);
-	mClientIdGenerator &= ~(1UL << mClientId-1);
-	SENSOR_LOGI(LOG_TAG "client id generarator 0x%x, id %d",
-			mClientIdGenerator, mClientId);
-#endif
     }
     if (mSensorList) {
         delete mSensorList;
