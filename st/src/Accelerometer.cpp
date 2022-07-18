@@ -91,7 +91,7 @@ int Accelerometer::Ignition(int status)
 		Enable(10, true, true);
 	}
 
-	ALOGD("\"%s\": Ignition mode %d", sensor_t_data.name, status);
+	ALOGD("\"%s\": SensorHAL Ignition mode %d", sensor_t_data.name, status);
 	toggle_ignition = status;
 
 	return 0;
@@ -160,17 +160,17 @@ void Accelerometer::calculateThresholdMLC(SensorBaseData &data)
 					      thresh_hex[2][1], thresh_hex[2][0],
 					      thresh_hex[2][3], thresh_hex[2][2]);
 				if (ret < 0) {
-					ALOGE("\"%s\": Failed to allocate FSM threshold",
+					ALOGE("\"%s\": SensorHAL Failed to allocate FSM threshold",
 					      sensor_t_data.name);
 
 					return;
 				}
 
-				ALOGD("\"%s\": Updating FSM thresholds %s",
+				ALOGD("\"%s\": SensorHAL Updating FSM thresholds %s",
 				      sensor_t_data.name, fsm_th_str);
 				ret = device_iio_utils::update_fsm_thresholds(fsm_th_str);
 				if (ret < 0) {
-					ALOGE("\"%s\": Failed to update FSM threshold",
+					ALOGE("\"%s\": SensorHAL Failed to update FSM threshold",
 					      sensor_t_data.name);
 
 					return;
@@ -209,7 +209,7 @@ void Accelerometer::ProcessData(SensorBaseData *data)
 	applyRotationMatrix(*data);
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
-	ALOGD("\"%s\": received new sensor data: x=%f y=%f z=%f, timestamp=%" PRIu64 "ns, deltatime=%" PRIu64 "ns (sensor type: %d).",
+	ALOGD("\"%s\": SensorHAL received new sensor data: x=%f y=%f z=%f, timestamp=%" PRIu64 "ns, deltatime=%" PRIu64 "ns (sensor type: %d).",
 	      sensor_t_data.name, data->raw[0], data->raw[1], data->raw[2],
 	      data->timestamp, data->timestamp - sensor_event.timestamp, sensor_t_data.type);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */

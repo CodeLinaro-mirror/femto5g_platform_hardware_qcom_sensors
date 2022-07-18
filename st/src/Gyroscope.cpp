@@ -121,7 +121,7 @@ void Gyroscope::ProcessData(SensorBaseData *data)
 	applyRotationMatrix(*data);
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
-	ALOGD("\"%s\": received new sensor data: x=%f y=%f z=%f, timestamp=%" PRIu64 "ns, deltatime=%" PRIu64 "ns (sensor type: %d).",
+	ALOGD("\"%s\": SensorHAL received new sensor data: x=%f y=%f z=%f, timestamp=%" PRIu64 "ns, deltatime=%" PRIu64 "ns (sensor type: %d).",
 	      sensor_t_data.name, data->raw[0], data->raw[1], data->raw[2],
 	      data->timestamp, data->timestamp - sensor_event.timestamp, sensor_t_data.type);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
