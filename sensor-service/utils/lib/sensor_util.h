@@ -53,7 +53,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // This is an API used for calling the rotational matrix and sensor position from the library
 // The application needs to include this header, to call below two APIs
 
-int update_sensor_rotation_matrix(uint16_t yawd, uint16_t pitchd, uint16_t rolld);
+int update_sensor_rotation_matrix(uint16_t rolld, uint16_t pitchd, uint16_t yawd);
 int update_sensor_placement(int16_t x, int16_t y, int16_t z);
 int update_sensor_towing_jack_parameters(uint16_t threshold, uint32_t timer);
 int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer);

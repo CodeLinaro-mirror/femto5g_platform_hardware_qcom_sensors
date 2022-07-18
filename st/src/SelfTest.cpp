@@ -117,7 +117,7 @@ void SelfTest::ThreadCmdTask()
 		if (fds.revents & POLLIN) {
 			read_size = read(fds.fd, &cmd_data, sizeof(struct selftest_cmd_t));
 			if (read_size != sizeof(struct selftest_cmd_t)) {
-				ALOGE("not valid command format.");
+				ALOGE("SensorHAL not valid command format.");
 				continue;
 			}
 

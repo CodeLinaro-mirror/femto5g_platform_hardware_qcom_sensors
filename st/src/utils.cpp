@@ -119,7 +119,7 @@ int device_iio_utils::sysfs_write_str(char *file, char *str)
 {
 	FILE *fp;
 
-	ALOGD("sysfs_write_str: write to file ret %s data %s", file, str);
+	ALOGD("SensorHAL sysfs_write_str: write to file ret %s data %s", file, str);
 
 	fp = fopen(file, "w");
 	if (NULL == fp)
@@ -428,7 +428,7 @@ int device_iio_utils::get_fifo_length(const char *device_dir)
 
 	ret = sysfs_write_int(tmp_filaname, 1);
 	if (ret < 0) {
-		ALOGE("Failed to enable hw fifo: %s.", tmp_filaname);
+		ALOGE("SensorHAL Failed to enable hw fifo: %s.", tmp_filaname);
 	}
 
 out:
@@ -755,7 +755,7 @@ int device_iio_utils::update_fsm_thresholds(char *threshold_data)
 
 	ret = get_device_by_type(device_iio_mlc_device_type);
 	if (ret < 0) {
-        ALOGE("%s: unable to detect device type %s", __FUNCTION__,
+        ALOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
               device_iio_mlc_device_type);
 
 		return ret;
@@ -784,7 +784,7 @@ int device_iio_utils::update_fsm_jack_min_duration(char *min_duration)
 
 	ret = get_device_by_type(device_iio_mlc_device_type);
 	if (ret < 0) {
-        ALOGE("%s: unable to detect device type %s", __FUNCTION__,
+        ALOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
               device_iio_mlc_device_type);
 
 		return ret;
@@ -813,7 +813,7 @@ int device_iio_utils::update_crash_impact_th(char *crash_impact_th)
 
 	ret = get_device_by_type(device_iio_mlc_device_type);
 	if (ret < 0) {
-        ALOGE("%s: unable to detect device type %s", __FUNCTION__,
+        ALOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
               device_iio_mlc_device_type);
 
 		return ret;
@@ -842,7 +842,7 @@ int device_iio_utils::update_crash_min_duration(char *crash_min_duration)
 
 	ret = get_device_by_type(device_iio_mlc_device_type);
 	if (ret < 0) {
-        ALOGE("%s: unable to detect device type %s", __FUNCTION__,
+        ALOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
               device_iio_mlc_device_type);
 
 		return ret;
