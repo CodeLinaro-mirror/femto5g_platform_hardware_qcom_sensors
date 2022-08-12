@@ -32,6 +32,8 @@
 #include <algorithm>
 #include <SensorHalDaemonClientHandler.h>
 #include <SensorApiService.h>
+#include <math.h>
+#include <errno.h>
 
 using namespace std;
 
@@ -79,6 +81,9 @@ using namespace std;
 #define BMI_CONVERT_ACC         (0.0098) //library output is in mg = 0.0098 m/s^2
 #define BMI_CONVERT_GYRO        (0.000066322)
 
+#define HAL_CONFIGURATION_FILE	"hal_config"
+#define HAL_CONFIGURATION_PATH	"/systemrw/sensorhal"
+static float rot[3][3];
 
 /**
  * @brief Read Temp Sensor data from SYS File System for ASM330 Sensor.
@@ -526,18 +531,47 @@ void scalingASMBufferData(int SensorType,sensors_event_t *event)
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType)
   {
+    float temp_data[3];
     scaleFactor = ASM_ACCEL_FSR;
     event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
     event->acceleration.x = process_2byte_received(event->acceleration.x, scaleFactor);
     event->acceleration.y = process_2byte_received(event->acceleration.y, scaleFactor);
     event->acceleration.z = process_2byte_received(event->acceleration.z, scaleFactor);
+
+    memcpy(&temp_data, &event->acceleration, 3 * sizeof(float));
+
+    event->acceleration.x = rot[0][0] * temp_data[0] +
+	    rot[1][0] * temp_data[1] +
+	    rot[2][0] * temp_data[2];
+
+    event->acceleration.y = rot[0][1] * temp_data[0] +
+	    rot[1][1] * temp_data[1] +
+	    rot[2][1] * temp_data[2];
+
+    event->acceleration.z = rot[0][2] * temp_data[0] +
+	    rot[1][2] * temp_data[1] +
+	    rot[2][2] * temp_data[2];
   }
   else {
+    float temp_data[3];
     scaleFactor = ASM_GYRO_FSR;
     event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
     event->gyro.x = process_2byte_received(event->gyro.x, scaleFactor);
     event->gyro.y = process_2byte_received(event->gyro.y, scaleFactor);
     event->gyro.z = process_2byte_received(event->gyro.z, scaleFactor);
+
+    memcpy(&temp_data, &event->gyro, 3 * sizeof(float));
+    event->gyro.x = rot[0][0] * temp_data[0] +
+	    rot[1][0] * temp_data[1] +
+	    rot[2][0] * temp_data[2];
+
+    event->gyro.y = rot[0][1] * temp_data[0] +
+	    rot[1][1] * temp_data[1] +
+	    rot[2][1] * temp_data[2];
+
+    event->gyro.z = rot[0][2] * temp_data[0] +
+	    rot[1][2] * temp_data[1] +
+	    rot[2][2] * temp_data[2];
   }
 }
 
@@ -748,18 +782,109 @@ bool SensorApiService::getBufferedSample(int SensorType, FILE* fd, sensors_event
   return retVal;
 }
 
+static void init_rotation_location(void)
+{
+  rot[0][0] = 1;
+  rot[0][1] = 0;
+  rot[0][2] = 0;
+
+  rot[1][0] = 0;
+  rot[1][1] = 1;
+  rot[1][2] = 0;
+
+  rot[2][0] = 0;
+  rot[2][1] = 0;
+  rot[2][2] = 1;
+}
+
+static void update_rotation_matrix(float yawd, float pitchd, float rolld)
+{
+  float yaw = (yawd / 10.0f) * M_PI / 180.0f;
+  float pitch = (pitchd / 10.0f) * M_PI / 180.0f;
+  float roll = (rolld / 10.0f) * M_PI / 180.0f;
+
+  rot[0][0] = cos(yaw) * cos(roll) + sin(yaw) * sin(pitch) * sin(roll);
+  rot[0][1] = -sin(yaw) * cos(roll) + cos(yaw) * sin(pitch) * sin(roll);
+  rot[0][2] = cos(pitch) * sin(roll);
+
+  rot[1][0] = sin(yaw) * cos(pitch);
+  rot[1][1] = cos(yaw) * cos(pitch);
+  rot[1][2] = -sin(pitch);
+
+  rot[2][0] = -cos(yaw) * sin(roll) + sin(yaw) * sin(pitch) * cos(roll);
+  rot[2][1] = sin(yaw) * sin(roll) + cos(yaw) * sin(pitch) * cos(roll);
+  rot[2][2] = cos(pitch) * cos(roll);
+
+  SENSOR_LOGI(LOG_TAG "Sensor Buffer: \t%5.2f %5.2f %5.2f\t%5.2f %5.2f %5.2f\t%5.2f %5.2f %5.2f\n",
+		  rot[0][0], rot[0][1], rot[0][2],
+		  rot[1][0], rot[1][1], rot[1][2],
+		  rot[2][0], rot[2][1], rot[2][2]);
+}
+
+int read_hal_rotation_matrix(char *path, char *file)
+{
+  float yaw, pitch, roll;
+  char *file_path_name = NULL;
+  char *rag = NULL;
+  FILE *fd_config = NULL;
+  int size;
+  char buffer[BUFSIZ];
+  char *line = NULL;
+  int err = 0;
+  int value = 0;
+
+ value = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2;
+  file_path_name = (char *)calloc(value, sizeof(char));
+  if (!file_path_name) {
+	  SENSOR_LOGE(LOG_TAG "Sensor Unable to allocate memory (errno %d)\n", err);
+	  return -ENOMEM;
+  }
+
+  snprintf(file_path_name, value, "%s/%s", path, file);
+  fd_config = fopen(file_path_name, "r");
+  if (!fd_config) {
+	  err = -errno;
+	  SENSOR_LOGE(LOG_TAG "Sensor Filed to open %s (errno %d)\n",
+			  file_path_name, err);
+		fclose(fd_config);
+  }
+
+
+  while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {
+		    if(strstr(buffer, "imu_sensor_euler_angles = ")) {
+			  line = strstr(buffer, "[");
+			  if(line != NULL){
+				  size = sscanf(&line[1], "%f,%f,%f", &roll, &pitch, &yaw);
+				  SENSOR_LOGE("Sensor roll %f pitch %f yaw %f\n", roll, pitch, yaw);
+				  if (size > 0) {
+					  update_rotation_matrix(yaw, pitch, roll);
+				  }
+			  }
+			  break;
+		  }
+  }
+fclose(fd_config);
+free(file_path_name);
+file_path_name = NULL;
+
+return 0;
+}
+
 void SensorApiService::SensorBuffread() {
   // Init sysFs files for both ACCEL & GYRO buffered data
   FILE *mfdBuffAccel  = NULL;
   FILE *mfdBuffGyro   = NULL;
   bool accelBuffDataTxProgress = false;
   bool gyroBuffDataTxProgress = false;
+
+  init_rotation_location();
   while(mBufferSupported) {
     pthread_mutex_lock (&mHalBuffMutex);
     pthread_cond_wait (&mHalBuffCond, &mHalBuffMutex);
     pthread_mutex_unlock (&mHalBuffMutex);
     for (auto each : mClients) {
        if (each.second->mBufferRead == true && mBufferDeleted != true) {
+	   read_hal_rotation_matrix(HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
 	   int acccount = 0;
 	   int gyrocount = 0;
 	   int count = 0;
