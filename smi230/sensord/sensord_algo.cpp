@@ -436,18 +436,18 @@ void sensord_algo_process(BoschSensor *boschsensor)
             library_in_package[input_package_index++] = accel_in_data;
 #ifdef TEST_APP_ACTIVE
 #ifdef SMI230_DATA_SYNC
-            PINFO("ACC data: T=%lld, %d, %d, %d",
+            /*PINFO("ACC data: T=%lld, %d, %d, %d",
                     accel_in_data.time_stamp,
 		    accel_in_data.content_p[0].lw.mslw.sli,
                     accel_in_data.content_p[1].lw.mslw.sli,
-                    accel_in_data.content_p[2].lw.mslw.sli);
+                    accel_in_data.content_p[2].lw.mslw.sli);*/
 #else
-            PINFO("input ACC data: id=%u, T=%lld, D=%d, %d, %d",
+          /*  PINFO("input ACC data: id=%u, T=%lld, D=%d, %d, %d",
                     accel_in_data.sensor_id,
                     (int64_t)accel_in_data.time_stamp,
                     accel_in_data.content_p[0].lw.mslw.sli,
                     accel_in_data.content_p[1].lw.mslw.sli,
-                    accel_in_data.content_p[2].lw.mslw.sli);
+                    accel_in_data.content_p[2].lw.mslw.sli);*/
 #endif
 #endif
 
@@ -502,17 +502,17 @@ void sensord_algo_process(BoschSensor *boschsensor)
             library_in_package[input_package_index++] = ang_in_data;
 #ifdef TEST_APP_ACTIVE
 #ifdef SMI230_DATA_SYNC
-            PINFO("GYRO data: %d, %d, %d",
+            /*PINFO("GYRO data: %d, %d, %d",
                     ang_in_data.content_p[0].lw.mslw.sli,
                     ang_in_data.content_p[1].lw.mslw.sli,
-                    ang_in_data.content_p[2].lw.mslw.sli);
+                    ang_in_data.content_p[2].lw.mslw.sli);*/
 #else
-            PINFO("input GYRO data: id=%u, T=%lld, D=%d, %d, %d",
+          /*  PINFO("input GYRO data: id=%u, T=%lld, D=%d, %d, %d",
                     ang_in_data.sensor_id,
                     (int64_t)ang_in_data.time_stamp,
                     ang_in_data.content_p[0].lw.mslw.sli,
                     ang_in_data.content_p[1].lw.mslw.sli,
-                    ang_in_data.content_p[2].lw.mslw.sli);
+                    ang_in_data.content_p[2].lw.mslw.sli);*/
 #endif
 #endif
 
