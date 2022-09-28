@@ -1973,7 +1973,7 @@ static int32_t ap_hwcntl_init_ACC()
         }
 
         PDEBUG("acc input_num = %d", acc_input_num);
-        sprintf(acc_input_dir_name, "/sys/class/input/SMI230ACC");
+        snprintf(acc_input_dir_name, 128, "/sys/class/input/input%d", acc_input_num);
 
         driver_show_ver(acc_input_dir_name);
 
@@ -2085,7 +2085,7 @@ static int32_t ap_hwcntl_init_GYRO()
         }
 
         PDEBUG("gyr input_num = %d", gyr_input_num);
-        sprintf(gyr_input_dir_name, "/sys/class/input/SMI230GYRO");
+        snprintf(gyr_input_dir_name, 128, "/sys/class/input/input%d", gyr_input_num);
 
         PINFO("gyro range config %d", gyro_range);
         switch(gyro_range){
