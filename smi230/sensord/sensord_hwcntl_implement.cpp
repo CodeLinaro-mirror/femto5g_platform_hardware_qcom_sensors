@@ -776,6 +776,7 @@ static void ap_config_phyACC(bsx_f32_t sample_rate, uint16_t fifo_data_len)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
+	    is_acc_open = 1; //for sensor to shutdown irrespective of prv state
             if (1 == is_acc_open)
             {
                 PDEBUG("shutdown acc");
@@ -790,6 +791,7 @@ static void ap_config_phyACC(bsx_f32_t sample_rate, uint16_t fifo_data_len)
         }
 	else
         {
+	    is_acc_open = 0; //for sensor to enable irrespective of prv state
             /*activate is included*/
             if (0 == is_acc_open)
             {
@@ -910,21 +912,23 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
+	    is_gyr_open = 1; //for sensor to shutdown irrespective of prv state
             if (1 == is_gyr_open)
             {
                 PDEBUG("shutdown gyro");
 
-                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_PM_SUSPEND);
+                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_SUSPEND);
 
                 is_gyr_open = 0;
             }
         }else
         {
+	    is_gyr_open = 0; //for sensor to enable irrespective of prv state
             /*activate is included*/
             if (0 == is_gyr_open)
             {
                 PDEBUG("set gyro active");
-                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_PM_NORMAL);
+                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_NORMAL);
 
                 is_gyr_open = 1;
 #ifndef SMI230_DATA_SYNC
@@ -941,7 +945,8 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
             fifo_data_len = 1;
 
 		PINFO("write gyro wm as %d", fifo_data_len);
-        ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, fifo_data_len);
+	//        ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, fifo_data_len);
+        ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, 60);
 #endif
             }
         }
@@ -1236,6 +1241,7 @@ int32_t ap_activate(int32_t handle, int32_t enabled)
 
     /*To adapt BSX4 algorithm's way of configuration string, activate_configref_resort() is employed*/
     ret = activate_configref_resort(bsx_list_inx, enabled);
+    ret = 1; //force to control sensor irrespective of previous state
     if (ret)
     {
         if (enabled)
