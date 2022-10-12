@@ -384,6 +384,18 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 	     mSensorList[i].type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
      }
      strlcpy(&mSensorList[i].vendor[0], s[i].vendor, MAX_PATH_SIZE);
+     if(mSensorType == SENSOR_SMI130){
+           strlcat(&mSensorList[i].vendor[0], "-SMI130", MAX_PATH_SIZE);
+     }
+     else if(mSensorType == SENSOR_SMI230){
+           strlcat(&mSensorList[i].vendor[0], "-SMI230", MAX_PATH_SIZE);
+     }
+     else if(mSensorType == SENSOR_ASM330){
+        strlcat(&mSensorList[i].vendor[0], "-ASM330", MAX_PATH_SIZE);
+     }
+     else if(mSensorType == SENSOR_IAM20680){
+        strlcat(&mSensorList[i].vendor[0], "-IAM20680", MAX_PATH_SIZE);
+     }
      mSensorList[i].version = s[i].version;
      mSensorList[i].resolution = s[i].resolution;
      mSensorList[i].maxRange = s[i].maxRange;
@@ -1126,11 +1138,6 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
     char buffer_string[DEVICE_IIO_MAX_FILENAME_LEN];
     SelfTestResult result;
 
-    if (mSensorType != 1) {
-        SENSOR_LOGE(LOG_TAG "ERROR: selftest is not supported\n");
-        return;
-    }
-
     for (int i=0 ; i < mSensorCount; i++) {
 	    if (sensor_id == mSensor[i].sensor_id) {
 		    if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
@@ -1193,9 +1200,10 @@ void SensorApiService::sensorSelfTest(SensorAPISelfTestReqMsg* pMsg) {
     std::lock_guard<std::mutex> lock(mMutex);
     int ret = 0;
     bool SensorId = false;
-
+    int value = 0;
     int sensor_id =  pMsg->sensor_id;
     int request_id = pMsg->request_id;
+    char self_test_file_name[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
     SelfTestType  selfTestType = pMsg->selfTestType;
 
     SENSOR_LOGI(LOG_TAG "--<sensorSelfTest sensor_id %d SelfTestType %d request_id %d\n",
@@ -1226,13 +1234,43 @@ void SensorApiService::sensorSelfTest(SensorAPISelfTestReqMsg* pMsg) {
 	    ret = SENSOR_ERROR_NO_SENSORS_FOUND;
     }
 
-    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
-    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+    if(mSensorType == 1) {
+        for (int i=0 ; i < mSensorCount; i++) {
+            if (sensor_id == mSensor[i].sensor_id) {
+                    if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
+                            find_path(DYN_IIO_TYPE, self_test_file_name, ASM330LHHX_ACC_SEARCH,
+                                            sizeof(self_test_file_name));
+                    }
+                    if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE) {
+                            find_path(DYN_IIO_TYPE, self_test_file_name, ASM330LHHX_GYRO_SEARCH,
+                                            sizeof(self_test_file_name));
+                    }
+            }
+        }
 
-    std::thread appCallbackThread([this, pClient, sensor_id, selfTestType, request_id] {
-		    onSelfTestRequest(pClient, sensor_id, selfTestType, request_id);
-    });
-    appCallbackThread.detach();
+        strlcat(self_test_file_name, "selftest", sizeof(self_test_file_name));
+        value = strncmp(self_test_file_name, "selftest", sizeof(self_test_file_name));
+        if(value == 0){
+                ret = SENSOR_SELFTEST_NOT_SUPPORTED;
+                pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+                pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+        }
+        else {
+                if(ret == 0){
+                        pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+                        pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+                        std::thread appCallbackThread([this, pClient, sensor_id, selfTestType, request_id] {
+                                    onSelfTestRequest(pClient, sensor_id, selfTestType, request_id);
+                        });
+                        appCallbackThread.detach();
+                }
+        }
+    }
+    else {
+        ret = SENSOR_SELFTEST_NOT_SUPPORTED;
+        pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+        pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+    }
 
     return;
 }

@@ -484,14 +484,14 @@ void scalingBMIBufferData(int SensorType,sensors_event_t *event)
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
     scaleFactor = BMI_ACC_RESL * BMI_CONVERT_ACC;
-    event->type = SENSOR_TYPE_ACCELEROMETER;
+    event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
     event->acceleration.x *= scaleFactor;
     event->acceleration.y *= scaleFactor;
     event->acceleration.z *= scaleFactor;
   }
   else {
     scaleFactor = BMI_CONVERT_GYRO;
-    event->type = SENSOR_TYPE_GYROSCOPE;
+    event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
     event->gyro.x *= scaleFactor;
     event->gyro.y *= scaleFactor;
     event->gyro.z *= scaleFactor;
@@ -521,7 +521,7 @@ void scalingIAMBufferData(int SensorType,sensors_event_t *event)
 		      event->acceleration.y * orientationMatrix[i * 3 + 1] +
 		      event->acceleration.z * orientationMatrix[i * 3 + 2];
       }
-      event->type = SENSOR_TYPE_ACCELEROMETER;
+      event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
       event->acceleration.x = (float)data[0] * scale;
       event->acceleration.y = (float)data[1] * scale;
       event->acceleration.z = (float)data[2] * scale;
@@ -534,7 +534,7 @@ void scalingIAMBufferData(int SensorType,sensors_event_t *event)
                       event->gyro.y * orientationMatrix[i * 3 + 1] +
                       event->gyro.z * orientationMatrix[i * 3 + 2];
       }
-      event->type = SENSOR_TYPE_GYROSCOPE;
+      event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
       event->gyro.x = (float)data[0] * scale;
       event->gyro.y = (float)data[1] * scale;
       event->gyro.z = (float)data[2] * scale;
@@ -556,14 +556,14 @@ void scalingSMIBufferData(int SensorType,sensors_event_t *event)
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
     scaleFactor = SMI_ACC_RESL * SMI_CONVERT_ACC;
-    event->type = SENSOR_TYPE_ACCELEROMETER;
+    event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
     event->acceleration.x *= scaleFactor;
     event->acceleration.y *= scaleFactor;
     event->acceleration.z *= scaleFactor;
   }
   else {
     scaleFactor = SMI_CONVERT_GYRO;
-    event->type = SENSOR_TYPE_GYROSCOPE;
+    event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
     event->gyro.x *= scaleFactor;
     event->gyro.y *= scaleFactor;
     event->gyro.z *= scaleFactor;
@@ -585,14 +585,14 @@ void scalingSMI230BufferData(int SensorType,sensors_event_t *event)
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
     scaleFactor = SMI230_CONVERT_ACC;
-    event->type = SENSOR_TYPE_ACCELEROMETER;
+    event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
     event->acceleration.x *= scaleFactor;
     event->acceleration.y *= scaleFactor;
     event->acceleration.z *= scaleFactor;
   }
   else {
     scaleFactor = SMI230_CONVERT_GYRO;
-    event->type = SENSOR_TYPE_GYROSCOPE;
+    event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
     event->gyro.x *= scaleFactor;
     event->gyro.y *= scaleFactor;
     event->gyro.z *= scaleFactor;
