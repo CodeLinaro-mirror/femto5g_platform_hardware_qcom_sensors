@@ -29,9 +29,12 @@
 #include <sys/stat.h>
 #include <dlfcn.h>
 #include <memory>
+#include <sstream>
+#include <fstream>
 #include <algorithm>
 #include <SensorHalDaemonClientHandler.h>
 #include <SensorApiService.h>
+#include <cstring>
 
 using namespace std;
 
@@ -41,7 +44,7 @@ using namespace std;
 #define ACCNAME_BUFF_PATH       "/dev/input/accbuff"
 #define GYRNAME_BUFF_PATH       "/dev/input/gyrobuff"
 
-/*ASM temperature*/
+/*ASM330 temperature*/
 #define ASM_TEMP_SEARCH         "asm330lhh_temp"
 #define ASMX_TEMP_SEARCH        "asm330lhhx_temp"
 #define ASM_ACCEL_FSR           0.000598   // 2G:0.000598, 4G:0.001196, 8G:0.002392, 16G:0.004785
@@ -55,7 +58,7 @@ using namespace std;
 #define ASM_TEMP_RAW            "in_temp_raw"
 #define ASM_BATCH_TIME          (3.0 * NS_IN_ONE_SECOND)
 
-/*SMI temperature*/
+/*SMI130  temperature*/
 #define SMI_TEMP_SEARCH         "smi130_acc"
 #define SMI_TEMP_NAME           "temperature"
 #define SMI_GYR_SEARCH          "smi130_gyro"
@@ -64,14 +67,20 @@ using namespace std;
 #define SMI_CONVERT_GYRO        (0.000066322)
 #define SMI_BATCH_TIME          0
 
-/*IAM temperature and buffer read*/
+/*SMI230 temperature*/
+#define SMI230_TEMP_SEARCH         "SMI230ACC"  // Search key is common for both Accel & Temp
+#define SMI230_GYR_SEARCH          "SMI230GYRO" // Search key for Gyro
+#define SMI230_CONVERT_ACC         (0.000598755)
+#define SMI230_CONVERT_GYRO        (0.00006657903)
+
+/*IAM20680 temperature and buffer read*/
 #define IAM_TEMP_SEARCH         "iam20680"
 #define IAM_TEMP_NAME           "out_temperature"
 #define IAM_ACCEL_FSR           2.0f // 2:2g, 4:4g, 8:8g, 16:16g
 #define IAM_GYRO_FSR            131.0f // 131:250dbps 65.5:500dbps 32.8:1000dbps 16.4:2000dbps
 #define IAM_BATCH_TIME          (1.0 * NS_IN_ONE_SECOND)
 
-/*BMI temperature*/
+/*BMI160 temperature*/
 #define BMI_BATCH_TIME          0
 #define BMI_TEMP_SEARCH         "bmi160_accl"
 #define BMI_TEMP_NAME           "temperature"
@@ -220,6 +229,52 @@ int SensorApiService::readTempSMI(float *temperature)
 }
 
 /**
+ * @brief Read Temp Sensor data from SYS File System for SMI230 Sensor.
+ *
+ * Function for Reading Temp Sensor data from SYS File System
+ * and send it to slim core.
+ *
+ * @return void.
+ */
+int SensorApiService::readTempSMI230(float *temperature)
+{
+
+  string tempString;
+
+  int tempRead = 0;
+  if ( NULL == mTempFilePtr.smiTempFile.tempFile )
+  {
+    return 0;
+  }
+  /* Read Temp data */
+  mTempFilePtr.smiTempFile.tempFile->seekg(0);
+
+  if ( mTempFilePtr.smiTempFile.tempFile->peek() == NULL )
+  {
+    SENSOR_LOGE(LOG_TAG "Temperature string not available in file\n");
+    return 0;
+  }
+
+  std::getline(*mTempFilePtr.smiTempFile.tempFile,  tempString);
+  std::vector<std::string> split;
+  {
+    std::stringstream ss (tempString);
+    std::string val;
+    while (std::getline (ss, val, ' ')) {
+      split.push_back (val);
+    }
+  }
+  if (split.size() < 2 ){
+    SENSOR_LOGE(LOG_TAG "temperature value unavailable\n");
+    return 0;
+  }
+  tempRead = std::stoi(split[1]);
+  *temperature =  (float) (tempRead / 1000.0); //Convert to Degree celsius
+  SENSOR_LOGI(LOG_TAG "Read Raw:%d, Temperature: %f\n", tempRead, temperature);
+  return 0;
+}
+
+/**
  * @brief Temp Sensor data processing task.
  *
  * Function for processing buffered data from sysfs interface
@@ -233,17 +288,20 @@ int SensorApiService::tempSensorDataPollTask(float *temperature)
     SENSOR_LOGI(LOG_TAG "Polling Temp Sensor ..\n");
     switch(mSensorType)
     {
-      case SENSOR_TYPE_ASM:
+      case SENSOR_ASM330:
         ret = readTempASM(temperature);
         break;
-      case SENSOR_TYPE_BMI:
+      case SENSOR_BMI160:
         ret = readTempBMI(temperature);
         break;
-      case SENSOR_TYPE_IAM:
+      case SENSOR_IAM20680:
         ret = readTempIAM(temperature);
         break;
-      case SENSOR_TYPE_SMI:
+      case SENSOR_SMI130:
         ret = readTempSMI(temperature);
+        break;
+      case SENSOR_SMI230:
+        ret = readTempSMI230(temperature);
         break;
       default:
         ret = -1;
@@ -269,7 +327,7 @@ bool SensorApiService::tempSensorDataInit()
   SENSOR_LOGI(LOG_TAG "Initializing SensorTempDataInit ..\n");
   switch ( mSensorType )
   {
-    case SENSOR_TYPE_ASM:
+    case SENSOR_ASM330:
 
       {
         char tScaleFilePath[SEARCH_PATH_SIZE]={'\0'};
@@ -326,7 +384,7 @@ bool SensorApiService::tempSensorDataInit()
         }
         break;
       }
-    case SENSOR_TYPE_BMI:
+    case SENSOR_BMI160:
       {
         char tTempFilePath[SEARCH_PATH_SIZE]={'\0'};
         find_path(DYN_IIO_TYPE, tTempFilePath, BMI_TEMP_SEARCH, sizeof(tTempFilePath));
@@ -348,7 +406,7 @@ bool SensorApiService::tempSensorDataInit()
         }
       }
       break;
-    case SENSOR_TYPE_IAM:
+    case SENSOR_IAM20680:
       {
         char iamPathTemp[SEARCH_PATH_SIZE]={'\0'};
         find_path(DYN_IIO_TYPE, iamPathTemp, IAM_TEMP_SEARCH, sizeof(iamPathTemp));
@@ -369,10 +427,17 @@ bool SensorApiService::tempSensorDataInit()
         }
         break;
       }
-    case SENSOR_TYPE_SMI:
+    case SENSOR_SMI130:
+    case SENSOR_SMI230:
       {
         char smiPathTemp[SEARCH_PATH_SIZE]={'\0'};
-        find_path(DYN_INPUT_TYPE,smiPathTemp, SMI_TEMP_SEARCH, sizeof(smiPathTemp));
+	char smiSearchKey[SEARCH_PATH_SIZE]={'\0'};
+	if (SENSOR_SMI130 == mSensorType )
+          memcpy(smiSearchKey, SMI_TEMP_SEARCH, sizeof(SMI_TEMP_SEARCH));
+        else
+          memcpy(smiSearchKey, SMI230_TEMP_SEARCH, sizeof(SMI230_TEMP_SEARCH));
+
+        find_path(DYN_INPUT_TYPE,smiPathTemp, smiSearchKey, sizeof(smiPathTemp));
         if (strlen(smiPathTemp) != 0)
         {
           strlcat(smiPathTemp, SMI_TEMP_NAME, sizeof(smiPathTemp));
@@ -419,14 +484,14 @@ void scalingBMIBufferData(int SensorType,sensors_event_t *event)
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
     scaleFactor = BMI_ACC_RESL * BMI_CONVERT_ACC;
-    event->type = SENSOR_TYPE_ACCELEROMETER;
+    event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
     event->acceleration.x *= scaleFactor;
     event->acceleration.y *= scaleFactor;
     event->acceleration.z *= scaleFactor;
   }
   else {
     scaleFactor = BMI_CONVERT_GYRO;
-    event->type = SENSOR_TYPE_GYROSCOPE;
+    event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
     event->gyro.x *= scaleFactor;
     event->gyro.y *= scaleFactor;
     event->gyro.z *= scaleFactor;
@@ -456,7 +521,7 @@ void scalingIAMBufferData(int SensorType,sensors_event_t *event)
 		      event->acceleration.y * orientationMatrix[i * 3 + 1] +
 		      event->acceleration.z * orientationMatrix[i * 3 + 2];
       }
-      event->type = SENSOR_TYPE_ACCELEROMETER;
+      event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
       event->acceleration.x = (float)data[0] * scale;
       event->acceleration.y = (float)data[1] * scale;
       event->acceleration.z = (float)data[2] * scale;
@@ -469,7 +534,7 @@ void scalingIAMBufferData(int SensorType,sensors_event_t *event)
                       event->gyro.y * orientationMatrix[i * 3 + 1] +
                       event->gyro.z * orientationMatrix[i * 3 + 2];
       }
-      event->type = SENSOR_TYPE_GYROSCOPE;
+      event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
       event->gyro.x = (float)data[0] * scale;
       event->gyro.y = (float)data[1] * scale;
       event->gyro.z = (float)data[2] * scale;
@@ -479,7 +544,7 @@ void scalingIAMBufferData(int SensorType,sensors_event_t *event)
 /**
  * @brief Conversion of raw data.
  *
- * Function calculates SMI buffer data.
+ * Function calculates SMI130 buffer data.
  * @param[in] SensorType- sensor type.
  *            event - structure containing raw data
  * @return void.
@@ -491,14 +556,43 @@ void scalingSMIBufferData(int SensorType,sensors_event_t *event)
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
     scaleFactor = SMI_ACC_RESL * SMI_CONVERT_ACC;
-    event->type = SENSOR_TYPE_ACCELEROMETER;
+    event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
     event->acceleration.x *= scaleFactor;
     event->acceleration.y *= scaleFactor;
     event->acceleration.z *= scaleFactor;
   }
   else {
     scaleFactor = SMI_CONVERT_GYRO;
-    event->type = SENSOR_TYPE_GYROSCOPE;
+    event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
+    event->gyro.x *= scaleFactor;
+    event->gyro.y *= scaleFactor;
+    event->gyro.z *= scaleFactor;
+  }
+}
+
+/**
+ * @brief Conversion of raw data.
+ *
+ * Function calculates SMI230 buffer data.
+ * @param[in] SensorType- sensor type.
+ *            event - structure containing raw data
+ * @return void.
+ */
+void scalingSMI230BufferData(int SensorType,sensors_event_t *event)
+{
+  int cnt;
+  float scaleFactor = 1;
+  /* Get the scale factor based on sensor type */
+  if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
+    scaleFactor = SMI230_CONVERT_ACC;
+    event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
+    event->acceleration.x *= scaleFactor;
+    event->acceleration.y *= scaleFactor;
+    event->acceleration.z *= scaleFactor;
+  }
+  else {
+    scaleFactor = SMI230_CONVERT_GYRO;
+    event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
     event->gyro.x *= scaleFactor;
     event->gyro.y *= scaleFactor;
     event->gyro.z *= scaleFactor;
@@ -551,17 +645,20 @@ void SensorApiService::bufferDataScaling( int SensorType, sensors_event_t *event
 {
   switch( mSensorType )
   {
-    case SENSOR_TYPE_BMI:
+    case SENSOR_BMI160:
       scalingBMIBufferData(SensorType, event);
       break;
-    case SENSOR_TYPE_IAM:
+    case SENSOR_IAM20680:
       scalingIAMBufferData(SensorType, event);
       break;
-    case SENSOR_TYPE_SMI:
+    case SENSOR_SMI130:
       scalingSMIBufferData(SensorType, event);
       break;
-    case SENSOR_TYPE_ASM:
+    case SENSOR_ASM330:
       scalingASMBufferData(SensorType, event);
+    case SENSOR_SMI230:
+      scalingSMI230BufferData(SensorType, event);
+      break;
       break;
   }
 }
@@ -577,19 +674,23 @@ bool SensorApiService::CheckBufferReadFile()
 
  switch (mSensorType)
  {
-    case SENSOR_TYPE_BMI:
+    case SENSOR_BMI160:
       find_path(DYN_IIO_TYPE, acc_boot_sample, BMI_TEMP_SEARCH, sizeof(acc_boot_sample));
       strlcpy(gyr_boot_sample, acc_boot_sample, sizeof(gyr_boot_sample));
       break;
-    case SENSOR_TYPE_IAM:
+    case SENSOR_IAM20680:
       find_path(DYN_IIO_TYPE, acc_boot_sample, IAM_TEMP_SEARCH, sizeof(acc_boot_sample));
       strlcpy(gyr_boot_sample, acc_boot_sample, sizeof(gyr_boot_sample));
       break;
-    case SENSOR_TYPE_SMI:
+    case SENSOR_SMI130:
       find_path(DYN_INPUT_TYPE, acc_boot_sample, SMI_TEMP_SEARCH, sizeof(acc_boot_sample));
       find_path(DYN_INPUT_TYPE, gyr_boot_sample, SMI_GYR_SEARCH, sizeof(gyr_boot_sample));
       break;
-    case SENSOR_TYPE_ASM:
+   case SENSOR_SMI230:
+      find_path(DYN_INPUT_TYPE, acc_boot_sample, SMI230_TEMP_SEARCH, sizeof(acc_boot_sample));
+      find_path(DYN_INPUT_TYPE, gyr_boot_sample, SMI230_GYR_SEARCH, sizeof(gyr_boot_sample));
+      break;
+    case SENSOR_ASM330:
       find_path(DYN_IIO_TYPE, acc_boot_sample, ASM_ACC_SEARCH, sizeof(acc_boot_sample));
       if(strlen(acc_boot_sample) == 0)
 	      find_path(DYN_IIO_TYPE, acc_boot_sample, ASMX_ACC_SEARCH, sizeof(acc_boot_sample));

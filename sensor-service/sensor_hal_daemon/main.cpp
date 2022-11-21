@@ -76,7 +76,7 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
 		 break;
 	 } else if(buffer[i] == ' ') { // if char is whitespace, continue until something is found
 		 continue;
-	 } else if(strstr(buffer, "SENSOR_TYPE=")) {
+	 } else if(strstr(buffer, "SENSOR_VENDOR=")) {
 		 line = strstr(buffer, "=");
 		 sscanf(&line[1], "%d", &configParamRead->SensorType);
 		 break;

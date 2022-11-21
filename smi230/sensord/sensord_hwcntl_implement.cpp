@@ -106,6 +106,22 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define BMI160_MAG_ODR_800HZ          0x0B
 #define BMI160_MAG_ODR_1600HZ         0x0C
 
+/* SMI230 ODR */
+#define SMI230_ACCEL_ODR_12_5HZ	12
+#define SMI230_ACCEL_ODR_25HZ 	25
+#define SMI230_ACCEL_ODR_50HZ	50
+#define SMI230_ACCEL_ODR_100HZ 	100
+#define SMI230_ACCEL_ODR_200HZ 	200
+#define SMI230_ACCEL_ODR_400HZ 	400
+#define SMI230_ACCEL_ODR_800HZ 	800
+#define SMI230_ACCEL_ODR_1600HZ 1600
+
+#define SMI230_GYRO_ODR_100HZ	12
+#define SMI230_GYRO_ODR_200HZ	23
+#define SMI230_GYRO_ODR_400HZ	47
+#define SMI230_GYRO_ODR_1000HZ	116
+#define SMI230_GYRO_ODR_2000HZ	523
+
 /**for BMA2x2, ODR = Filter Bandwidth x 2*/
 #define BMA2X2_BW_7_81HZ        0x08
 #define BMA2X2_BW_15_63HZ       0x09
@@ -153,6 +169,17 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define BMI160_ACCEL_RANGE_8G   8
 #define BMI160_ACCEL_RANGE_16G  12
 
+#define SMI230_ACCEL_RANGE_2G   2
+#define SMI230_ACCEL_RANGE_4G	4
+#define SMI230_ACCEL_RANGE_8G   8
+#define SMI230_ACCEL_RANGE_16G  16
+
+#define SMI230_GYRO_RANGE_125DPS	125
+#define SMI230_GYRO_RANGE_250DPS	250
+#define SMI230_GYRO_RANGE_500DPS	500
+#define SMI230_GYRO_RANGE_1000DPS	1000
+#define SMI230_GYRO_RANGE_2000DPS	2000
+
 #define BMA2X2_RANGE_2G     3
 #define BMA2X2_RANGE_4G     5
 #define BMA2X2_RANGE_8G     8
@@ -175,6 +202,9 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define EVENT_CODE_X_VALUE      0x02
 #define EVENT_CODE_Y_VALUE      0x03
 #define EVENT_CODE_Z_VALUE      0x04
+
+int accrange;
+int gyrorange;
 
 static char iio_dev0_dir_name[128] = { 0 };
 
@@ -201,6 +231,42 @@ static char gyr_input_dir_name[128] = {0};
 
 static float BMI160_acc_resl = 0.061; //16bit ADC, default range +-2000 mg. algorithm input requires "mg"
 static float BMA255_acc_resl = 0.97656; //12bit ADC, default range +-2000 mg. algorithm input requires "mg"
+
+//Config file
+#define SENSOR_CONF_PATH "/etc/sensors.conf"
+void SENSOR_READ_CONF(char *file_name, int *accrange, int *gyrorange)
+{
+    FILE *file;
+    char buffer[BUFSIZ];
+    char *line;
+    int i;
+
+    file = fopen(file_name, "r");
+    if (file == NULL) {
+        PERR("open failed: %s: %s\n", file_name, strerror(errno));
+        return;
+    }
+
+    while(fgets(buffer, sizeof(buffer), file) != NULL) {
+       for(i = 0; i < strlen(buffer); i++) { // iterate through the chars in a line
+         if(buffer[i] == '#') { // if char is a #, stop processing chars on this line
+                 break;
+         } else if(buffer[i] == ' ') { // if char is whitespace, continue until something is found
+                 continue;
+         } else if(strstr(buffer, "ACC_RANGE=")) {
+                 line = strstr(buffer, "=");
+                 sscanf(&line[1], "%d", accrange);
+                 break;
+         }
+         else if(strstr(buffer, "GYRO_RANGE=")) {
+               line = strstr(buffer, "=");
+               sscanf(&line[1], "%d", gyrorange);
+               break;
+         }
+    }
+    }
+    fclose(file);
+}
 
 /**
  *
@@ -508,6 +574,71 @@ static inline int32_t BMI160_convert_ODR(int32_t bsx_list_inx, float Hz)
     return 0;
 }
 
+static inline int32_t SMI230_convert_ODR(int32_t bsx_list_inx, float Hz)
+{
+    if (SENSORLIST_INX_ACCELEROMETER == bsx_list_inx)
+    {
+
+        if (Hz > 800)
+        {
+            return SMI230_ACCEL_ODR_1600HZ;
+        }
+        if (Hz > 400 && Hz <= 800)
+        {
+            return SMI230_ACCEL_ODR_800HZ;
+        }
+        if (Hz > 200 && Hz <= 400)
+        {
+            return SMI230_ACCEL_ODR_400HZ;
+        }
+        if (Hz > 100 && Hz <= 200)
+        {
+            return SMI230_ACCEL_ODR_200HZ;
+        }
+        if (Hz > 50 && Hz <= 100)
+        {
+            return SMI230_ACCEL_ODR_100HZ;
+        }
+        if (Hz > 25 && Hz <= 50)
+        {
+            return SMI230_ACCEL_ODR_50HZ;
+        }
+        if (Hz > 12.5 && Hz <= 25)
+        {
+            return SMI230_ACCEL_ODR_25HZ;
+        }
+        if (Hz <= 12.5)
+        {
+            return SMI230_ACCEL_ODR_12_5HZ;
+        }
+    }
+    else if (SENSORLIST_INX_GYROSCOPE_UNCALIBRATED == bsx_list_inx)
+    {
+
+        if (Hz > 1000)
+        {
+            return SMI230_GYRO_ODR_2000HZ;
+        }
+        if (Hz > 400 && Hz <= 1000)
+        {
+            return SMI230_GYRO_ODR_1000HZ;
+        }
+        if (Hz > 200 && Hz <= 400)
+        {
+            return SMI230_GYRO_ODR_400HZ;
+        }
+        if (Hz > 100 && Hz <= 200)
+        {
+            return SMI230_GYRO_ODR_200HZ;
+        }
+        if (Hz <= 100)
+        {
+            return SMI230_GYRO_ODR_100HZ;
+        }
+    }
+
+    return 0;
+}
 /**
  * @param Hz
  * @param p_bandwith
@@ -669,35 +800,38 @@ static void ap_config_phyACC(bsx_f32_t sample_rate)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
+	    is_acc_open = 1; //for sensor to enable irrespective of prv state
             if (1 == is_acc_open)
             {
-                PDEBUG("shutdown acc");
+                PDEBUG("shutdown acc %d", SENSOR_PM_SUSPEND);
 
-                ret = wr_sysfs_oneint("acc_pw_cfg", acc_input_dir_name, SENSOR_PM_SUSPEND);
+                ret = wr_sysfs_oneint("pwr_cfg", acc_input_dir_name, SENSOR_PM_SUSPEND);
 #ifdef SMI230_DATA_SYNC
-                ret = wr_sysfs_oneint("gyro_pw_cfg", acc_input_dir_name, SENSOR_PM_SUSPEND);
+                ret = wr_sysfs_oneint("pwr_cfg", gyro_input_dir_name, SENSOR_PM_SUSPEND);
 #endif
 
                 is_acc_open = 0;
             }
-        }else
+        }
+	else
         {
-	    /* not yet supported
-            PDEBUG("set acc odr: %f", sample_rate);
-            physical_Hz = BMA2x2_convert_ODR(sample_rate, &bandwidth);
-            ret = wr_sysfs_oneint("bandwidth", acc_input_dir_name, bandwidth);
-	    */
-
+	    is_acc_open = 0; //for sensor to enable irrespective of prv state
             /*activate is included*/
             if (0 == is_acc_open)
             {
                 PDEBUG("set acc active");
-                ret = wr_sysfs_oneint("acc_pw_cfg", acc_input_dir_name, SENSOR_PM_NORMAL);
-#ifdef SMI230_DATA_SYNC
-                ret = wr_sysfs_oneint("gyro_pw_cfg", acc_input_dir_name, SENSOR_PM_NORMAL);
-#endif
-
                 is_acc_open = 1;
+		PDEBUG("set acc fifo wm: 70");
+                ret = wr_sysfs_oneint("fifo_wm", acc_input_dir_name, 70);
+
+		PDEBUG("set acc odr: %f", sample_rate);
+		odr_Hz = SMI230_convert_ODR(SENSORLIST_INX_ACCELEROMETER, sample_rate);
+		PDEBUG("write odr %d to %s", odr_Hz, acc_input_dir_name);
+		ret = wr_sysfs_oneint("odr", acc_input_dir_name, odr_Hz);
+                ret = wr_sysfs_oneint("pwr_cfg", acc_input_dir_name, SENSOR_PM_NORMAL);
+#ifdef SMI230_DATA_SYNC
+                ret = wr_sysfs_oneint("pwr_cfg", gyro_input_dir_name, SENSOR_PM_NORMAL);
+#endif
             }
         }
 
@@ -788,29 +922,33 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
+	    is_gyr_open = 1; //for sensor to shutdown irrespective of prv state
             if (1 == is_gyr_open)
             {
                 PDEBUG("shutdown gyro");
 
-                ret = wr_sysfs_oneint("gyro_pw_cfg", gyr_input_dir_name, SENSOR_PM_SUSPEND);
+                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_SUSPEND);
 
                 is_gyr_open = 0;
             }
         }else
         {
-	    /* not yet supported, a placeholder here
-            PDEBUG("set gyr odr: %f", sample_rate);
-            physical_Hz = SMI230_convert_ODR(sample_rate, &bandwidth);
-            ret = wr_sysfs_oneint("bandwidth", gyr_input_dir_name, bandwidth);
-	    */
-
+	    is_gyr_open = 0; //for sensor to enable irrespective of prv state
             /*activate is included*/
             if (0 == is_gyr_open)
             {
                 PDEBUG("set gyro active");
-                ret = wr_sysfs_oneint("gyro_pw_cfg", gyr_input_dir_name, SENSOR_PM_NORMAL);
-
+                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_NORMAL);
                 is_gyr_open = 1;
+
+		PDEBUG("set gyro fifo wm: 60");
+		ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, 60);
+
+		PDEBUG("set gyr odr: %f", sample_rate);
+		odr_Hz = SMI230_convert_ODR(SENSORLIST_INX_GYROSCOPE_UNCALIBRATED, sample_rate);
+		PDEBUG("write odr %d to %s", odr_Hz, gyr_input_dir_name);
+		ret = wr_sysfs_oneint("bw_odr", gyr_input_dir_name, odr_Hz);
+
             }
         }
 
@@ -1104,6 +1242,7 @@ int32_t ap_activate(int32_t handle, int32_t enabled)
 
     /*To adapt BSX4 algorithm's way of configuration string, activate_configref_resort() is employed*/
     ret = activate_configref_resort(bsx_list_inx, enabled);
+    ret = 1; //force to control sensor irrespective of previous state
     if (ret)
     {
         if (enabled)
@@ -1362,7 +1501,6 @@ static void ap_hw_poll_smi230acc(BoschSimpleList *dest_list_acc)
 #ifndef SMI230_DATA_SYNC
 static void ap_hw_poll_smi230gyro(BoschSimpleList *dest_list)
 {
-    int32_t i;
     int32_t ret;
     struct input_event event[6];
     struct timespec tmspec;
@@ -1832,32 +1970,51 @@ static int32_t ap_hwcntl_init_ACC()
         }
 
         PDEBUG("acc input_num = %d", acc_input_num);
-        sprintf(acc_input_dir_name, "/sys/class/input/input%d", acc_input_num);
+        snprintf(acc_input_dir_name, 128, "/sys/class/input/input%d", acc_input_num);
 
         driver_show_ver(acc_input_dir_name);
 
-	/* not yet supported
-        switch(accl_range){
+	SENSOR_READ_CONF(SENSOR_CONF_PATH , &accrange, &gyrorange);
+
+	accl_range = accrange;
+
+	switch (accl_range) {
+	case 0:
+                accl_range = ACC_CHIP_RANGCONF_2G;
+		break;
+	case 1:
+                accl_range = ACC_CHIP_RANGCONF_4G;
+		break;
+	case 2:
+                accl_range = ACC_CHIP_RANGCONF_8G;
+		break;
+	case 3:
+                accl_range = ACC_CHIP_RANGCONF_16G;
+		break;
+	}
+
+	PDEBUG("acc range config %d", accl_range);
+	switch(accl_range){
             case ACC_CHIP_RANGCONF_2G:
-                ret += wr_sysfs_oneint("range", acc_input_dir_name, BMA2X2_RANGE_2G);
-                BMA255_acc_resl *= 1;
-                break;
+                ret += wr_sysfs_oneint("range", acc_input_dir_name, SMI230_ACCEL_RANGE_2G);
+		break;
             case ACC_CHIP_RANGCONF_4G:
-                ret += wr_sysfs_oneint("range", acc_input_dir_name, BMA2X2_RANGE_4G);
-                BMA255_acc_resl *= 2;
+                ret += wr_sysfs_oneint("range", acc_input_dir_name, SMI230_ACCEL_RANGE_4G);
                 break;
             case ACC_CHIP_RANGCONF_8G:
-                ret += wr_sysfs_oneint("range", acc_input_dir_name, BMA2X2_RANGE_8G);
-                BMA255_acc_resl *= 4;
+                ret += wr_sysfs_oneint("range", acc_input_dir_name, SMI230_ACCEL_RANGE_8G);
                 break;
             case ACC_CHIP_RANGCONF_16G:
-                ret += wr_sysfs_oneint("range", acc_input_dir_name, BMA2X2_RANGE_16G);
-                BMA255_acc_resl *= 8;
+                ret += wr_sysfs_oneint("range", acc_input_dir_name, SMI230_ACCEL_RANGE_16G);
                 break;
             default:
                 break;
         }
-	*/
+        if (ret < 0)
+        {
+            PERR("write_sysfs() fail, ret = %d", ret);
+            return ret;
+        }
     }
 
     return 0;
@@ -1867,7 +2024,7 @@ static int32_t ap_hwcntl_init_ACC()
 #ifndef SMI230_DATA_SYNC
 static int32_t ap_hwcntl_init_GYRO()
 {
-    int32_t ret;
+    int32_t ret = 0;
     int32_t gyro_dev_num;
     char gyro_dev_dir_name[128];
     char gyro_buf_dir_name[128];
@@ -1945,8 +2102,55 @@ static int32_t ap_hwcntl_init_GYRO()
         }
 
         PDEBUG("gyr input_num = %d", gyr_input_num);
-        sprintf(gyr_input_dir_name, "/sys/class/input/input%d", gyr_input_num);
+        snprintf(gyr_input_dir_name, 128, "/sys/class/input/input%d", gyr_input_num);
 
+        SENSOR_READ_CONF(SENSOR_CONF_PATH , &accrange, &gyrorange);
+
+	gyro_range = gyrorange;
+
+        switch (gyro_range) {
+        case 0:
+                gyro_range = GYRO_CHIP_RANGCONF_125DPS;
+                break;
+        case 1:
+                gyro_range = GYRO_CHIP_RANGCONF_250DPS;
+                break;
+        case 2:
+                gyro_range = GYRO_CHIP_RANGCONF_500DPS;
+                break;
+        case 3:
+                gyro_range = GYRO_CHIP_RANGCONF_1000DPS;
+                break;
+        case 4:
+                gyro_range = GYRO_CHIP_RANGCONF_2000DPS;
+                break;
+        }
+
+        PDEBUG("gyro range config %d", gyro_range);
+        switch(gyro_range){
+            case GYRO_CHIP_RANGCONF_125DPS:
+                ret += wr_sysfs_oneint("range", gyr_input_dir_name, SMI230_GYRO_RANGE_125DPS);
+		break;
+            case GYRO_CHIP_RANGCONF_250DPS:
+                ret += wr_sysfs_oneint("range", gyr_input_dir_name, SMI230_GYRO_RANGE_250DPS);
+                break;
+            case GYRO_CHIP_RANGCONF_500DPS:
+                ret += wr_sysfs_oneint("range", gyr_input_dir_name, SMI230_GYRO_RANGE_500DPS);
+                break;
+            case GYRO_CHIP_RANGCONF_1000DPS:
+                ret += wr_sysfs_oneint("range", gyr_input_dir_name, SMI230_GYRO_RANGE_1000DPS);
+                break;
+            case GYRO_CHIP_RANGCONF_2000DPS:
+                ret += wr_sysfs_oneint("range", gyr_input_dir_name, SMI230_GYRO_RANGE_2000DPS);
+                break;
+            default:
+                break;
+        }
+        if (ret < 0)
+        {
+            PERR("write_sysfs() fail, ret = %d", ret);
+            return ret;
+        }
     }
 
     return 0;

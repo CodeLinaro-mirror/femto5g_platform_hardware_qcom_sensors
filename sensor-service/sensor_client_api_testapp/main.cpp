@@ -128,6 +128,7 @@ static void dump_event(const struct sensors_event_t *e)
 
     switch (e->type) {
     case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
+    case SENSOR_TYPE_ACCELEROMETER:
         printf("ACC event:x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
             e->uncalibrated_accelerometer.x_uncalib, e->uncalibrated_accelerometer.y_uncalib,
             e->uncalibrated_accelerometer.z_uncalib, e->uncalibrated_accelerometer.x_bias,
@@ -136,6 +137,7 @@ static void dump_event(const struct sensors_event_t *e)
         acc_ts = e->timestamp;
         break;
     case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
+    case SENSOR_TYPE_GYROSCOPE:
         printf("GYRO event:x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
             e->uncalibrated_gyro.x_uncalib, e->uncalibrated_gyro.y_uncalib,
             e->uncalibrated_gyro.z_uncalib, e->uncalibrated_gyro.x_bias,
