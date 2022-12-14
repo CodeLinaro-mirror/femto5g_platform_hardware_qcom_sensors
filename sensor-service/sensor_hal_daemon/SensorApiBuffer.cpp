@@ -690,9 +690,9 @@ void SensorApiService::bufferDataScaling( int SensorType, sensors_event_t *event
       break;
     case SENSOR_ASM330:
       scalingASMBufferData(SensorType, event);
+      break;
     case SENSOR_SMI230:
       scalingSMI230BufferData(SensorType, event);
-      break;
       break;
   }
 }
