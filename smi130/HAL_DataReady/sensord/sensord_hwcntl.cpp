@@ -1253,6 +1253,11 @@ static uint8_t encode_datarate(int64_t sampling_period_ns)
 
     Hz = 1000000000.0f / (float)sampling_period_ns;
 
+    if (Hz == 100)
+    {
+        return BSX_CONFSTR_100Hz;
+    }
+
     if (Hz >= 200)
     {
         return BSX_CONFSTR_200Hz;
