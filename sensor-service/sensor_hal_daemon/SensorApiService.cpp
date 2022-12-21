@@ -149,6 +149,7 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 	    return;
     }
 
+    mInstance = this;
     // start receiver - never return
     SENSOR_LOGI(LOG_TAG "Ready, start Ipc Receiver\n");
     // blocking: set to false
@@ -163,6 +164,10 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 SensorApiService - Destructors
 ******************************************************************************/
 SensorApiService::~SensorApiService() {
+    SENSOR_LOGI(LOG_TAG "SensorApiService Destructor is called\n");
+    if(mSensorType == 3 || mSensorType == 4){
+        mpoll_dev_v0->common.close(&mpoll_dev_v0->common);
+    }
 
     // stop ipc receiver thread
     if (nullptr != mIpcReceiver) {
@@ -198,7 +203,7 @@ SensorApiService::~SensorApiService() {
 	    SENSOR_LOGI(LOG_TAG ">-- deleted client [%s]", each.first.c_str());
 	    each.second->cleanup();
     }
-    SENSOR_LOGI(LOG_TAG "SensorApiService destructor is called\n");
+    SENSOR_LOGI(LOG_TAG "SensorApiService destructor has executed\n");
 }
 
 /******************************************************************************
@@ -490,7 +495,7 @@ SensorApiService - send_sensor_data_to_clients thread to process sensor data
 ******************************************************************************/
 void* SensorApiService::send_sensor_data_to_clients(void *arg) {
   SensorApiService* mSensorService = (SensorApiService*)(arg);
-  int count = 0;
+  int count = 0; bool rc = false;
   sensors_event_t events[BUFFER_EVENT];
   while(1)
   {
@@ -498,20 +503,41 @@ void* SensorApiService::send_sensor_data_to_clients(void *arg) {
 		     events, sizeof(events)/sizeof(sensors_event_t));
      SENSOR_LOGV(LOG_TAG "read events = %d\n",count);
      std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+
 #ifdef POWERMANAGER_ENABLED
      if ((POWER_STATE_SUSPEND != mSensorService->mPowerState) &&
         (POWER_STATE_SHUTDOWN != mSensorService->mPowerState)) {
-	    for (auto each : mSensorService->mClients) {
-		    if (each.second && each.second->mTracking)
-			    if (each.second->mAccTracking || each.second->mGyroTracking)
-				    each.second->onSensorDataReadCb(events, count);
+	     for (auto it = mSensorService->mClients.begin(); it != mSensorService->mClients.end();) {
+		    if (it->second && it->second->mTracking && (it->second->mAccTracking || it->second->mGyroTracking)) {
+			    rc = it->second->onSensorDataReadCb(events, count);
+			    // purge this client if failed
+			    if (!rc) {
+				    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+				    it = mSensorService->deleteClientbyName(it->first.c_str());
+			    }
+			    else
+				    ++it;
+		    }
+		    else {
+			    ++it;
+		   }
 	    }
     }
 #else
-     for (auto each : mSensorService->mClients) {
-	     if (each.second && each.second->mTracking)
-		     if (each.second->mAccTracking || each.second->mGyroTracking)
-			     each.second->onSensorDataReadCb(events, count);
+     for (auto it = mSensorService->mClients.begin(); it != mSensorService->mClients.end();) {
+	     if (it->second && it->second->mTracking && (it->second->mAccTracking || it->second->mGyroTracking)) {
+		     rc = it->second->onSensorDataReadCb(events, count);
+		     // purge this client if failed
+		     if (!rc) {
+			     SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+			     it = mSensorService->deleteClientbyName(it->first.c_str());
+		     }
+		     else
+			     ++it;
+	     }
+	     else {
+		     ++it;
+	     }
      }
 #endif
   }
@@ -681,11 +707,12 @@ void SensorApiService::deleteClient(SensorAPIClientDeregisterReqMsg *pMsg) {
     deleteClientbyName(clientname);
 }
 
-void SensorApiService::deleteClientbyName(const std::string clientname) {
+std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator SensorApiService::deleteClientbyName(const std::string clientname) {
     // We shall not hold the lock, as lock already held by the caller
     //
     mSensorClient--;
-    SENSOR_LOGI(LOG_TAG ">-- deleteClientbyName %d\n",mSensorClient);
+    SENSOR_LOGI(LOG_TAG ">-- deleteClientbyName %s mSensorClient %d\n",clientname.c_str(), mSensorClient);
+
     /*Deactivate the Sensor when last client deregistered*/
     if(mSensorClient <= 0) {
         for(int i=0; i < mSensorCount; i++) {
@@ -711,10 +738,13 @@ void SensorApiService::deleteClientbyName(const std::string clientname) {
         SENSOR_LOGE(LOG_TAG ">-- deleteClient invlalid client=%s\n", clientname.c_str());
         return;
     }
-    mClients.erase(clientname);
+
+    std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator itr = mClients.find(clientname);
+    itr = mClients.erase(itr);
     pClient->cleanup();
 
     SENSOR_LOGI(LOG_TAG ">-- deleteClient client=%s\n", clientname.c_str());
+    return itr;
 }
 
 void SensorApiService::deleteEapClientByIds(int serviceId, int instanceId) {
@@ -1035,7 +1065,6 @@ void SensorApiService::SensorEnableMLCCase(SensorAPIMLCCaseEnableMsg* pMsg) {
     }
 
     pClient->mMlcEnable = false;
-	
     if (mMlcSupported == true) {
 	      for (int i = 0; i < mSensorMlcCaseCount ; i++) {
 		 if (strcmp(pClient->mMlcCaseList[i].name, pMsg->mlc_case_name) == 0) {

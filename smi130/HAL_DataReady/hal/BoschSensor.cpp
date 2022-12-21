@@ -184,7 +184,7 @@ BoschSensor::BoschSensor()
 
     sensord_pltf_init();
 
-    sensord_sigact_enable();
+    //sensord_sigact_enable();
 
     sensord_cfg_init();
 
@@ -215,6 +215,7 @@ BoschSensor::BoschSensor()
     sensord_bsx_init();
 
     pthread_create(&thread_sensord, NULL, sensord_main, this);
+    pthread_setname_np(thread_sensord, "sensord_main");
 
     ret = hwcntl_init(this);
     if (ret){
@@ -223,6 +224,7 @@ BoschSensor::BoschSensor()
     }
 
     pthread_create(&thread_hwcntl, NULL, hwcntl_main, this);
+    pthread_setname_np(thread_hwcntl, "hwcntl_main");
 
     return;
 }
@@ -238,11 +240,12 @@ BoschSensor::BoschSensor(const BoschSensor & other)
 
 BoschSensor::~BoschSensor()
 {
+    PDEBUG("SMI130 BoschSensor cleanup");
     pthread_kill(thread_sensord, SIGTERM);
     pthread_kill(thread_hwcntl, SIGTERM);
 
-    pthread_join(thread_sensord, NULL);
-    pthread_join(thread_hwcntl, NULL);
+    //pthread_join(thread_sensord, NULL);
+    //pthread_join(thread_hwcntl, NULL);
 
     sigaction(SIGTERM, &oldact, NULL);
 
