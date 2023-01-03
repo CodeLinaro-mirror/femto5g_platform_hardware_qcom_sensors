@@ -122,7 +122,7 @@ int SensorApiService::readTempASM(float *temperature)
   (*mTempFilePtr.asmTempFile.tOffsetFile) >> toffset;
   if (mTempFilePtr.asmTempFile.tRawDataFile) {
     (*mTempFilePtr.asmTempFile.tRawDataFile) >> trawdata;
-    SENSOR_LOGI(LOG_TAG "Read Raw:%d, Offset: %d, Scale: %f, Temperature: %f\n", trawdata, toffset, tscale, (trawdata + toffset) * tscale);
+    SENSOR_LOGD(LOG_TAG "Read Raw:%d, Offset: %d, Scale: %f, Temperature: %f\n", trawdata, toffset, tscale, (trawdata + toffset) * tscale);
     *temperature = (float) (trawdata + toffset) * tscale;
   }
   return 0;
@@ -158,7 +158,7 @@ int SensorApiService::readTempIAM(float *temperature)
     return 0;
   }
   (*mTempFilePtr.iamTempFile.dataFile)>>timeStamp;
-  SENSOR_LOGI(LOG_TAG "Temp Raw values - %d,time base %lld",data,timeStamp);
+  SENSOR_LOGD(LOG_TAG "Temp Raw values - %d,time base %lld",data,timeStamp);
   *temperature = (float)data / 100.0F;
   return 0;
 }
@@ -193,7 +193,7 @@ int SensorApiService::readTempBMI(float *temperature)
     return 0;
   }
   *temperature = 23 + ((float)tempSign / 512.0F);
-  SENSOR_LOGI(LOG_TAG "Read Raw:%x, Temperature: %f\n", tempSign, *temperature);
+  SENSOR_LOGD(LOG_TAG "Read Raw:%x, Temperature: %f\n", tempSign, *temperature);
   return 0;
 }
 
@@ -222,7 +222,7 @@ int SensorApiService::readTempSMI(float *temperature)
     return 0;
   }
   (*mTempFilePtr.smiTempFile.tempFile)>>tempRead;
-  SENSOR_LOGI(LOG_TAG "Read Raw:%d, \n", tempRead);
+  SENSOR_LOGD(LOG_TAG "Read Raw:%d, \n", tempRead);
 
   if ( tempRead & 0x80 )
   {
@@ -230,7 +230,7 @@ int SensorApiService::readTempSMI(float *temperature)
   }
   *temperature = 87.5 - ((float)(127 - tempRead)/2);
 
-  SENSOR_LOGI(LOG_TAG "Read Raw:%d, Temperature: %f\n", tempRead, *temperature);
+  SENSOR_LOGD(LOG_TAG "Read Raw:%d, Temperature: %f\n", tempRead, *temperature);
   return 0;
 }
 
@@ -276,7 +276,7 @@ int SensorApiService::readTempSMI230(float *temperature)
   }
   tempRead = std::stoi(split[1]);
   *temperature =  (float) (tempRead / 1000.0); //Convert to Degree celsius
-  SENSOR_LOGI(LOG_TAG "Read Raw:%d, Temperature: %f\n", tempRead, temperature);
+  SENSOR_LOGD(LOG_TAG "Read Raw:%d, Temperature: %f\n", tempRead, temperature);
   return 0;
 }
 
@@ -291,7 +291,7 @@ int SensorApiService::readTempSMI230(float *temperature)
 int SensorApiService::tempSensorDataPollTask(float *temperature)
 {
     int ret = -1;
-    SENSOR_LOGI(LOG_TAG "Polling Temp Sensor ..\n");
+    SENSOR_LOGD(LOG_TAG "Polling Temp Sensor ..\n");
     switch(mSensorType)
     {
       case SENSOR_ASM330:
@@ -1001,7 +1001,7 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
 	     if(getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &zevents[0])) {
 		     memcpy(&events[count], &zevents[0], sizeof(sensors_event_t));
 		     bufferDataScaling(SENSOR_TYPE_ACCELEROMETER, &events[count]);
-		     SENSOR_LOGV(LOG_TAG "ACC event: x=%f y=%f z=%f timestamp=%lld acccount %d\n",
+		     SENSOR_LOGW(LOG_TAG "ACC Buffer event: x=%f y=%f z=%f timestamp=%lld acccount %d\n",
 				     events[count].acceleration.x, events[count].acceleration.y,
 				     events[count].acceleration.z, events[count].timestamp, acccount++);
 		     count++;
@@ -1015,7 +1015,7 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
 	     if (getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &zevents[1])) {
 		     memcpy(&events[count], &zevents[1], sizeof(sensors_event_t));
 		     bufferDataScaling(SENSOR_TYPE_GYROSCOPE, &events[count]);
-		     SENSOR_LOGV(LOG_TAG "GYRO event: x=%f y=%f z=%f timestamp=%lld gyrocount %d\n",
+		     SENSOR_LOGW(LOG_TAG "GYRO Buffer event: x=%f y=%f z=%f timestamp=%lld gyrocount %d\n",
 				     events[count].gyro.x, events[count].gyro.y, events[count].gyro.z,
 				     events[count].timestamp, gyrocount++);
 		     count++;

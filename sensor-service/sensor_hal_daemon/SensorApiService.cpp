@@ -1127,7 +1127,7 @@ SensorApiService - implementation - getSensorTemp to send temperature
 void SensorApiService::getSensorTemp(SensorAPITempReqMsg* pMsg) {
     float temperature = 0;
 
-    SENSOR_LOGI(LOG_TAG "--<getSensorTemp\n");
+    SENSOR_LOGD(LOG_TAG "--<getSensorTemp\n");
 
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
     if (!pClient) {
