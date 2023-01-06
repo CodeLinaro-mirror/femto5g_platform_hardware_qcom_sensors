@@ -232,7 +232,7 @@ private:
     bool ReadSensorBufferData(const std::string clientname);
     void bufferDataScaling(int SensorType, sensors_event_t *event);
     bool getBufferedSample(int SensorType,  FILE* fd, sensors_event_t *event);
-    void WritetoBufferFile(bool enable);
+    bool WritetoBufferFile(bool enable);
     // private utilities
     inline SensorHalDaemonClientHandler* getClient(const std::string& clientname) {
 	    // find client from property db

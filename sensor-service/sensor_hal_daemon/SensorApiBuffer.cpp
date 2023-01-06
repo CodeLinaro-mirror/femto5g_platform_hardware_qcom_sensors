@@ -93,7 +93,8 @@ using namespace std;
 #define HAL_CONFIGURATION_FILE	"hal_config"
 #define HAL_CONFIGURATION_PATH	"/systemrw/sensorhal"
 static float rot[3][3];
-
+static FILE *mfdBuffAccel  = NULL;
+static FILE *mfdBuffGyro   = NULL;
 /**
  * @brief Read Temp Sensor data from SYS File System for ASM330 Sensor.
  *
@@ -759,34 +760,34 @@ bool SensorApiService::CheckBufferReadFile()
  *
  * write 1 to read buffer data and 0 to delete buffer data.
  */
-void SensorApiService::WritetoBufferFile(bool enable) {
+bool SensorApiService::WritetoBufferFile(bool enable) {
   FILE  *mfdBuffAccelE = NULL;
   FILE  *mfdBuffGyroE  = NULL;
 
   if ((mfdBuffAccelE = fopen(mAccBootSample.c_str(), "w")) == 0) {
 	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
 			  mAccBootSample.c_str(), errno, strerror(errno));
-	  return;
+	  return false;
   }
 
   if ((mfdBuffGyroE = fopen(mGyroBootSample.c_str(), "w")) == 0) {
 	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
 			  mGyroBootSample.c_str(), errno, strerror(errno));
-	  return;
+	  return false;
   }
 
   if (enable == true) {
       if (fwrite("1", 1, 1, mfdBuffAccelE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)\n",
 			      mAccBootSample.c_str(), errno, strerror(errno));
-	      return;
+	      return false;
       } else {
 	      fflush(mfdBuffAccelE);
       }
       if (fwrite("1", 1, 1, mfdBuffGyroE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)\n",
 			      mGyroBootSample.c_str(), errno, strerror(errno));
-	      return;
+	      return false;
       } else {
 	      fflush(mfdBuffGyroE);
       }
@@ -796,14 +797,14 @@ void SensorApiService::WritetoBufferFile(bool enable) {
       if ((fwrite("0", 1, 1, mfdBuffAccelE) != 1)) {
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)",
 			      mAccBootSample.c_str(), errno, strerror(errno));
-	      return;
+	      return false;
       } else {
 	      fflush(mfdBuffAccelE);
       }
       if (fwrite("0", 1, 1, mfdBuffGyroE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)",
 			      mGyroBootSample.c_str(), errno, strerror(errno));
-	      return;
+	      return false;
       } else {
 	      fflush(mfdBuffGyroE);
       }
@@ -811,7 +812,7 @@ void SensorApiService::WritetoBufferFile(bool enable) {
   }
   CLOSE_FILE_HANDLE(mfdBuffAccelE);
   CLOSE_FILE_HANDLE(mfdBuffGyroE);
-  return;
+  return true;
 }
 /**
  * @brief baching and for formatting of buffered data.
@@ -973,8 +974,6 @@ int read_hal_rotation_matrix(char *path, char *file)
 
 bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
   // Init sysFs files for both ACCEL & GYRO buffered data
-  FILE *mfdBuffAccel  = NULL;
-  FILE *mfdBuffGyro   = NULL;
   bool accelBuffDataTxProgress = false;
   bool gyroBuffDataTxProgress = false;
   bool rc = false;
@@ -987,17 +986,6 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
   read_hal_rotation_matrix(HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
   std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator it = mClients.find(clientname);
 
-  /* Open Accel Bufferd Sensor input device */
-  if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) < 0) {
-	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
-	  goto fail;
-  }
-  /* Open Gyro Bufferd Sensor input device */
-  if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) < 0) {
-	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
-	  goto fail;
-  }
-  WritetoBufferFile(1);
   accelBuffDataTxProgress = true;
   gyroBuffDataTxProgress = true;
   //start reading kernel buffered data;
@@ -1058,7 +1046,7 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
   memset(&events[0], 0, sizeof(sensors_event_t));
   events[0].type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
   events[0].timestamp = 0xFFFFFFFF;
-  it->second->mBufferRead = -1;
+  it->second->mBufferRead = false;
   rc = it->second->onSensorBufferDataReadCb(&events[0], 1);
   // purge this client if failed
   if (!rc) {
@@ -1073,6 +1061,16 @@ fail:
 void SensorApiService::SensorBuffread() {
   bool rc = false;
   init_rotation_location();
+  /* Open Accel Bufferd Sensor input device */
+  if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) < 0) {
+         SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
+         goto fail;
+  }
+  /* Open Gyro Bufferd Sensor input device */
+  if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) < 0) {
+         SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
+         goto fail;
+  }
   while(mBufferSupported) {
     pthread_mutex_lock (&mHalBuffMutex);
     pthread_cond_wait (&mHalBuffCond, &mHalBuffMutex);
@@ -1086,18 +1084,17 @@ void SensorApiService::SensorBuffread() {
 			    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
 			    std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
 			    it =deleteClientbyName(it->first.c_str());
-		    } else
+		    } else{
 			    ++it;
 	    }
-	    /***Delete the buffer mBufferRead = false**/
-	    else if (it->second->mBufferRead == false && mBufferDeleted != true) {
-		    WritetoBufferFile(0);
-		    it->second->mBufferRead = -1;
+	    } else{
 		    ++it;
-	    } else
-		    ++it;
+            }
     }
   }
+fail:
+  CLOSE_FILE_HANDLE(mfdBuffAccel);
+  CLOSE_FILE_HANDLE(mfdBuffGyro);
   pthread_mutex_destroy (&mHalBuffMutex);
   pthread_cond_destroy (&mHalBuffCond);
   SENSOR_LOGI(LOG_TAG "Exiting bufferDataprocessTask.. \n");
