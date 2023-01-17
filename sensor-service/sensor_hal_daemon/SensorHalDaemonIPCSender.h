@@ -68,7 +68,7 @@ public:
                 }
 
         } else {
-                SENSOR_LOGI(LOG_TAG "MDM cleanuo \n");
+                SENSOR_LOGI(LOG_TAG "MDM cleanup \n");
                 if(mIpcSender){
                         delete mIpcSender;
                         mIpcSender = nullptr;

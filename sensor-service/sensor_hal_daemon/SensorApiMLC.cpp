@@ -272,7 +272,7 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 
 		sysfs_load = fopen(mlc_file_name, "w");
 		if (sysfs_load == NULL) {
-			SENSOR_LOGE(LOG_TAG "MLC: Failed to open mcl_file_name %s\n", mlc_file_name);
+			SENSOR_LOGE(LOG_TAG "MLC: Failed to open mlc_file_name %s\n", mlc_file_name);
 			return false;
 		}
 
@@ -423,18 +423,20 @@ void SensorApiService::pollEvents(void) {
 	int mlc_case_available = 0;
 	int mfifo_num;
 	unsigned long buf_len = 512;
- 	int num_channels;
+	int num_channels;
 	struct device_iio_info_channel *channels;
 	int err, read_size, scan_size;
 	sensors_event_t events;
 	uint8_t *data;
 	int count = 1;
+        static int mlc_client_delete = 0;
 	const char *name_channel_acc[] = {
 		"in_accel_x",
 		"in_accel_y",
 		"in_accel_z",
 		"in_timestamp"
 	};
+	bool rc = false;
 
 	/**Handling mFifo device*/
 	mfifo_num = get_sensor_device_by_name(IIO_MLC_MFIFO_NAME);
@@ -552,9 +554,22 @@ void SensorApiService::pollEvents(void) {
 						   events.uncalibrated_accelerometer.x_uncalib,
 						   events.uncalibrated_accelerometer.y_uncalib,
 						   events.uncalibrated_accelerometer.z_uncalib,events.timestamp);
-				   for (auto each : mClients)
-					   if (each.second && each.second->mMlcEnable == true)
-						   each.second->onSensorMFifoDataReadCb(&events, count);
+				   for (auto it = mClients.begin(); it != mClients.end();) {
+					   if (it->second && it->second->mMlcEnable == true) {
+						   rc= it->second->onSensorMFifoDataReadCb(&events, count);
+						   // purge this client if failed
+						   if (!rc) {
+							   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+							   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+							   it =deleteClientbyName(it->first.c_str());
+						   }
+						   else
+							   ++it;
+					   }
+					   else {
+						   ++it;
+					   }
+				   }
 			   }
 		    }
 		    else {
@@ -570,15 +585,27 @@ void SensorApiService::pollEvents(void) {
 			   }
 			   print_event(i+mlc_case_device_start_index-1, &event);
 			   get_mlc_case_name(i+mlc_case_device_start_index-1, mlc_case_name);
-			   for (auto each : mClients) {
+			   for (auto it = mClients.begin(); it != mClients.end();) {
 				   for (int i = 0; i < mSensorMlcCaseCount ; i++) {
-					   if (each.second && each.second->mMlcCaseList != nullptr) {
-						   if ((strcmp(each.second->mMlcCaseList[i].name, mlc_case_name) == 0 )
-								   && each.second->mMlcCaseList[i].enable == 1) {
-							   each.second->onSensorMlcCaseEventCb(mlc_case_name, &event);
+					   if (it->second && it->second->mMlcCaseList != nullptr) {
+						   if ((strcmp(it->second->mMlcCaseList[i].name, mlc_case_name) == 0 )
+								   && it->second->mMlcCaseList[i].enable == 1) {
+							   rc = it->second->onSensorMlcCaseEventCb(mlc_case_name, &event);
+							   // purge this client if failed
+							   if (!rc) {
+								   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+								   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+								   it = deleteClientbyName(it->first.c_str());
+                                                                   mlc_client_delete = 1;
+								   break;
+							   }
 						   }
 					   }
 				   }
+                                   if(mlc_client_delete != 1){
+				       ++it;
+                                       mlc_client_delete = 0;
+                                   }
 			   }
 			   memset(mlc_case_name, 0 ,sizeof(mlc_case_name));
 		    }

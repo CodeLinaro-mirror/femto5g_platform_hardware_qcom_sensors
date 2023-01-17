@@ -690,9 +690,9 @@ void SensorApiService::bufferDataScaling( int SensorType, sensors_event_t *event
       break;
     case SENSOR_ASM330:
       scalingASMBufferData(SensorType, event);
+      break;
     case SENSOR_SMI230:
       scalingSMI230BufferData(SensorType, event);
-      break;
       break;
   }
 }
@@ -760,19 +760,19 @@ bool SensorApiService::CheckBufferReadFile()
  * write 1 to read buffer data and 0 to delete buffer data.
  */
 void SensorApiService::WritetoBufferFile(bool enable) {
-	FILE  *mfdBuffAccelE = NULL;
-	FILE  *mfdBuffGyroE  = NULL;
+  FILE  *mfdBuffAccelE = NULL;
+  FILE  *mfdBuffGyroE  = NULL;
 
-	if ((mfdBuffAccelE = fopen(mAccBootSample.c_str(), "w")) == 0) {
-    SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
-		    mAccBootSample.c_str(), errno, strerror(errno));
-    return;
+  if ((mfdBuffAccelE = fopen(mAccBootSample.c_str(), "w")) == 0) {
+	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
+			  mAccBootSample.c_str(), errno, strerror(errno));
+	  return;
   }
 
   if ((mfdBuffGyroE = fopen(mGyroBootSample.c_str(), "w")) == 0) {
-    SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
-		    mGyroBootSample.c_str(), errno, strerror(errno));
-    return;
+	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
+			  mGyroBootSample.c_str(), errno, strerror(errno));
+	  return;
   }
 
   if (enable == true) {
@@ -934,7 +934,7 @@ int read_hal_rotation_matrix(char *path, char *file)
   int err = 0;
   int value = 0;
 
- value = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2;
+  value = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2;
   file_path_name = (char *)calloc(value, sizeof(char));
   if (!file_path_name) {
 	  SENSOR_LOGE(LOG_TAG "Sensor Unable to allocate memory (errno %d)\n", err);
@@ -947,124 +947,155 @@ int read_hal_rotation_matrix(char *path, char *file)
 	  err = -errno;
 	  SENSOR_LOGE(LOG_TAG "Sensor Filed to open %s (errno %d)\n",
 			  file_path_name, err);
-		fclose(fd_config);
+	  fclose(fd_config);
   }
 
 
   while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {
-		    if(strstr(buffer, "imu_sensor_euler_angles = ")) {
-			  line = strstr(buffer, "[");
-			  if(line != NULL){
-				  size = sscanf(&line[1], "%f,%f,%f", &roll, &pitch, &yaw);
-				  SENSOR_LOGE("Sensor roll %f pitch %f yaw %f\n", roll, pitch, yaw);
-				  if (size > 0) {
-					  update_rotation_matrix(yaw, pitch, roll);
-				  }
+	  if(strstr(buffer, "imu_sensor_euler_angles = ")) {
+		  line = strstr(buffer, "[");
+		  if(line != NULL){
+			  size = sscanf(&line[1], "%f,%f,%f", &roll, &pitch, &yaw);
+			  SENSOR_LOGI(LOG_TAG, "Sensor roll %f pitch %f yaw %f\n", roll, pitch, yaw);
+			  if (size > 0) {
+				  update_rotation_matrix(yaw, pitch, roll);
 			  }
-			  break;
 		  }
+		  break;
+	  }
   }
-fclose(fd_config);
-free(file_path_name);
-file_path_name = NULL;
+  fclose(fd_config);
+  free(file_path_name);
+  file_path_name = NULL;
 
-return 0;
+  return 0;
 }
 
-void SensorApiService::SensorBuffread() {
+bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
   // Init sysFs files for both ACCEL & GYRO buffered data
   FILE *mfdBuffAccel  = NULL;
   FILE *mfdBuffGyro   = NULL;
   bool accelBuffDataTxProgress = false;
   bool gyroBuffDataTxProgress = false;
+  bool rc = false;
+  int acccount = 0;
+  int gyrocount = 0;
+  int count = 0;
+  sensors_event_t events[60];
+  sensors_event_t zevents[2];
 
+  read_hal_rotation_matrix(HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator it = mClients.find(clientname);
+
+  /* Open Accel Bufferd Sensor input device */
+  if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) < 0) {
+	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
+	  goto fail;
+  }
+  /* Open Gyro Bufferd Sensor input device */
+  if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) < 0) {
+	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
+	  goto fail;
+  }
+  WritetoBufferFile(1);
+  accelBuffDataTxProgress = true;
+  gyroBuffDataTxProgress = true;
+  //start reading kernel buffered data;
+  // Read and process all buffered data from sysfs
+  // Before reading and processing buffered data make sure client is available to receive data
+  // interleave the data while transferring to client aplication as per batching size
+  while(accelBuffDataTxProgress || gyroBuffDataTxProgress)
+  {
+     /* Fill the accel buffered data from kernel bufer */
+     if (accelBuffDataTxProgress) {
+	     if(getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &zevents[0])) {
+		     memcpy(&events[count], &zevents[0], sizeof(sensors_event_t));
+		     bufferDataScaling(SENSOR_TYPE_ACCELEROMETER, &events[count]);
+		     SENSOR_LOGV(LOG_TAG "ACC event: x=%f y=%f z=%f timestamp=%lld acccount %d\n",
+				     events[count].acceleration.x, events[count].acceleration.y,
+				     events[count].acceleration.z, events[count].timestamp, acccount++);
+		     count++;
+	     } else {
+		     accelBuffDataTxProgress = false;
+		     SENSOR_LOGV(LOG_TAG "End ACCEL data acccount %d\n",acccount);
+	     }
+     }
+     /* Fill the gyro buffered data into from kernel buffer */
+     if (gyroBuffDataTxProgress) {
+	     if (getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &zevents[1])) {
+		     memcpy(&events[count], &zevents[1], sizeof(sensors_event_t));
+		     bufferDataScaling(SENSOR_TYPE_GYROSCOPE, &events[count]);
+		     SENSOR_LOGV(LOG_TAG "GYRO event: x=%f y=%f z=%f timestamp=%lld gyrocount %d\n",
+				     events[count].gyro.x, events[count].gyro.y, events[count].gyro.z,
+				     events[count].timestamp, gyrocount++);
+		     count++;
+	     } else {
+		     gyroBuffDataTxProgress = false;
+		     SENSOR_LOGV(LOG_TAG "END GYRO data gyrocount %d\n", gyrocount);
+	     }
+     }
+     if (count >= 50) {
+	     usleep(1*1000);
+	     rc = it->second->onSensorBufferDataReadCb(events, count);
+	     // purge this client if failed
+	     if (!rc) {
+		     return rc;
+	     }
+	     usleep(1*1000);
+	     count = 0;
+     }
+  }
+  SENSOR_LOGV(LOG_TAG "End of buffer data acccount %d gyrocount %d remaining packets %d\n",acccount, gyrocount, count);
+  /***Send remainging packets**/
+  if (count != 0) {
+	  rc = it->second->onSensorBufferDataReadCb(events, count);
+	  // purge this client if failed
+	  if (!rc) {
+		  return rc;
+	  }
+  }
+  /***Send BUFFER END PACKET*/
+  memset(&events[0], 0, sizeof(sensors_event_t));
+  events[0].type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
+  events[0].timestamp = 0xFFFFFFFF;
+  it->second->mBufferRead = -1;
+  rc = it->second->onSensorBufferDataReadCb(&events[0], 1);
+  // purge this client if failed
+  if (!rc) {
+	  return rc;
+  }
+fail:
+  CLOSE_FILE_HANDLE(mfdBuffAccel);
+  CLOSE_FILE_HANDLE(mfdBuffGyro);
+  return rc;
+}
+
+void SensorApiService::SensorBuffread() {
+  bool rc = false;
   init_rotation_location();
   while(mBufferSupported) {
     pthread_mutex_lock (&mHalBuffMutex);
     pthread_cond_wait (&mHalBuffCond, &mHalBuffMutex);
     pthread_mutex_unlock (&mHalBuffMutex);
-    for (auto each : mClients) {
-       if (each.second->mBufferRead == true && mBufferDeleted != true) {
-	   read_hal_rotation_matrix(HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
-	   int acccount = 0;
-	   int gyrocount = 0;
-	   int count = 0;
-	   sensors_event_t events[60];
-	   sensors_event_t zevents[2];
-	   /* Open Accel Bufferd Sensor input device */
-	   if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) < 0) {
-		   SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
-		   goto fail;
-	   }
-	   /* Open Gyro Bufferd Sensor input device */
-	   if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) < 0) {
-		   SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
-		   goto fail;
-	   }
-	   WritetoBufferFile(1);
-	   accelBuffDataTxProgress = true;
-	   gyroBuffDataTxProgress = true;
-	   //SENSOR_LOGI(LOG_TAG "start reading kernel buffered data\n");
-	   // Read and process all buffered data from sysfs
-	   // Before reading and processing buffered data make sure client is available to receive data
-	   // interleave the data while transferring to client aplication as per batching size
-	   while(accelBuffDataTxProgress || gyroBuffDataTxProgress)
-	   {
-	      /* Fill the accel buffered data from kernel bufer */
-	      if (accelBuffDataTxProgress) {
-		  if(getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &zevents[0])) {
-			  memcpy(&events[count], &zevents[0], sizeof(sensors_event_t));
-			  bufferDataScaling(SENSOR_TYPE_ACCELEROMETER, &events[count]);
-			  SENSOR_LOGV(LOG_TAG "ACC event: x=%f y=%f z=%f timestamp=%lld acccount %d\n",
-					  events[count].acceleration.x, events[count].acceleration.y,
-					  events[count].acceleration.z, events[count].timestamp, acccount++);
-			  count++;
-		  } else {
-			  accelBuffDataTxProgress = false;
-			  SENSOR_LOGV(LOG_TAG "End ACCEL data acccount %d\n",acccount);
-		  }
-	      }
-	      /* Fill the gyro buffered data into from kernel buffer */
-	      if (gyroBuffDataTxProgress) {
-	         if (getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &zevents[1])) {
-			 memcpy(&events[count], &zevents[1], sizeof(sensors_event_t));
- 			 bufferDataScaling(SENSOR_TYPE_GYROSCOPE, &events[count]);
-			 SENSOR_LOGV(LOG_TAG "GYRO event: x=%f y=%f z=%f timestamp=%lld gyrocount %d\n",
-					 events[count].gyro.x, events[count].gyro.y, events[count].gyro.z,
-					 events[count].timestamp, gyrocount++);
-			 count++;
-		 } else {
-			 gyroBuffDataTxProgress = false;
-			 SENSOR_LOGV(LOG_TAG "END GYRO data gyrocount %d\n", gyrocount);
-		 }
-	      }
-	      if (count >= 50) {
-		      usleep(1*1000);
-		      each.second->onSensorBufferDataReadCb(events, count);
-		      usleep(1*1000);
-		      count = 0;
-	      }
-	   }
-	   SENSOR_LOGV(LOG_TAG "End of buffer data acccount %d gyrocount %d remaining packets %d\n",acccount, gyrocount, count);
-	   /***Send remainging packets**/
-	   if (count != 0) {
-		   each.second->onSensorBufferDataReadCb(events, count);
-	   }
-	   /***Send BUFFER END PACKET*/
-	   memset(&events[0], 0, sizeof(sensors_event_t));
-	   events[0].type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
-	   events[0].timestamp = 0xFFFFFFFF;
-	   each.second->onSensorBufferDataReadCb(&events[0], 1);
-	   each.second->mBufferRead = -1;
-fail:
-	   CLOSE_FILE_HANDLE(mfdBuffAccel);
-	   CLOSE_FILE_HANDLE(mfdBuffGyro);
-       }
-       /***Delete the buffer mBufferRead = false**/
-       if (each.second->mBufferRead == false && mBufferDeleted != true) {
-	       WritetoBufferFile(0);
-	       each.second->mBufferRead = -1;
-       }
+
+    for (auto it = mClients.begin(); it != mClients.end();) {
+	    if (it->second->mBufferRead == true && mBufferDeleted != true) {
+		    rc = ReadSensorBufferData(it->first.c_str());
+		    // purge this client if failed
+		    if(!rc) {
+			    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+			    std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+			    it =deleteClientbyName(it->first.c_str());
+		    } else
+			    ++it;
+	    }
+	    /***Delete the buffer mBufferRead = false**/
+	    else if (it->second->mBufferRead == false && mBufferDeleted != true) {
+		    WritetoBufferFile(0);
+		    it->second->mBufferRead = -1;
+		    ++it;
+	    } else
+		    ++it;
     }
   }
   pthread_mutex_destroy (&mHalBuffMutex);

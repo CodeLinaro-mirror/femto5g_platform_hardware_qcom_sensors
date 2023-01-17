@@ -39,6 +39,11 @@
 
 #define HAL_DAEMON_VERSION "1.0.0"
 
+void sighandler(int signum) {
+	SENSOR_LOGI(LOG_TAG "Recived signum %d\n", signum);
+	SensorApiService::destroy();
+	return;
+}
 
 // this function will block until the directory specified in
 // dirName has been created
@@ -176,6 +181,11 @@ int main(int argc, char *argv[])
     waitForDir(SOCKET_SENSOR_CLIENT_DIR);
 
     SENSOR_LOGI(LOG_TAG "starting sensor_hal_daemon\n");
+
+    struct sigaction action;
+    memset(&action, 0, sizeof(action));
+    action.sa_handler = sighandler;
+    sigaction(SIGTERM, &action, NULL);
 
     // start listening for client events - will not return
     if (!SensorApiService::getInstance(configParamRead)) {
