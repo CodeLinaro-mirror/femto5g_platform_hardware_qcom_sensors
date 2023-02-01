@@ -1136,7 +1136,7 @@ SensorApiService - implementation - getSensorBufferData to send buffer data
 void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
     std::lock_guard<std::mutex> lock(mMutex);
     int ret = SENSOR_ERROR_BUFFER_NOT_SUPPORTED;
-
+    bool rc;
     SENSOR_LOGI(LOG_TAG "--<getSensorBufferData pMsg->enable %d\n",pMsg->enable);
 
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
@@ -1157,7 +1157,10 @@ void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
 		    ret = SENSOR_ERROR_BUFFER_DELETED;
 	    }
 	    else {
-		    ret = SENSOR_RESPONSE_SUCCESS;
+                    rc = WritetoBufferFile(pMsg->enable);
+                    if(rc){
+			ret = SENSOR_RESPONSE_SUCCESS;
+                    }
 		    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
 		    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
 		    pthread_mutex_lock (&mHalBuffMutex);
