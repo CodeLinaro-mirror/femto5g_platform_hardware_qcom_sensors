@@ -721,17 +721,9 @@ std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator SensorA
     // We shall not hold the lock, as lock already held by the caller
     //
     mSensorClient--;
+    bool activate = false;
     SENSOR_LOGI(LOG_TAG ">-- deleteClientbyName %s mSensorClient %d\n",clientname.c_str(), mSensorClient);
 
-    /*Deactivate the Sensor when last client deregistered*/
-    if(mSensorClient <= 0) {
-        for(int i=0; i < mSensorCount; i++) {
-                sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE);
-                mSensor[i].Activate = 0;
-                mSensor[i].SamplingRate = 0;
-                mSensor[i].BatchCount = 0;
-        }
-    }
     // remove the client from the config request map
     for (auto it = mConfigReqs.begin(); it != mConfigReqs.end();) {
      if (strncmp(it->second.clientName.c_str(), clientname.c_str(),
@@ -752,6 +744,23 @@ std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator SensorA
     std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator itr = mClients.find(clientname);
     itr = mClients.erase(itr);
     pClient->cleanup();
+
+    activate = false;
+    //deactivate sensor if no client activated sensors
+    for (auto it = mClients.begin(); it != mClients.end(); ++it){
+         if (it->second && (it->second->mAccTracking || it->second->mGyroTracking)) {
+                             activate = true;
+         }
+    }
+
+    if (activate != true){
+       for(int i=0; i < mSensorCount; i++) {
+         sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE);
+         mSensor[i].Activate = 0;
+         mSensor[i].SamplingRate = 0;
+         mSensor[i].BatchCount = 0;
+       }
+    }
 
     SENSOR_LOGI(LOG_TAG ">-- deleteClient client=%s\n", clientname.c_str());
     return itr;
