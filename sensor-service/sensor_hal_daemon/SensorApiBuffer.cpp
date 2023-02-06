@@ -948,7 +948,7 @@ int read_hal_rotation_matrix(char *path, char *file)
 	  err = -errno;
 	  SENSOR_LOGE(LOG_TAG "Sensor Filed to open %s (errno %d)\n",
 			  file_path_name, err);
-	  fclose(fd_config);
+	  goto fail;
   }
 
 
@@ -965,6 +965,8 @@ int read_hal_rotation_matrix(char *path, char *file)
 		  break;
 	  }
   }
+
+fail:
   fclose(fd_config);
   free(file_path_name);
   file_path_name = NULL;
