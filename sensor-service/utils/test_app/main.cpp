@@ -64,7 +64,7 @@ static void help(char *argv)
 	printf("\tsensor_util_lib_testapp --x [-65--+65] --y [-65--+65] --z [-65--+65]\n");
 
 	printf("To Update Sensor Euler angles\n");
-	printf("\tsensor_util_lib_testapp --yaw [0--3600] --pitch [0--3600] --roll [0--3600]\n");
+	printf("\tsensor_util_lib_testapp --roll [0--3600] --pitch [0--3600] --yaw [0--3600]\n");
 
 	printf("To Update towing threshold and time\n");
 	printf("\tsensor_util_lib_testapp --towingthreshold [10--1000] --towingtime [2--89000]\n");
@@ -172,7 +172,7 @@ int main(int argc, char **argv)
 	}
 
 	if (rm_value)
-		update_sensor_rotation_matrix(yaw,pitch,roll);
+		update_sensor_rotation_matrix(roll,pitch,yaw);
 
 	if (sp_value)
 		update_sensor_placement(x,y,z);

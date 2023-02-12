@@ -476,7 +476,7 @@ SensorClientImpl - ReadTemperature
 ******************************************************************************/
 int SensorClientImpl::readTemperature(SensorTempReadCb sensortempreadCallback) {
 
-    SENSOR_LOGI(LOG_TAG ">>> sensorReadTemp\n");
+    SENSOR_LOGD(LOG_TAG ">>> sensorReadTemp\n");
 
     lock_guard<mutex> lock(mMutex);
 

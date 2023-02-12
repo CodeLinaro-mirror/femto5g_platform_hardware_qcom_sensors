@@ -71,7 +71,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // It takes yaw, pitch and roll as a parameters
 // The values should be inbetween o to 3600 range
 
-int update_sensor_rotation_matrix(uint16_t yaw, uint16_t pitch, uint16_t roll)
+int update_sensor_rotation_matrix(uint16_t roll, uint16_t pitch, uint16_t yaw)
 {
         char *file_path_name = NULL;
         char *buffer_string = NULL;
@@ -120,9 +120,9 @@ int update_sensor_rotation_matrix(uint16_t yaw, uint16_t pitch, uint16_t roll)
 
 	fsize = strlen("imu_sensor_euler_angles = [00000,00000,00000]");
         size = snprintf(buffer_string, fsize + 1, "imu_sensor_euler_angles = [%5u,%5u,%5u]",
-                       yaw, pitch, roll);
+                       roll, pitch, yaw);
 
-	printf("yaw = %u %d, pitch = %u %d, roll = %u %d\n", yaw, pitch, roll);
+	printf("roll = %u %d, pitch = %u %d, yaw = %u %d\n", roll, pitch, yaw);
 	printf("buffer_string = %s\n", buffer_string);
         printf("Update file in %s with %s\n", file_path_name, buffer_string);
 	while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {

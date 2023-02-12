@@ -144,16 +144,16 @@ public:
     void onSensorActivateCb(int sensor_id, int enable);
     void onSensorBatchingCb(int sensor_id, float SamplingRate, int BatchingRate);
     void onResponseCb(int ret, ESensorMsgID id);
-    void onSensorDataReadCb(sensors_event_t *events, int count);
-    void onSensorBufferDataReadCb(sensors_event_t *events, int count);
+    bool onSensorDataReadCb(sensors_event_t *events, int count);
+    bool onSensorBufferDataReadCb(sensors_event_t *events, int count);
     void onSensorTempCb(float temperature);
     void onCapabilitiesCallback(SensorCapabilitiesMask mask);
     void onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result);
 
     //MLC public APIs
     void onSensorMlcCaseListCb(struct sensor_mlc_case_list *s, int count);
-    void onSensorMlcCaseEventCb(char *case_name, struct mlc_event_data *event);
-    void onSensorMFifoDataReadCb(sensors_event_t *events, int count);
+    bool onSensorMlcCaseEventCb(char *case_name, struct mlc_event_data *event);
+    bool onSensorMFifoDataReadCb(sensors_event_t *events, int count);
 
     //To check Tracking status of client
     bool    mTracking;
@@ -221,7 +221,7 @@ private:
     }
 
     //To Send Sensor events to client once sample count reached to requested count.
-    void SendDataToClient(sensors_event_t *e, int count);
+    bool SendDataToClient(sensors_event_t *e, int count);
     void StoreMlcCaseListStatus(struct sensor_mlc_case_list *s, int count);
     // pointer to parent service
     SensorApiService* mService;

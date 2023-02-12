@@ -1,13 +1,13 @@
-# configure.ac -- Autoconf script for sensor_client_api_testapp
+# configure.ac -- Autoconf script for gps sensor-test
 #
 # Process this file with autoconf to produce a configure script
 
 # Requires autoconf tool later than 2.61
 AC_PREREQ(2.61)
-# Initialize the sensor_client_api_testapp package version 1.0.0
-AC_INIT([sensor_client_api_testapp],1.0.0)
+# Initialize the gps sensor-test package version 1.0.0
+AC_INIT([sensor-test],1.0.0)
 # Does not strictly follow GNU Coding standards
-AM_INIT_AUTOMAKE([foreign subdir-objects])
+AM_INIT_AUTOMAKE([foreign])
 # Disables auto rebuilding of configure, Makefile.ins
 AM_MAINTAINER_MODE
 # Verifies the --srcdir is correct by checking for the path
@@ -28,13 +28,15 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 PKG_PROG_PKG_CONFIG
 
+# Checks for libraries.
+
 PKG_CHECK_MODULES([SENSORS], [libsensors])
 AC_SUBST([SENSORS_CFLAGS])
 AC_SUBST([SENSORS_LIBS])
 
-PKG_CHECK_MODULES([SENSORCLIENTAPI], [sensor-client-api])
-AC_SUBST([SENSORCLIENTAPI_CFLAGS])
-AC_SUBST([SENSORCLIENTAPI_LIBS])
+
+AC_SUBST([CPPFLAGS])
+
 
 AC_ARG_WITH([core_includes],
       AC_HELP_STRING([--with-core-includes=@<:@dir@:>@],
@@ -61,12 +63,12 @@ if (test "x${with_glib}" = "xyes"); then
         AC_SUBST(GLIB_CFLAGS)
         AC_SUBST(GLIB_LIBS)
 fi
-
 AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
 
 AC_CONFIG_FILES([ \
         Makefile \
-        sensor_client_api_testapp.pc
+        sensor-test.pc \
         ])
 
 AC_OUTPUT
+

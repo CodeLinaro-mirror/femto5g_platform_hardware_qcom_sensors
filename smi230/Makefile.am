@@ -1,7 +1,7 @@
 # Makefile.am - Automake script for gps garden shippable test app
 #
 AM_CFLAGS = \
--I./make \
+-I./hardware \
 -I./sensord/inc \
 -I./sensord/bsx/inc \
 -I./hal \

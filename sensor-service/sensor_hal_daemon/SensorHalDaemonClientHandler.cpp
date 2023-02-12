@@ -37,8 +37,7 @@ SensorHalDaemonClientHandler - cleanup called by SensorAPIService on delete of c
 void SensorHalDaemonClientHandler::cleanup() {
    // please do not attempt to hold the lock, as the caller of this function
    // already holds the lock
-  
-
+   SENSOR_LOGI(LOG_TAG "--< SensorHalDaemonClientHandler cleanup\n");
    // check whether this is client from external AP,
    // mName for client on external ap is of format "serviceid.instanceid"
    if (strncmp(mName.c_str(), SOCKET_SENSOR_CLIENT_DIR,
@@ -181,7 +180,7 @@ void SensorHalDaemonClientHandler::onResponseCb(int ret, ESensorMsgID id) {
 /************************************************************************************
 SensorHalDaemonClientHandler - SendDataToClient to send the events to clients
 ************************************************************************************/
-void SensorHalDaemonClientHandler::SendDataToClient(sensors_event_t *e, int count) {
+bool SensorHalDaemonClientHandler::SendDataToClient(sensors_event_t *e, int count) {
   // please do not attempt to hold the lock, as the caller of this function
   // already holds the lock
 
@@ -201,22 +200,20 @@ void SensorHalDaemonClientHandler::SendDataToClient(sensors_event_t *e, int coun
      memcpy(&(pmsg->sensorData.events[0]), e, sizeof(sensors_event_t) * count);
      memset(e, 0, sizeof(sensors_event_t) * count);
      bool rc = sendMessage(msg, msglen);
-     // purge this client if failed
-     if (!rc) {
-	     SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
-	     mService->deleteClientbyName(mName);
-     }
      delete[] msg;
+     return rc;
   }
+  return false;
 }
 
 /************************************************************************************
 SensorHalDaemonClientHandler - onSensorDataReadCb to store samples by taking moving avg
 of samples till it reaches to requested count, once reached requested count send to client.
 ************************************************************************************/
-void SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int count) {
+bool SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int count) {
   // please do not attempt to hold the lock, as the caller of this function
   // already holds the lock
+  bool rc = true;
 
    SENSOR_LOGV(LOG_TAG "--< onSensorDataReadCb\n");
    if (nullptr != mIpcSender) {
@@ -239,7 +236,7 @@ void SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
 		     mAccMovingCount = 0;
 		 }
 		 if (mAccCount >=  mAccBatchCount) {
-			 SendDataToClient(&mAccEvents[0], mAccCount);
+			 rc = SendDataToClient(&mAccEvents[0], mAccCount);
 			 mAccCount = 0;
 		 }
 	    }
@@ -261,7 +258,7 @@ void SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
 		      mGyroMovingCount = 0;
 		 }
 		 if (mGyroCount >=  mGyroBatchCount) {
-			 SendDataToClient(&mGyroEvents[0], mGyroCount);
+			 rc = SendDataToClient(&mGyroEvents[0], mGyroCount);
 			 mGyroCount = 0;
 		 }
 	    }
@@ -269,6 +266,7 @@ void SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
      }
     }
    }
+   return rc;
 }
 
 /************************************************************************************
@@ -372,29 +370,24 @@ void SensorHalDaemonClientHandler::onSensorMlcCaseListCb(struct sensor_mlc_case_
 /************************************************************************************
 SensorHalDaemonClientHandler - onSensorMlcCaseEventCb to send event to client
 ************************************************************************************/
-void SensorHalDaemonClientHandler::onSensorMlcCaseEventCb(char *name , struct mlc_event_data *event) {
+bool SensorHalDaemonClientHandler::onSensorMlcCaseEventCb(char *name , struct mlc_event_data *event) {
    std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
    SENSOR_LOGI(LOG_TAG "--< onSensorMlcCaseEventCb name %s\n", name);
-
    if (nullptr != mIpcSender) {
 	   SensorAPIMLCEventIndMsg msg (SERVICE_NAME, name, event);
            bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
                            sizeof(msg));
-           // purge this client if failed
-           if (!rc) {
-                   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
-                   mService->deleteClientbyName(mName);
-           }
+	   return rc;
    }
+   return true;
 }
 
 /************************************************************************************
 SensorHalDaemonClientHandler - onSensorMFifoDataReadCb to send buffer data to client
 ************************************************************************************/
-void SensorHalDaemonClientHandler::onSensorMFifoDataReadCb(sensors_event_t *events, int count) {
+bool SensorHalDaemonClientHandler::onSensorMFifoDataReadCb(sensors_event_t *events, int count) {
    std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
    SENSOR_LOGV(LOG_TAG "--< onSensorMFifoDataReadCb count %d\n", count);
-
    if (nullptr != mIpcSender) {
            size_t msglen = sizeof(SensorAPImFifoIndMsg) + sizeof(sensors_event_t) * (count-1);
            uint8_t *msg = new(std::nothrow) uint8_t[msglen];
@@ -409,13 +402,10 @@ void SensorHalDaemonClientHandler::onSensorMFifoDataReadCb(sensors_event_t *even
            pmsg->sensorData.count = count;
            memcpy(&pmsg->sensorData.events[0], events, sizeof(sensors_event_t) * count);
            bool rc = sendMessage(msg, msglen);
-           // purge this client if failed
-           if (!rc) {
-                   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
-                   mService->deleteClientbyName(mName);
-           }
            delete[] msg;
+	   return rc;
    }
+   return true;
 }
 
 /************************************************************************************
@@ -440,7 +430,7 @@ void SensorHalDaemonClientHandler::onSensorTempCb(float temperature) {
 /************************************************************************************
 SensorHalDaemonClientHandler - onSensorBufferDataReadCb to send buffer data to client
 ************************************************************************************/
-void SensorHalDaemonClientHandler::onSensorBufferDataReadCb(sensors_event_t *events, int count) {
+bool SensorHalDaemonClientHandler::onSensorBufferDataReadCb(sensors_event_t *events, int count) {
    std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
    SENSOR_LOGV(LOG_TAG "--< onSensorBufferReadCb count %d\n", count);
 
@@ -458,13 +448,10 @@ void SensorHalDaemonClientHandler::onSensorBufferDataReadCb(sensors_event_t *eve
 	   pmsg->sensorData.count = count;
 	   memcpy(&pmsg->sensorData.events[0], events, sizeof(sensors_event_t) * count);
 	   bool rc = sendMessage(msg, msglen);
-	   // purge this client if failed
-	   if (!rc) {
-		   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
-		   mService->deleteClientbyName(mName);
-	   }
 	   delete[] msg;
+	   return rc;
    }
+   return true;
 }
 
 /**************************************************************************************

@@ -68,19 +68,39 @@
 #include <sys/types.h>
 #include <SensorClientApi.h>
 #include <pwd.h>
+#include <utils/Log.h>
 
-#define CMD_OPTIONS     "b:d:"
+#define CMD_OPTIONS     "l:s:b:n:e:t:"
+
+#undef LOG_TAG
+#define LOG_TAG "Sensor-Test-App:"
+
+#define LOGCAT_ENABLED // for getting logs in the logcat
+
+#ifdef LOGCAT_ENABLED
+#define SENSOR_LOGE(...) { ALOGE(__VA_ARGS__); }
+#define SENSOR_LOGW(...) { ALOGW(__VA_ARGS__); }
+#define SENSOR_LOGI(...) { ALOGI(__VA_ARGS__); }
+#define SENSOR_LOGD(...) { ALOGD(__VA_ARGS__); }
+#define SENSOR_LOGV(...) { ALOGV(__VA_ARGS__); }
+#else
+#define SENSOR_LOGE(...) { printf(__VA_ARGS__); }
+#define SENSOR_LOGW(...) { printf(__VA_ARGS__); }
+#define SENSOR_LOGI(...) { printf(__VA_ARGS__); }
+#define SENSOR_LOGD(...) { printf(__VA_ARGS__); }
+#define SENSOR_LOGV(...) { printf(__VA_ARGS__); }
+#endif
 
 static uint64_t start_time = 0, end_time = 0, selftest_time = 0;
-
 using namespace sensor_client;
-
 SensorClient* pClient;
+static int live_count = 0;
 
 void Usage(void)
 {
-  printf("\nUsage:   ./sensor_test -d odr_rate -b batch_count\n");
-  printf("\t\t\tex: ./sensor_test -d 104 -b 10\n");
+  SENSOR_LOGI(LOG_TAG "\nUsage:   ./sensor_test --live <enable> --sampling <> --batch <> --count <> \
+				--temperature <enbale> --buffer <enable>\n");
+  SENSOR_LOGI(LOG_TAG "\t\t\tex: ./sensor_test -l 1 -s 104 -b 10 -n 10 -e 1 -t 1\n");
   return;
 }
 
@@ -94,20 +114,20 @@ static uint64_t getTimestamp() {
 
 static void PrintSensorList(struct sensor_list *sensor, int sensor_count)
 {
-   printf("sensor_count %d\n", sensor_count);
+   SENSOR_LOGI(LOG_TAG "sensor_count %d\n", sensor_count);
    for (int i=0 ; i< sensor_count ; i++) {
-           printf("%s\n",sensor[i].name);
-           printf("\tvendor: %s\n",sensor[i].vendor);
-           printf("\tversion: %d\n",sensor[i].version);
-           printf("\tresolution: %f\n",sensor[i].resolution);
-           printf("\tmaxRange %f\n",sensor[i].maxRange);
-           printf("\tsensor_id: %d\n",sensor[i].sensor_id);
-           printf("\ttype: %d\n",sensor[i].type);
-           printf("\trange: %d\n",sensor[i].range);
-           printf("\tmaxSamplingRate: %d\n",sensor[i].maxSamplingRate);
-           printf("\tminBatchCount: %d\n",sensor[i].minBatchCount);
-           printf("\tmaxBatchCount: %d\n",sensor[i].maxBatchCount);
-           printf("\todr rate: %fHZ %fHZ %fHZ %fHZ %fHZ %fHZ\n",
+           SENSOR_LOGI(LOG_TAG "%s\n",sensor[i].name);
+           SENSOR_LOGI(LOG_TAG "\tvendor: %s\n",sensor[i].vendor);
+           SENSOR_LOGI(LOG_TAG "\tversion: %d\n",sensor[i].version);
+           SENSOR_LOGI(LOG_TAG "\tresolution: %f\n",sensor[i].resolution);
+           SENSOR_LOGI(LOG_TAG "\tmaxRange %f\n",sensor[i].maxRange);
+           SENSOR_LOGI(LOG_TAG "\tsensor_id: %d\n",sensor[i].sensor_id);
+           SENSOR_LOGI(LOG_TAG "\ttype: %d\n",sensor[i].type);
+           SENSOR_LOGI(LOG_TAG "\trange: %d\n",sensor[i].range);
+           SENSOR_LOGI(LOG_TAG "\tmaxSamplingRate: %d\n",sensor[i].maxSamplingRate);
+           SENSOR_LOGI(LOG_TAG "\tminBatchCount: %d\n",sensor[i].minBatchCount);
+           SENSOR_LOGI(LOG_TAG "\tmaxBatchCount: %d\n",sensor[i].maxBatchCount);
+           SENSOR_LOGI(LOG_TAG "\todr rate: %fHZ %fHZ %fHZ %fHZ %fHZ %fHZ\n",
                            sensor[i].odr[0],sensor[i].odr[1],sensor[i].odr[2],
                            sensor[i].odr[3],sensor[i].odr[4],sensor[i].odr[5]);
    }
@@ -115,70 +135,102 @@ static void PrintSensorList(struct sensor_list *sensor, int sensor_count)
 
 static void PrintSensorMlcCaseList(struct sensor_mlc_case_list *mlc_case, int mlc_case_count)
 {
-   printf("mlc_case_count %d\n", mlc_case_count);
+   SENSOR_LOGI(LOG_TAG "mlc_case_count %d\n", mlc_case_count);
    for (int i=0 ; i< mlc_case_count ; i++) {
-           printf("mlc_case_count %d: %s\n", i, mlc_case[i].name);
+           SENSOR_LOGI(LOG_TAG "mlc_case_count %d: %s\n", i, mlc_case[i].name);
    }
 }
 
-static void dump_event(const struct sensors_event_t *e)
+static void dump_live_event(const struct sensors_event_t *e)
 {
     static int64_t acc_ts = 0;
     static int64_t gyro_ts = 0;
-
+    static int AccCount = 0, GyroCount = 0;
     switch (e->type) {
     case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
-        printf("ACC event:x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
-            e->uncalibrated_accelerometer.x_uncalib, e->uncalibrated_accelerometer.y_uncalib,
+    case SENSOR_TYPE_ACCELEROMETER:
+	SENSOR_LOGI(LOG_TAG "Sensor ACC Live event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
+            AccCount++, e->uncalibrated_accelerometer.x_uncalib, e->uncalibrated_accelerometer.y_uncalib,
             e->uncalibrated_accelerometer.z_uncalib, e->uncalibrated_accelerometer.x_bias,
             e->uncalibrated_accelerometer.y_bias, e->uncalibrated_accelerometer.z_bias,
             e->timestamp, (getTimestamp() - e->timestamp)/1000000, (1.0F/(e->timestamp-acc_ts))*1000000000);
         acc_ts = e->timestamp;
         break;
     case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
-        printf("GYRO event:x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
-            e->uncalibrated_gyro.x_uncalib, e->uncalibrated_gyro.y_uncalib,
+    case SENSOR_TYPE_GYROSCOPE:
+	SENSOR_LOGI(LOG_TAG "Sensor GYRO Live event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
+            GyroCount++, e->uncalibrated_gyro.x_uncalib, e->uncalibrated_gyro.y_uncalib,
             e->uncalibrated_gyro.z_uncalib, e->uncalibrated_gyro.x_bias,
             e->uncalibrated_gyro.y_bias, e->uncalibrated_gyro.z_bias,
             e->timestamp,(getTimestamp() - e->timestamp)/1000000, (1.0F/(e->timestamp-gyro_ts))*1000000000);
         gyro_ts = e->timestamp;
         break;
     default:
-        printf("Unknown sensor_id events %d\n", e->type);
+        SENSOR_LOGI(LOG_TAG "Sensor Live unknown sensor_id events %d\n", e->type);
+    }
+}
+
+static void dump_buffer_event(const struct sensors_event_t *e)
+{
+    static int64_t acc_ts = 0;
+    static int64_t gyro_ts = 0;
+    static int AccCount = 0, GyroCount = 0;
+
+    switch (e->type) {
+    case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
+    case SENSOR_TYPE_ACCELEROMETER:
+	SENSOR_LOGI(LOG_TAG "Sensor ACC Buff event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
+            AccCount++, e->uncalibrated_accelerometer.x_uncalib, e->uncalibrated_accelerometer.y_uncalib,
+            e->uncalibrated_accelerometer.z_uncalib, e->uncalibrated_accelerometer.x_bias,
+            e->uncalibrated_accelerometer.y_bias, e->uncalibrated_accelerometer.z_bias,
+            e->timestamp, (getTimestamp() - e->timestamp)/1000000, (1.0F/(e->timestamp-acc_ts))*1000000000);
+        acc_ts = e->timestamp;
+        break;
+    case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
+    case SENSOR_TYPE_GYROSCOPE:
+	SENSOR_LOGI(LOG_TAG "Sensor GYRO Buff event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
+            GyroCount++, e->uncalibrated_gyro.x_uncalib, e->uncalibrated_gyro.y_uncalib,
+            e->uncalibrated_gyro.z_uncalib, e->uncalibrated_gyro.x_bias,
+            e->uncalibrated_gyro.y_bias, e->uncalibrated_gyro.z_bias,
+            e->timestamp,(getTimestamp() - e->timestamp)/1000000, (1.0F/(e->timestamp-gyro_ts))*1000000000);
+        gyro_ts = e->timestamp;
+        break;
+    default:
+        SENSOR_LOGI(LOG_TAG "Sensor Buff unknown sensor_id events %d\n", e->type);
     }
 }
 
 
 static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
-    printf("<<< onCapabilitiesCb mask=%d\n", mask);
+    SENSOR_LOGI(LOG_TAG "<<< onCapabilitiesCb mask=%d\n", mask);
     switch (mask) {
 	case SHD_READY:
-		printf("Sensor Hal daemon is Ready to commnunicate\n");
+		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is Ready to commnunicate\n");
 		break;
 	case SHD_RESTARTED:
-		printf("Sensor Hal daemon is Restarted\n");
+		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is Restarted\n");
 		break;
 	case SHD_NOT_RUNNING:
-		printf("Sensor Hal daemon is not available\n");
+		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is not available\n");
 		break;
 	case DEVICE_SUSPEND:
-		printf("Device is about go to suspend state\n");
+		SENSOR_LOGI(LOG_TAG "Device is about go to suspend state\n");
 		break;
 	case DEVICE_RESUME:
-		printf("Device is resumed\n");
+		SENSOR_LOGI(LOG_TAG "Device is resumed\n");
 		break;
 	case DEVICE_SHUTDOWN:
-		printf("Device is about go to shutdown\n");
+		SENSOR_LOGI(LOG_TAG "Device is about go to shutdown\n");
 		break;
 	defult:
-		printf("Unknown mask\n");
+		SENSOR_LOGI(LOG_TAG "Unknown mask\n");
 		break;
     }
 }
 
 static void onBatchingCb(int sensor_id , float sampling_rate, int batch_count)
 {
-  printf("<<< sensor_client_test_app: hanndle %d sampling_rate %f batch_count %d \n", sensor_id, sampling_rate, batch_count);
+  SENSOR_LOGI(LOG_TAG "hanndle %d sampling_rate %f batch_count %d \n", sensor_id, sampling_rate, batch_count);
 }
 
 static void onSensorDataReadCb(int sensor_id, const sensors_event_t *events, uint32_t count)
@@ -186,31 +238,30 @@ static void onSensorDataReadCb(int sensor_id, const sensors_event_t *events, uin
     int i =0;
     static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_cur = 0;
     static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0;
+    static int LiveCounter = 0;
     ts_cur = getTimestamp();
 
     if (sensor_id == 1) {
 	    acc_sensor_ts = events[count-1].timestamp;
-	    printf("<<<sensor_id %d: read events count %d batch delta %lld sensor and system delta %lld\n",
+	    SENSOR_LOGI(LOG_TAG "Sensor ACC Live: sensor_id %d: read events count %d batch delta %lld sensor and system delta %lld\n",
 			    sensor_id, count, (ts_cur - ts_prv_acc)/1000000, (ts_cur - acc_sensor_ts)/1000000);
 	    ts_prv_acc = ts_cur;
     }
     else {
 	    gyro_sensor_ts = events[count-1].timestamp;
-	    printf("<<<sensor_id %d: read events count %d batch delta %lld sensor and system delta %lld\n",
+	    SENSOR_LOGI(LOG_TAG "Sensor GYRO Live: sensor_id %d: read events count %d batch delta %lld sensor and system delta %lld\n",
 			    sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, (ts_cur - gyro_sensor_ts)/1000000);
 	    ts_prv_gyro = ts_cur;
     }
     for ( i = 0; i < count ; i++)
-	    dump_event(&events[i]);
+	    dump_live_event(&events[i]);
 }
 
 static void onSensorMLCEventCb(const char *case_name, struct mlc_event_data *event)
 {
     unsigned char *pevent;
-
     pevent = (unsigned char *)event;
-
-    printf("%s Event: %x %x %x %x %x %x %x %x time: %lld\n", case_name,
+    SENSOR_LOGI(LOG_TAG "%s Event: %x %x %x %x %x %x %x %x time: %lld\n", case_name,
                     pevent[0], pevent[1], pevent[2], pevent[3],
                     pevent[4], pevent[5], pevent[6], pevent[7],
 		    event->timestamp);
@@ -218,45 +269,45 @@ static void onSensorMLCEventCb(const char *case_name, struct mlc_event_data *eve
 
 static void onMfifoDataReadCb(int sensor_id, const sensors_event_t *events, uint32_t count)
 {
-    printf("<<<sensor_id %d: read events count %d\n", sensor_id, count);
+    SENSOR_LOGI(LOG_TAG "sensor_id %d: read events count %d\n", sensor_id, count);
     for (int i = 0; i < count ; i++)
-	    dump_event(&events[i]);
+	    dump_live_event(&events[i]);
 }
 
 static void onSensorBufferDataReadCb(const sensors_event_t *events, uint32_t count)
 {
     int i =0;
-    printf("<<< sensor_client_api_test_app: buffer read events count %d\n",count);
+    SENSOR_LOGI(LOG_TAG "Sensor ACC/GYRO Buff: buffer read events count %d\n",count);
     for ( i = 0; i < count ; i++)
-            dump_event(&events[i]);
+            dump_buffer_event(&events[i]);
 }
 
 static void onSensorTempReadCb(float tempreature)
 {
-   printf("<<< sensor_client_test_app: tempreature %f \n",tempreature);
+   SENSOR_LOGI(LOG_TAG "tempreature %f \n",tempreature);
 }
 
 static void onSelfTestResultCallback(int sensor_id, int request_id, SelfTestResult result)
 {
    end_time = getTimestamp();
    selftest_time = (end_time - start_time);
-   printf("\nselftest time taken = %lldms\n", selftest_time/1000000);
-   printf("<<< sensor_client_test_app: self_test- sensor_id %d request_id %d result %d\n",sensor_id, request_id, result);
+   SENSOR_LOGI(LOG_TAG "\nselftest time taken = %lldms\n", selftest_time/1000000);
+   SENSOR_LOGI(LOG_TAG "self_test- sensor_id %d request_id %d result %d\n",sensor_id, request_id, result);
 }
 
 static void printHelp() {
-    printf("\n************* options *************\n");
-    printf("h: help\n");
-    printf("g: Get Sensor list\n");
-    printf("c: configure Sensor sampling and batch count\n");
-    printf("a: Activate/Deactivate the Sensor\n");
-    printf("p: Start reading Sensor Data\n");
-    printf("t: Read Sensor Temperature\n");
-    printf("b: Read Sensor Bufffer Data\n");
-    printf("f: flush/Delete Sensor Bufffer Data\n");
-    printf("m: get mlc case list\n");
-    printf("e: enable/disable mlc case event\n");
-    printf("q: Quit\n");
+    SENSOR_LOGI(LOG_TAG "\n************* options *************\n");
+    SENSOR_LOGI(LOG_TAG "h: help\n");
+    SENSOR_LOGI(LOG_TAG "g: Get Sensor list\n");
+    SENSOR_LOGI(LOG_TAG "c: configure Sensor sampling and batch count\n");
+    SENSOR_LOGI(LOG_TAG "a: Activate/Deactivate the Sensor\n");
+    SENSOR_LOGI(LOG_TAG "p: Start reading Sensor Data\n");
+    SENSOR_LOGI(LOG_TAG "t: Read Sensor Temperature\n");
+    SENSOR_LOGI(LOG_TAG "b: Read Sensor Bufffer Data\n");
+    SENSOR_LOGI(LOG_TAG "f: flush/Delete Sensor Bufffer Data\n");
+    SENSOR_LOGI(LOG_TAG "m: get mlc case list\n");
+    SENSOR_LOGI(LOG_TAG "e: enable/disable mlc case event\n");
+    SENSOR_LOGI(LOG_TAG "q: Quit\n");
 }
 
 /******************************************************************************
@@ -279,82 +330,116 @@ int main(int argc, char *argv[]) {
    float odr_rate = 0;
    int c;
    int request_id = 1;
+   static int enable_buffer = 0;
+   static int enable_live = 0;
+   static int enable_temperature = 0;
+
    SelfTestType selfTestType;
 
-   printHelp();
 
    pClient = new SensorClient(onCapabilitiesCb);
 
    sleep(2);
    ret = pClient->get_sensor_list(&sensor, &sensor_count);
    if(ret < 0) {
-           printf("get sensor list failed ret %d \n", ret);
+           SENSOR_LOGE(LOG_TAG "get sensor list failed ret %d \n", ret);
    }
 
    PrintSensorList(sensor,sensor_count);
-
+   Usage();
 
    if(argc > 2) {
-     Usage();
      while ((c = getopt (argc, argv, CMD_OPTIONS)) != -1) {
 	   switch (c) {
+		   case 'l':
+			   enable_live = strtol(optarg, &stopstring, 10);
+			   break;
 		   case 'b':
 			   batch_count = strtol(optarg, &stopstring, 10);
 			   break;
-		   case 'd':
+		   case 's':
 			   odr_rate = strtol(optarg, &stopstring, 10);
 			   break;
+		   case 'n':
+			   live_count = strtol(optarg, &stopstring, 10);
+			   break;
+		   case 'e':
+			   enable_buffer = strtol(optarg, &stopstring, 10);
+			   break;
+		   case 't':
+			   enable_temperature = strtol(optarg, &stopstring, 10);
 		   default:
 			   Usage();
 			   break;
 	   }
      }
-     printf(" Sensor odr rate %f batch count %d\n", odr_rate, batch_count);
+     SENSOR_LOGI(LOG_TAG "Sensor enable_live %d sampling rate %f batch count %d live_count %d enable_buffer %d enable_temperature %d\n",
+		     enable_live, odr_rate, batch_count, live_count, enable_buffer, enable_temperature);
 
+     if(enable_buffer == 1){
+	ret = pClient->sensor_read_buffer_data(1, onSensorBufferDataReadCb);
+	if(ret < 0) {
+		SENSOR_LOGE(LOG_TAG "sensor buffer read failed ret %d \n", ret);
+	}
+     }
+
+    if(enable_live == 1) {
      for(int i=0; i < sensor_count; i++) {
 	   state = SENSOR_DISABLE;
 	   ret = pClient->sensor_control(sensor[i].sensor_id, state);
 	   if(ret < 0) {
-		   printf("sensor control failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
+		   SENSOR_LOGE(LOG_TAG "sensor control failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
 	   }
 	   ret = pClient->sensor_config(sensor[i].sensor_id, odr_rate, batch_count, onBatchingCb);
 	   if(ret < 0) {
-		   printf("sensor config  failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
+		   SENSOR_LOGE(LOG_TAG "sensor config  failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
 	   }
 	   state = SENSOR_ENABLE;
 	   ret = pClient->sensor_control(sensor[i].sensor_id, state);
 	   if(ret < 0) {
-		   printf("sensor control failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
+		   SENSOR_LOGE(LOG_TAG "sensor control failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
 	   }
 	   ret = pClient->sensor_read_events(sensor[i].sensor_id, onSensorDataReadCb);
 	   if(ret < 0) {
-		   printf("sensor read events failed ret %d \n", ret);
+		   SENSOR_LOGE(LOG_TAG "sensor read events failed ret %d \n", ret);
 	   }
+     }
+    }
+     while(1) {
+	if (enable_temperature == 1) {
+		SENSOR_LOGI(LOG_TAG "read temperature\n");
+		ret = pClient->sensor_read_temperature(onSensorTempReadCb);
+		if(ret < 0) {
+			SENSOR_LOGE(LOG_TAG "sensor read temperature failed ret %d \n", ret);
+			break;
+		}
+		sleep(1);
+	}
      }
    }
 
+   printHelp();
    // main loop
    while (1) {
-	   char buf[10];
-	   memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
-	   fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
-	   int command = buf[0];
-    switch(command) {
+    char buf[10];
+    memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
+    fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
+    int command = buf[0];
 
+    switch(command) {
      case 'g':
 	if (pClient) {
          ret = pClient->get_sensor_list(&sensor, &sensor_count);
 	 if(ret < 0) {
-		printf("get sensor list failed ret %d \n", ret);
+		SENSOR_LOGE(LOG_TAG "get sensor list failed ret %d \n", ret);
 		break;
 	}
 	PrintSensorList(sensor,sensor_count);
 	break;
-
      case 'c':
 	if (pClient) {
 	   for(int i=0; i < sensor_count; i++) {
-		printf("Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n",
+		SENSOR_LOGI(LOG_TAG "Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n",
                        sensor[i].odr[0],sensor[i].odr[1],sensor[i].odr[2],
 		       sensor[i].odr[3],sensor[i].odr[4],sensor[i].odr[5]);
 
@@ -362,91 +447,87 @@ int main(int argc, char *argv[]) {
 		memset (batchcount, 0, sizeof(batchcount)/sizeof(batchcount[0]));
 		fgets(odr, sizeof(odr)/sizeof(odr[0]), stdin);
 		j=strtol(odr,&stopstring,10);
-		printf("Enter batch set: ");
+		SENSOR_LOGI(LOG_TAG "Enter batch set: ");
 		fgets(batchcount, sizeof(batchcount)/sizeof(batchcount[0]), stdin);
 		batch_count=strtol(batchcount,&stopstring,10);
 
-		printf("\nConfiguring sensor sensor_id %d  sampling rate %fHZ and batch count %d\n",
+		SENSOR_LOGI(LOG_TAG "\nConfiguring sensor sensor_id %d  sampling rate %fHZ and batch count %d\n",
 				sensor[i].sensor_id, sensor[i].odr[j], batch_count);
 
 		ret = pClient->sensor_config(sensor[i].sensor_id, sensor[i].odr[j], batch_count, onBatchingCb);
 		if(ret < 0) {
-			printf("sensor config  failed ret %d \n", ret);
+			SENSOR_LOGE(LOG_TAG "sensor config  failed ret %d \n", ret);
 		}
 	   }
 	}
 	break;
-
      case 'a':
 	if (pClient) {
            for(int i=0; i < sensor_count; i++) {
-	        printf("Enable/Disable the sensor sensor[i].sensor_id %d\n",sensor[i].sensor_id);
-		printf(" 0:SENSOR_DISABLE\n 1:SENSOR_ENABLE\n 2:SENSOR_LPM\n 3:SENSOR_HPM\nEnter value:");
+	        SENSOR_LOGI(LOG_TAG "Enable/Disable the sensor sensor[i].sensor_id %d\n",sensor[i].sensor_id);
+		SENSOR_LOGI(LOG_TAG " 0:SENSOR_DISABLE\n 1:SENSOR_ENABLE\n 2:SENSOR_LPM\n 3:SENSOR_HPM\nEnter value:");
 		memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
 		fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
                 state=(sensor_state)strtol(enable,&stopstring,10);
-		printf("sensor id %d with contol value %d\n",sensor[i].sensor_id, state);
+		SENSOR_LOGI(LOG_TAG "sensor id %d with contol value %d\n",sensor[i].sensor_id, state);
 		ret = pClient->sensor_control(sensor[i].sensor_id, state);
 		if(ret < 0) {
-			printf("sensor control failed ret %d \n", ret);
+			SENSOR_LOGI(LOG_TAG "sensor control failed ret %d \n", ret);
 			break;
 		}
 	   }
 	}
 	break;
-
      case 'p':
 	if (pClient) {
-		printf("start reading the sensor data\n");
+		SENSOR_LOGI(LOG_TAG "start reading the sensor data\n");
 		for(int i=0; i < sensor_count; i++) {
 			ret = pClient->sensor_read_events(sensor[i].sensor_id, onSensorDataReadCb);
 			if(ret < 0) {
-				printf("sensor read events failed ret %d \n", ret);
+				SENSOR_LOGE(LOG_TAG "sensor read events failed ret %d \n", ret);
 				break;
 			}
 		}
 	}
 	break;
-
      case 't':
 	if (pClient) {
-		printf("read temperature\n");
+		SENSOR_LOGI(LOG_TAG "read temperature\n");
 		ret = pClient->sensor_read_temperature(onSensorTempReadCb);
 		if(ret < 0) {
-			printf("sensor read temperature failed ret %d \n", ret);
+			SENSOR_LOGE(LOG_TAG "sensor read temperature failed ret %d \n", ret);
 			break;
 		}
 	}
 	break;
-
      case 'b':
 	if (pClient) {
-		printf("read buffer data\n");
+		SENSOR_LOGI(LOG_TAG "read buffer data\n");
 		ret = pClient->sensor_read_buffer_data(1, onSensorBufferDataReadCb);
 		if(ret < 0) {
-			printf("sensor buffer read failed ret %d \n", ret);
+			SENSOR_LOGE(LOG_TAG "sensor buffer read failed ret %d \n", ret);
 			break;
 		}
 	}
 	break;
      case 'f':
 	if (pClient) {
-		printf("flush/Delete the buffer data\n");
+		SENSOR_LOGI(LOG_TAG "flush/Delete the buffer data\n");
 		ret = pClient->sensor_read_buffer_data(0, onSensorBufferDataReadCb);
 		if(ret < 0) {
-			printf("sensor buffer read failed ret %d \n", ret);
+			SENSOR_LOGE(LOG_TAG "sensor buffer read failed ret %d \n", ret);
 			break;
 		}
 		else
-			printf("buffer deleted\n");
+			SENSOR_LOGE(LOG_TAG "buffer deleted\n");
 	}
 	break;
      case 'm':
         if (pClient) {
-                printf("get mlc case list supported\n");
+                SENSOR_LOGI(LOG_TAG "get mlc case list supported\n");
                 ret = pClient->sensor_request_mlc_case(&mlc_case, &mlc_case_count);
                 if(ret < 0) {
-                        printf("sensor get mlc case list failed ret %d \n", ret);
+                        SENSOR_LOGE(LOG_TAG "sensor get mlc case list failed ret %d \n", ret);
                         break;
                 }
 		PrintSensorMlcCaseList(mlc_case, mlc_case_count);
@@ -454,16 +535,16 @@ int main(int argc, char *argv[]) {
 	break;
      case 'e':
         if (pClient) {
-                printf("enable/disable mlc case event\n");
-		printf(" 0:DISABLE\n 1:ENABLE\nEnter value:");
+                SENSOR_LOGI(LOG_TAG "enable/disable mlc case event\n");
+		SENSOR_LOGI(LOG_TAG " 0:DISABLE\n 1:ENABLE\nEnter value:");
 		memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
 		fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
 		mlc_enable=strtol(enable,&stopstring,10);
-		printf("mlc_enable %d\n", mlc_enable);
+		SENSOR_LOGI(LOG_TAG "mlc_enable %d\n", mlc_enable);
 		for(int i=0; i < mlc_case_count; i++) {
 			ret = pClient->sensor_mlc_event_enable(mlc_case[i].name, mlc_enable, onSensorMLCEventCb, onMfifoDataReadCb);
 			if(ret < 0) {
-				printf("sensor enable/disable mlc case event failed ret %d \n", ret);
+				SENSOR_LOGE(LOG_TAG "sensor enable/disable mlc case event failed ret %d \n", ret);
 				break;
 			}
 		}
@@ -471,16 +552,16 @@ int main(int argc, char *argv[]) {
 	break;
      case 's':
         if (pClient) {
-		printf("sensor self test\n");
+		SENSOR_LOGI(LOG_TAG "sensor self test\n");
 		for(int i=0; i < sensor_count; i++) {
-			printf(" 0:Positive\n 1:Neagative\nEnter value:");
+			SENSOR_LOGI(LOG_TAG " 0:Positive\n 1:Neagative\nEnter value:");
 			memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
 			fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
 			selfTestType=(SelfTestType)strtol(enable,&stopstring,10);
 			start_time = getTimestamp();
 			ret = pClient->sensor_self_test(sensor[i].sensor_id, selfTestType, request_id++, onSelfTestResultCallback);
 			if(ret < 0) {
-				printf("sensor self test request failed ret %d \n", ret);
+				SENSOR_LOGE(LOG_TAG "sensor self test request failed ret %d \n", ret);
                                 break;
                         }
 		}
@@ -489,13 +570,11 @@ int main(int argc, char *argv[]) {
      case 'h':
 	printHelp();
 	break;
-
      case 'q':
 	goto EXIT;
 	break;
-
      default:
-	printf("unknown command %s\n", buf);
+	SENSOR_LOGI(LOG_TAG "unknown command %s\n", buf);
 	break;
 	}
     }
@@ -505,6 +584,6 @@ EXIT:
    if (pClient) {
 	   delete pClient;
    }
-   printf("Done\n");
+   SENSOR_LOGI(LOG_TAG "Done\n");
    exit(0);
 }

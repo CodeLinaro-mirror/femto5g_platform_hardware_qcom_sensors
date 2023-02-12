@@ -93,6 +93,8 @@ typedef enum {
         SENSOR_ERROR_NO_MLC_CASE_FOUND=-15,
         /**Sensor No response from SHD timeout happens*/
         SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT = -16,
+        /**Sensor selftest is not supported**/
+        SENSOR_SELFTEST_NOT_SUPPORTED = -17,
 }SensorRet;
 
 typedef enum {

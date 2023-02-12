@@ -76,6 +76,11 @@
 #include <PowerEvtHandler.h>
 #endif
 
+#define ASMLIB "/usr/lib/libasm330sensors.so.1.0.0"
+#define IAMLIB "/usr/lib/libiam20680sensors.so.1"
+#define SMI130LIB "/usr/lib/libsmi130sensors.so.1"
+#define SMI230LIB "/usr/lib/libsmi230sensors.so.1"
+
 using namespace std;
 
 /******************************************************************************
@@ -144,6 +149,7 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 	    return;
     }
 
+    mInstance = this;
     // start receiver - never return
     SENSOR_LOGI(LOG_TAG "Ready, start Ipc Receiver\n");
     // blocking: set to false
@@ -158,6 +164,10 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 SensorApiService - Destructors
 ******************************************************************************/
 SensorApiService::~SensorApiService() {
+    SENSOR_LOGI(LOG_TAG "SensorApiService Destructor is called\n");
+    if(mSensorType == 3 || mSensorType == 4){
+        mpoll_dev_v0->common.close(&mpoll_dev_v0->common);
+    }
 
     // stop ipc receiver thread
     if (nullptr != mIpcReceiver) {
@@ -193,7 +203,7 @@ SensorApiService::~SensorApiService() {
 	    SENSOR_LOGI(LOG_TAG ">-- deleted client [%s]", each.first.c_str());
 	    each.second->cleanup();
     }
-    SENSOR_LOGI(LOG_TAG "SensorApiService destructor is called\n");
+    SENSOR_LOGI(LOG_TAG "SensorApiService destructor has executed\n");
 }
 
 /******************************************************************************
@@ -303,6 +313,36 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 		   mhmi->common.version_major, mhmi->common.version_minor,
 		   mhmi->common.id);
 
+   SENSOR_LOGI(LOG_TAG "mSensorType = %d configParamRead.SensorHalLibPath = %s\n", mSensorType, configParamRead.SensorHalLibPath);
+   if (strcmp(ASMLIB, configParamRead.SensorHalLibPath) == 0) {
+        if (mSensorType != 1) {
+                SENSOR_LOGE(LOG_TAG "ERROR: ASM Sensor Type doesn't match with the lib\n");
+                return false;
+        }
+   }
+
+   if (strcmp(IAMLIB, configParamRead.SensorHalLibPath) == 0) {
+        if (mSensorType != 2) {
+                SENSOR_LOGE(LOG_TAG "ERROR: IAM Sensor Type doesn't match with the lib\n");
+                return false;
+        }
+
+   }
+
+   if (strcmp(SMI130LIB, configParamRead.SensorHalLibPath) == 0) {
+        if (mSensorType != 3) {
+                SENSOR_LOGE(LOG_TAG "ERROR: SMI130 Sensor Type doesn't match with the lib\n");
+                return false;
+        }
+   }
+
+   if (strcmp(SMI230LIB, configParamRead.SensorHalLibPath) == 0) {
+        if (mSensorType != 4) {
+                SENSOR_LOGE(LOG_TAG "ERROR: SMI230 Sensor Type doesn't match with the lib\n");
+                return false;
+        }
+   }
+
    err = mhmi->common.methods->open((struct hw_module_t *)mhmi,
 		   SENSORS_HARDWARE_POLL, &mdev);
    if (err) {
@@ -321,7 +361,8 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 	   return false;
    }
 
-   if (mSensorType != SENSOR_TYPE_ASM) {
+   if (mSensorType != SENSOR_ASM330  && mSensorType != SENSOR_IAM20680 &&
+		   mSensorType != SENSOR_SMI130 &&  mSensorType != SENSOR_SMI230) {
 	   SENSOR_LOGE(LOG_TAG "ERROR: Invalid sensor type: %d\n", mSensorType);
 	   return false;
    }
@@ -330,7 +371,7 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
    mSensor = new (std::nothrow) SensorConfig[mSensorCount];
 
    if (mSensor == nullptr){
-	return false;	
+	return false;
    }
 
    for(int i=0; i < mSensorCount; i++) {
@@ -358,6 +399,18 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 	     mSensorList[i].type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
      }
      strlcpy(&mSensorList[i].vendor[0], s[i].vendor, MAX_PATH_SIZE);
+     if(mSensorType == SENSOR_SMI130){
+           strlcat(&mSensorList[i].vendor[0], "-SMI130", MAX_PATH_SIZE);
+     }
+     else if(mSensorType == SENSOR_SMI230){
+           strlcat(&mSensorList[i].vendor[0], "-SMI230", MAX_PATH_SIZE);
+     }
+     else if(mSensorType == SENSOR_ASM330){
+        strlcat(&mSensorList[i].vendor[0], "-ASM330", MAX_PATH_SIZE);
+     }
+     else if(mSensorType == SENSOR_IAM20680){
+        strlcat(&mSensorList[i].vendor[0], "-IAM20680", MAX_PATH_SIZE);
+     }
      mSensorList[i].version = s[i].version;
      mSensorList[i].resolution = s[i].resolution;
      mSensorList[i].maxRange = s[i].maxRange;
@@ -452,7 +505,7 @@ SensorApiService - send_sensor_data_to_clients thread to process sensor data
 ******************************************************************************/
 void* SensorApiService::send_sensor_data_to_clients(void *arg) {
   SensorApiService* mSensorService = (SensorApiService*)(arg);
-  int count = 0;
+  int count = 0; bool rc = false;
   sensors_event_t events[BUFFER_EVENT];
   while(1)
   {
@@ -460,20 +513,41 @@ void* SensorApiService::send_sensor_data_to_clients(void *arg) {
 		     events, sizeof(events)/sizeof(sensors_event_t));
      SENSOR_LOGV(LOG_TAG "read events = %d\n",count);
      std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+
 #ifdef POWERMANAGER_ENABLED
      if ((POWER_STATE_SUSPEND != mSensorService->mPowerState) &&
         (POWER_STATE_SHUTDOWN != mSensorService->mPowerState)) {
-	    for (auto each : mSensorService->mClients) {
-		    if (each.second && each.second->mTracking)
-			    if (each.second->mAccTracking || each.second->mGyroTracking)
-				    each.second->onSensorDataReadCb(events, count);
+	     for (auto it = mSensorService->mClients.begin(); it != mSensorService->mClients.end();) {
+		    if (it->second && it->second->mTracking && (it->second->mAccTracking || it->second->mGyroTracking)) {
+			    rc = it->second->onSensorDataReadCb(events, count);
+			    // purge this client if failed
+			    if (!rc) {
+				    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+				    it = mSensorService->deleteClientbyName(it->first.c_str());
+			    }
+			    else
+				    ++it;
+		    }
+		    else {
+			    ++it;
+		   }
 	    }
     }
 #else
-     for (auto each : mSensorService->mClients) {
-	     if (each.second && each.second->mTracking)
-		     if (each.second->mAccTracking || each.second->mGyroTracking)
-			     each.second->onSensorDataReadCb(events, count);
+     for (auto it = mSensorService->mClients.begin(); it != mSensorService->mClients.end();) {
+	     if (it->second && it->second->mTracking && (it->second->mAccTracking || it->second->mGyroTracking)) {
+		     rc = it->second->onSensorDataReadCb(events, count);
+		     // purge this client if failed
+		     if (!rc) {
+			     SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+			     it = mSensorService->deleteClientbyName(it->first.c_str());
+		     }
+		     else
+			     ++it;
+	     }
+	     else {
+		     ++it;
+	     }
      }
 #endif
   }
@@ -643,20 +717,13 @@ void SensorApiService::deleteClient(SensorAPIClientDeregisterReqMsg *pMsg) {
     deleteClientbyName(clientname);
 }
 
-void SensorApiService::deleteClientbyName(const std::string clientname) {
+std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator SensorApiService::deleteClientbyName(const std::string clientname) {
     // We shall not hold the lock, as lock already held by the caller
     //
     mSensorClient--;
-    SENSOR_LOGI(LOG_TAG ">-- deleteClientbyName %d\n",mSensorClient);
-    /*Deactivate the Sensor when last client deregistered*/
-    if(mSensorClient <= 0) {
-        for(int i=0; i < mSensorCount; i++) {
-                sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE);
-                mSensor[i].Activate = 0;
-                mSensor[i].SamplingRate = 0;
-                mSensor[i].BatchCount = 0;
-        }
-    }
+    bool activate = false;
+    SENSOR_LOGI(LOG_TAG ">-- deleteClientbyName %s mSensorClient %d\n",clientname.c_str(), mSensorClient);
+
     // remove the client from the config request map
     for (auto it = mConfigReqs.begin(); it != mConfigReqs.end();) {
      if (strncmp(it->second.clientName.c_str(), clientname.c_str(),
@@ -673,10 +740,30 @@ void SensorApiService::deleteClientbyName(const std::string clientname) {
         SENSOR_LOGE(LOG_TAG ">-- deleteClient invlalid client=%s\n", clientname.c_str());
         return;
     }
-    mClients.erase(clientname);
+
+    std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator itr = mClients.find(clientname);
+    itr = mClients.erase(itr);
     pClient->cleanup();
 
+    activate = false;
+    //deactivate sensor if no client activated sensors
+    for (auto it = mClients.begin(); it != mClients.end(); ++it){
+         if (it->second && (it->second->mAccTracking || it->second->mGyroTracking)) {
+                             activate = true;
+         }
+    }
+
+    if (activate != true){
+       for(int i=0; i < mSensorCount; i++) {
+         sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE);
+         mSensor[i].Activate = 0;
+         mSensor[i].SamplingRate = 0;
+         mSensor[i].BatchCount = 0;
+       }
+    }
+
     SENSOR_LOGI(LOG_TAG ">-- deleteClient client=%s\n", clientname.c_str());
+    return itr;
 }
 
 void SensorApiService::deleteEapClientByIds(int serviceId, int instanceId) {
@@ -772,7 +859,7 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
              }
 	     pClient->mAccEvents = new (std::nothrow) sensors_event_t [pClient->mAccBatchCount];
 
-	     if (pClient->mAccEvents == nullptr){	
+	     if (pClient->mAccEvents == nullptr){
 		return SENSOR_ERROR_CONFIG_FAILED;
 	     }
 
@@ -1011,7 +1098,6 @@ void SensorApiService::SensorEnableMLCCase(SensorAPIMLCCaseEnableMsg* pMsg) {
     }
 
     pClient->mMlcEnable = false;
-	
     if (mMlcSupported == true) {
 	      for (int i = 0; i < mSensorMlcCaseCount ; i++) {
 		 if (strcmp(pClient->mMlcCaseList[i].name, pMsg->mlc_case_name) == 0) {
@@ -1041,7 +1127,7 @@ SensorApiService - implementation - getSensorTemp to send temperature
 void SensorApiService::getSensorTemp(SensorAPITempReqMsg* pMsg) {
     float temperature = 0;
 
-    SENSOR_LOGI(LOG_TAG "--<getSensorTemp\n");
+    SENSOR_LOGD(LOG_TAG "--<getSensorTemp\n");
 
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
     if (!pClient) {
@@ -1059,7 +1145,7 @@ SensorApiService - implementation - getSensorBufferData to send buffer data
 void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
     std::lock_guard<std::mutex> lock(mMutex);
     int ret = SENSOR_ERROR_BUFFER_NOT_SUPPORTED;
-
+    bool rc;
     SENSOR_LOGI(LOG_TAG "--<getSensorBufferData pMsg->enable %d\n",pMsg->enable);
 
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
@@ -1080,7 +1166,10 @@ void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
 		    ret = SENSOR_ERROR_BUFFER_DELETED;
 	    }
 	    else {
-		    ret = SENSOR_RESPONSE_SUCCESS;
+                    rc = WritetoBufferFile(pMsg->enable);
+                    if(rc){
+			ret = SENSOR_RESPONSE_SUCCESS;
+                    }
 		    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
 		    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
 		    pthread_mutex_lock (&mHalBuffMutex);
@@ -1135,9 +1224,12 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
     }
     self_test_fd = fopen(self_test_file_name, "w+");
 
+    /*If the file discriptor to open self-test is null,
+      the execution will be returned back. */
     if (self_test_fd == nullptr) {
 	    SENSOR_LOGE(LOG_TAG "NULL");
-	    return;
+	    result = Failed;
+            goto fail;
     }
 
     if (selfTestType == Positive) {
@@ -1164,10 +1256,17 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
     fclose(self_test_fd);
     for(int i = 0 ; i < mSensorCount; i++)  {
 	    if (mSensor[i].Activate == SENSOR_ENABLE){
+		    int64_t SamplingRate = FREQUENCY_TO_NS(mSensor[i].SamplingRate);
+		    int64_t BatchingRate =  mSensor[i].BatchCount *  mSensor[i].SamplingRate  * mBatchConst;
+		    SENSOR_LOGI(LOG_TAG ">-- onSelfTest Re-Configure sensor sensor_id %d sampling Rate %lld BatchingRate %lld\n",
+				    mSensor[i].sensor_id, SamplingRate, BatchingRate);
+		    sensor_set_batch(mSensor[i].sensor_id, SamplingRate, BatchingRate); //configure the sensor
 		    sensor_activate(mSensor[i].sensor_id, SENSOR_ENABLE); //Enable the sensor
 	    }
     }
     SENSOR_LOGI(LOG_TAG "sensor_id = %d request_id = %d result = %d\n", sensor_id, request_id, result);
+
+fail:
     pClient->onSensorSelfTestResultCb(sensor_id, request_id, result);
 
     return;
@@ -1177,9 +1276,10 @@ void SensorApiService::sensorSelfTest(SensorAPISelfTestReqMsg* pMsg) {
     std::lock_guard<std::mutex> lock(mMutex);
     int ret = 0;
     bool SensorId = false;
-
+    int value = 0;
     int sensor_id =  pMsg->sensor_id;
     int request_id = pMsg->request_id;
+    char self_test_file_name[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
     SelfTestType  selfTestType = pMsg->selfTestType;
 
     SENSOR_LOGI(LOG_TAG "--<sensorSelfTest sensor_id %d SelfTestType %d request_id %d\n",
@@ -1210,13 +1310,43 @@ void SensorApiService::sensorSelfTest(SensorAPISelfTestReqMsg* pMsg) {
 	    ret = SENSOR_ERROR_NO_SENSORS_FOUND;
     }
 
-    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
-    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+    if(mSensorType == 1) {
+        for (int i=0 ; i < mSensorCount; i++) {
+            if (sensor_id == mSensor[i].sensor_id) {
+                    if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
+                            find_path(DYN_IIO_TYPE, self_test_file_name, ASM330LHHX_ACC_SEARCH,
+                                            sizeof(self_test_file_name));
+                    }
+                    if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE) {
+                            find_path(DYN_IIO_TYPE, self_test_file_name, ASM330LHHX_GYRO_SEARCH,
+                                            sizeof(self_test_file_name));
+                    }
+            }
+        }
 
-    std::thread appCallbackThread([this, pClient, sensor_id, selfTestType, request_id] {
-		    onSelfTestRequest(pClient, sensor_id, selfTestType, request_id);
-    });
-    appCallbackThread.detach();
+        strlcat(self_test_file_name, "selftest", sizeof(self_test_file_name));
+        value = strncmp(self_test_file_name, "selftest", sizeof(self_test_file_name));
+        if(value == 0){
+                ret = SENSOR_SELFTEST_NOT_SUPPORTED;
+                pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+                pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+        }
+        else {
+                if(ret == 0){
+                        pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+                        pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+                        std::thread appCallbackThread([this, pClient, sensor_id, selfTestType, request_id] {
+                                    onSelfTestRequest(pClient, sensor_id, selfTestType, request_id);
+                        });
+                        appCallbackThread.detach();
+                }
+        }
+    }
+    else {
+        ret = SENSOR_SELFTEST_NOT_SUPPORTED;
+        pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+        pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID);
+    }
 
     return;
 }
@@ -1262,6 +1392,11 @@ float SensorApiService::NearBySamplingRate(float ReqSamplingRate, struct sensor_
 		  return s->odr[i];
 	  else if (s->odr[i] > ReqSamplingRate)
 		  return s->odr[i-1];
+
+	  else if(s->odr[i] == 0){
+               return s->odr[i-1];
+       }
+
   }
 
   //return max sampling rate supported
@@ -1275,7 +1410,7 @@ Sampling rate supported by each sensor
 void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
   switch(mSensorType) {
       //Check for ASM330 sensor
-      case SENSOR_TYPE_ASM: {
+      case SENSOR_ASM330: {
 	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
 		float samplingRate[6] = {12, 26, 52, 104, 208, 416};
 		float acc_range[4][2] = { {0.000598,2}, { 0.001196,4}, {0.002392,8}, {0.004785,16}};
@@ -1345,8 +1480,101 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 	mBatchConst =  3;
         }
         break;
+
+      //Check for IAM20680 sensor
+      case SENSOR_IAM20680: {
+        if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+                float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
+                int acc_range[4] = {2, 4, 8, 16};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+                s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
+                mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+                s->maxSamplingRate = mMaxAccSampleRate;
+                if (mMinAccBatchCount >= MAX_BATCH_COUNT)
+                        mMinAccBatchCount = MAX_BATCH_COUNT;
+                else if (mMinAccBatchCount <= 0)
+                        mMinAccBatchCount = 1;
+                s->minBatchCount   = mMinAccBatchCount;
+        }
+        if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
+                float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
+                int gyro_range[4] = {250, 500, 1000, 2000};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+                s->range = (mGyroRange >= 0 && mGyroRange <= 3 ) ? gyro_range[mGyroRange] : gyro_range[3];
+                mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+                s->maxSamplingRate = mMaxGyroSampleRate;
+                if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+                        mMinGyroBatchCount = MAX_BATCH_COUNT;
+                else if (mMinGyroBatchCount <= 0)
+                        mMinGyroBatchCount = 1;
+                s->minBatchCount   = mMinGyroBatchCount;
+        }
+        mBatchConst =  1;
+        }
+        break;
+
+      //Check for SMI130 sensor
+      case SENSOR_SMI130: {
+        if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+                float samplingRate[6] = {15, 31, 62, 125, 250};
+                int acc_range[1] = {2};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+                s->range = acc_range[0];
+                mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+                s->maxSamplingRate = mMaxAccSampleRate;
+		if (mMinAccBatchCount <= 0)
+                        mMinAccBatchCount = 1;
+                s->minBatchCount   = 1;
+        }
+        if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
+                float samplingRate[6] = {100, 200};
+                int gyro_range[1] = {250};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+                s->range = gyro_range[0];
+                mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+                s->maxSamplingRate = mMaxGyroSampleRate;
+		if (mMinGyroBatchCount <= 0)
+                        mMinGyroBatchCount = 1;
+                s->minBatchCount   = 1;
+        }
+        mBatchConst =  0;
+        }
+        break;
+
+      //Check for SMI230 sensor
+      case SENSOR_SMI230: {
+        if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+                float samplingRate[6] = {12, 25, 50, 100, 200};
+                int acc_range[4] = {2, 4, 8, 16};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
+                mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+                s->maxSamplingRate = mMaxAccSampleRate;
+                if (mMinAccBatchCount >= MAX_BATCH_COUNT)
+                        mMinAccBatchCount = MAX_BATCH_COUNT;
+                else if (mMinAccBatchCount <= 0)
+                        mMinAccBatchCount = 1;
+                s->minBatchCount   = mMinAccBatchCount;
+	}
+        if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
+                float samplingRate[6] = {100, 200};
+                int gyro_range[5] = {125, 250, 500, 1000, 2000};
+                memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
+		s->range = (mGyroRange >= 0 && mGyroRange <= 4 ) ? gyro_range[mGyroRange] : gyro_range[4];
+                mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+                s->maxSamplingRate = mMaxGyroSampleRate;
+		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+                        mMinGyroBatchCount = MAX_BATCH_COUNT;
+                else if (mMinGyroBatchCount <= 0)
+                        mMinGyroBatchCount = 1;
+                s->minBatchCount   = mMinGyroBatchCount;
+        }
+        mBatchConst =  1;
+        }
+        break;
+
       //Check for BMI160 sensor
-      case SENSOR_TYPE_BMI: {
+      case SENSOR_BMI160: {
 	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
 		float samplingRate[6] = {25, 50, 100, 200, 400};
 		int acc_range[1] = {2};
@@ -1367,61 +1595,8 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
         }
         mBatchConst =  0;
         }
-        break;
-      //Check for IAM20680 sensor
-      case SENSOR_TYPE_IAM: {
-	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
-		float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
-		int acc_range[4] = {2, 4, 8, 16};
-		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-		s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
-		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
-		s->maxSamplingRate = mMaxAccSampleRate;
-		if (mMinAccBatchCount >= MAX_BATCH_COUNT)
-			mMinAccBatchCount = MAX_BATCH_COUNT;
-		else if (mMinAccBatchCount <= 0)
-			mMinAccBatchCount = 1;
-		s->minBatchCount   = mMinAccBatchCount;
-	}
-	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
-		float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
-		int gyro_range[4] = {250, 500, 1000, 2000};
-		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-		s->range = (mGyroRange >= 0 && mGyroRange <= 3 ) ? gyro_range[mGyroRange] : gyro_range[3];
-		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
-		s->maxSamplingRate = mMaxGyroSampleRate;
-		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
-			mMinGyroBatchCount = MAX_BATCH_COUNT;
-		else if (mMinGyroBatchCount <= 0)
-			mMinGyroBatchCount = 1;
-		s->minBatchCount   = mMinGyroBatchCount;
-        }
-        mBatchConst =  1;
-        }
-        break;
-      //Check for SMI130 sensor
-      case SENSOR_TYPE_SMI: {
-	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
-		float samplingRate[6] = {15.63, 31.25, 62.50, 125, 250};
-		int acc_range[1] = {2};
-		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-		s->range = acc_range[0];
-		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
-		s->maxSamplingRate = mMaxAccSampleRate;
-		s->minBatchCount   = 1;
-	}
-	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
-		float samplingRate[6] = {100, 200};
-		int gyro_range[1] = {250};
-		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-		s->range = gyro_range[0];
-		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
-		s->maxSamplingRate = mMaxGyroSampleRate;
-		s->minBatchCount   = 1;
-	}
-	mBatchConst =  0;
-	}
-        break;
+	break;
+
       //default
       default: {
         float samplingRate[6] = {0};
