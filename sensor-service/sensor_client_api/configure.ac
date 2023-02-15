@@ -42,11 +42,17 @@ AC_ARG_WITH([external_ap],
     [],
     with_external_ap=no)
 
-if test "x$with_external_ap" != "xno"; then
+AC_ARG_WITH([vm],
+    AC_HELP_STRING([--with-vm=@<:@dir@:>@],
+        [Enables vm support]),
+    [],
+    with_vm=no)
+
+if test "x$with_external_ap" != "xno" || test "x$with_vm" != "xno"; then
     CPPFLAGS="${CPPFLAGS} -DFEATURE_EXTERNAL_AP"
 fi
 
-AM_CONDITIONAL(USE_EXTERNAL_AP, test "x${with_external_ap}" = "xyes")
+AM_CONDITIONAL([USE_EXTERNAL_AP], [test "x${with_external_ap}" = "xyes" || test "x${with_vm}" = "xyes"])
 
 AC_ARG_WITH([core_includes],
       AC_HELP_STRING([--with-core-includes=@<:@dir@:>@],

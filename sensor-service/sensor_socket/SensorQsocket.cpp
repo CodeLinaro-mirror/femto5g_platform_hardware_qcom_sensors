@@ -301,6 +301,7 @@ bool SensorQsocket::startListeningNonBlocking(const std::string& name, int Servi
 void* SensorQsocket::startListeningNonBlockingThread(void *arg) {
    SensorQsocket* mSensorQsocket = (SensorQsocket*)arg;
    mSensorQsocket->startListeningBlocking(mSensorQsocket->mQsocketName, mSensorQsocket->mServiceIdToWatch);
+   return;
 }
 
 bool SensorQsocket::handleQrtrCtrlMsg(const char* data, uint32_t len) { 
@@ -340,7 +341,10 @@ bool SensorQsocket::startListeningBlocking(const std::string& name, int ServiceI
     // should not exceed 65 bytes
     mService = atoi(name.c_str());
     const char* instance_ptr = strchr(name.c_str(), '.');
-    if (nullptr != instance_ptr) {
+    if (nullptr == instance_ptr) {
+	    return false;
+    }
+    else {
 	    instance_ptr++;
     }
 

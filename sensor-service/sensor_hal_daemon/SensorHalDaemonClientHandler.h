@@ -106,6 +106,7 @@ public:
 		fd = fopen (fileName, "w");
                 if (nullptr == fd) {
                     SENSOR_LOGE(LOG_TAG "<-- failed to open file %s\n", fileName);
+		    exit(1);
                 }
 		fclose(fd);
 		getId1Id2(mName.c_str(), mName.length(),
@@ -116,8 +117,20 @@ public:
 
 	    //Intialise the client parameters and set to zero
 	    mActivate = new (std::nothrow) int[mSensorCount];
+	    if (mActivate == nullptr) {
+		return;
+	    }
+
 	    mSampleRate = new (std::nothrow) float[mSensorCount];
+	    if (mSampleRate == nullptr) {
+		return;
+	    }
+
 	    mBatchCount = new (std::nothrow) int[mSensorCount];
+	    if (mBatchCount == nullptr) {
+		return;
+	    }
+
 	    for(int i=0; i < mSensorCount; i++) {
 		    mActivate[i]=0;
 		    mSampleRate[i]=0;
@@ -131,16 +144,16 @@ public:
     void onSensorActivateCb(int sensor_id, int enable);
     void onSensorBatchingCb(int sensor_id, float SamplingRate, int BatchingRate);
     void onResponseCb(int ret, ESensorMsgID id);
-    void onSensorDataReadCb(sensors_event_t *events, int count);
-    void onSensorBufferDataReadCb(sensors_event_t *events, int count);
+    bool onSensorDataReadCb(sensors_event_t *events, int count);
+    bool onSensorBufferDataReadCb(sensors_event_t *events, int count);
     void onSensorTempCb(float temperature);
     void onCapabilitiesCallback(SensorCapabilitiesMask mask);
     void onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result);
 
     //MLC public APIs
     void onSensorMlcCaseListCb(struct sensor_mlc_case_list *s, int count);
-    void onSensorMlcCaseEventCb(char *case_name, struct mlc_event_data *event);
-    void onSensorMFifoDataReadCb(sensors_event_t *events, int count);
+    bool onSensorMlcCaseEventCb(char *case_name, struct mlc_event_data *event);
+    bool onSensorMFifoDataReadCb(sensors_event_t *events, int count);
 
     //To check Tracking status of client
     bool    mTracking;
@@ -208,7 +221,7 @@ private:
     }
 
     //To Send Sensor events to client once sample count reached to requested count.
-    void SendDataToClient(sensors_event_t *e, int count);
+    bool SendDataToClient(sensors_event_t *e, int count);
     void StoreMlcCaseListStatus(struct sensor_mlc_case_list *s, int count);
     // pointer to parent service
     SensorApiService* mService;
