@@ -836,6 +836,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
                      mSensor[i].BatchCount = mMinAccBatchCount;
                      SamplingRate = FREQUENCY_TO_NS(mMaxAccSampleRate);
                      BatchingRate = mMinAccBatchCount * SamplingRate  * mBatchConst;
+                     //If the sensor type is SMI230, the physical sensor is configured for 10 batch count.
+                     if(mSensorType == 4)
+                       BatchingRate = 10 * SamplingRate  * mBatchConst;
+
                      SENSOR_LOGI(LOG_TAG ">-- Configure sensor Acc sensor_id %d sampling Rate %lld BatchingRate %lld\n",
                                      pMsg->sensor_id, SamplingRate, BatchingRate);
                      ret = sensor_set_batch(pMsg->sensor_id, SamplingRate, BatchingRate);
@@ -880,6 +884,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
                      mSensor[i].BatchCount = mMinGyroBatchCount;
                      SamplingRate = FREQUENCY_TO_NS(mMaxGyroSampleRate);
                      BatchingRate = mMinGyroBatchCount * SamplingRate  * mBatchConst;
+                     //If the sensor type is SMI230, the physical sensor is configured for 10 batch count.
+                     if(mSensorType == 4)
+                       BatchingRate = 10 * SamplingRate  * mBatchConst;
+
                      SENSOR_LOGI(LOG_TAG ">--Configure sensor Gyro sensor_id %d sampling Rate %lld BatchingRate %lld\n",
                                      pMsg->sensor_id, SamplingRate, BatchingRate);
                      ret = sensor_set_batch(pMsg->sensor_id, SamplingRate, BatchingRate);
@@ -1258,6 +1266,10 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
 	    if (mSensor[i].Activate == SENSOR_ENABLE){
 		    int64_t SamplingRate = FREQUENCY_TO_NS(mSensor[i].SamplingRate);
 		    int64_t BatchingRate =  mSensor[i].BatchCount *  mSensor[i].SamplingRate  * mBatchConst;
+                    //If the sensor type is SMI230, the physical sensor is configured for 10 batch count.
+                    if(mSensorType == 4)
+                       int64_t BatchingRate = 10 * SamplingRate  * mBatchConst;
+
 		    SENSOR_LOGI(LOG_TAG ">-- onSelfTest Re-Configure sensor sensor_id %d sampling Rate %lld BatchingRate %lld\n",
 				    mSensor[i].sensor_id, SamplingRate, BatchingRate);
 		    sensor_set_batch(mSensor[i].sensor_id, SamplingRate, BatchingRate); //configure the sensor
@@ -1522,7 +1534,9 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 s->range = acc_range[0];
                 mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
                 s->maxSamplingRate = mMaxAccSampleRate;
-		if (mMinAccBatchCount <= 0)
+                if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+                        mMinGyroBatchCount = MAX_BATCH_COUNT;
+		else if (mMinAccBatchCount <= 0)
                         mMinAccBatchCount = 1;
                 s->minBatchCount   = 1;
         }
@@ -1533,7 +1547,9 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 s->range = gyro_range[0];
                 mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
                 s->maxSamplingRate = mMaxGyroSampleRate;
-		if (mMinGyroBatchCount <= 0)
+                if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+                        mMinGyroBatchCount = MAX_BATCH_COUNT;
+		else if (mMinGyroBatchCount <= 0)
                         mMinGyroBatchCount = 1;
                 s->minBatchCount   = 1;
         }

@@ -230,6 +230,16 @@ MPLSensor::MPLSensor(CompassSensor *compass) :
 
     SENSOR_READ_CONF(SENSOR_CONF_PATH , &acc_range, &gyro_range);
 
+    if(acc_range > 3)
+	acc_range = 3;
+    if(acc_range < 0)
+	acc_range = 0;
+
+    if(gyro_range > 3)
+	gyro_range = 3;
+    if(gyro_range < 0)
+	gyro_range = 0;
+
     switch (acc_range) {
 	case 0:
 		ACCEL_FSR = 2.0f;
