@@ -1,4 +1,7 @@
-/* Copyright (c) 2021 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
+ * Copyright (c) 2021 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,19 +35,51 @@
 #include <sstream>
 #include <fstream>
 #include <algorithm>
-#include <SensorHalDaemonClientHandler.h>
-#include <SensorApiService.h>
 #include <cstring>
 #include <math.h>
 #include <errno.h>
+#include "sensor_test_app.h"
 
 using namespace std;
+
+//Temperature file pointers
+struct asmFilePtr
+{
+	std::ifstream *tScaleFile;
+	std::ifstream *tOffsetFile;
+	std::ifstream *tRawDataFile;
+};
+struct smiFilePtr
+{
+	std::ifstream *tempFile;
+};
+struct bmiFilePtr
+{
+	std::ifstream *tTempFile;
+};
+struct iamFilePtr
+{
+	std::ifstream *dataFile;
+};
+union tempFilePtr
+{
+	asmFilePtr asmTempFile;
+	smiFilePtr smiTempFile;
+	bmiFilePtr bmiTempFile;
+	iamFilePtr iamTempFile;
+};
+tempFilePtr mTempFilePtr;
+
+//To Store Buffer file paths
+std::string mAccBootSample;
+std::string mGyroBootSample;
+
 
 /*Buffer read files - common*/
 #define ACC_BUFFER_READ         "read_acc_boot_sample"
 #define GYRO_BUFFER_READ        "read_gyro_boot_sample"
-#define ACCNAME_BUFF_PATH       "/dev/input/accbuff"
-#define GYRNAME_BUFF_PATH       "/dev/input/gyrobuff"
+#define ACCNAME_BUFF_PATH		"/dev/input/accbuff"
+#define GYRNAME_BUFF_PATH		"/dev/input/gyrobuff"
 
 /*ASM330 temperature*/
 #define ASM_TEMP_SEARCH         "asm330lhh_temp"
@@ -90,11 +125,99 @@ using namespace std;
 #define BMI_CONVERT_ACC         (0.0098) //library output is in mg = 0.0098 m/s^2
 #define BMI_CONVERT_GYRO        (0.000066322)
 
-#define HAL_CONFIGURATION_FILE	"hal_config"
-#define HAL_CONFIGURATION_PATH	"/systemrw/sensorhal"
-static float rot[3][3];
-static FILE *mfdBuffAccel  = NULL;
-static FILE *mfdBuffGyro   = NULL;
+
+//Search for Path
+void search_in_path(char* parentDir,  char* subFileRead, string contentVerified, int maxLevel,char* outputPath)
+{
+  if ( NULL == parentDir || NULL == subFileRead || NULL == outputPath )
+  {
+    return;
+  }
+  if ( 0 == maxLevel || strlen(outputPath) !=0 )
+  {
+    return;
+  }
+
+  DIR *dir = opendir(parentDir);
+  struct dirent *entry = NULL;
+  if (dir != NULL)
+  {
+    entry = readdir(dir);
+  }
+  SENSOR_LOGD(LOG_TAG "Current directory: %s\n",parentDir);
+  while (entry != NULL)
+  {
+    if ( (entry->d_type == DT_DIR || entry->d_type == DT_LNK) &&
+         (strcmp(entry->d_name,"..") != 0) && (strcmp(entry->d_name,".") !=0 ))
+    {
+      char newParent[SEARCH_PATH_SIZE];
+      snprintf(newParent,sizeof(newParent),"%s/%s/",parentDir,entry->d_name);
+      search_in_path(newParent, subFileRead, contentVerified, maxLevel-1, outputPath);
+    }
+    else if ( strstr( entry->d_name, subFileRead ) != NULL )
+    {
+      char fullFilePath[SEARCH_PATH_SIZE];
+      snprintf(fullFilePath,sizeof(fullFilePath),"%s/%s",parentDir,entry->d_name);
+      string content;
+      ifstream fin(fullFilePath);
+      if ( fin.is_open() && fin.peek() != EOF )
+      {
+        fin>>content;
+        if ( (0 == contentVerified.length() && strlen(entry->d_name) == strlen(subFileRead))
+              || contentVerified == content )
+        {
+          strlcpy(outputPath, parentDir, SEARCH_PATH_SIZE);
+        }
+        }
+      fin.close();
+    }
+    if (strlen(outputPath) != 0)
+    {
+      break;
+    }
+    entry = readdir(dir);
+
+  }
+
+  if (dir != NULL)
+  {
+    closedir(dir);
+  }
+  return;
+}
+
+/**
+ * @brief Finds location of fle.
+ *
+ *
+ * @param[in] aeType - type of device, aeFtype- type of file, aBuffPath- output,aLength- sizeof the output
+ *
+ * @return void.
+ */
+void find_path(dynDeviceType aeType, char *aPath, std::string aKey, int aLength )
+{
+  switch(aeType)
+  {
+    case DYN_IIO_TYPE:
+          if (NULL ==aPath)
+          {
+            return;
+          }
+          search_in_path(IIO_PATH, NAME_FILE, aKey, 2, aPath);
+          SENSOR_LOGD(LOG_TAG "PATH detected - %s\n", aPath);
+          break;
+
+    case DYN_INPUT_TYPE:
+          if(NULL == aPath)
+          {
+            return;
+          }
+          search_in_path(INPUT_PATH,NAME_FILE, aKey, 2, aPath);
+          SENSOR_LOGD(LOG_TAG "PATH detected- %s\n", aPath);
+          break;
+  }
+}
+
 /**
  * @brief Read Temp Sensor data from SYS File System for ASM330 Sensor.
  *
@@ -103,7 +226,7 @@ static FILE *mfdBuffGyro   = NULL;
  *
  * @return int.
  */
-int SensorApiService::readTempASM(float *temperature)
+int readTempASM(float *temperature)
 {
   float tscale = 0;
   int toffset  = 0;
@@ -122,7 +245,7 @@ int SensorApiService::readTempASM(float *temperature)
   (*mTempFilePtr.asmTempFile.tOffsetFile) >> toffset;
   if (mTempFilePtr.asmTempFile.tRawDataFile) {
     (*mTempFilePtr.asmTempFile.tRawDataFile) >> trawdata;
-    SENSOR_LOGD(LOG_TAG "Read Raw:%d, Offset: %d, Scale: %f, Temperature: %f\n", trawdata, toffset, tscale, (trawdata + toffset) * tscale);
+    SENSOR_LOGI(LOG_TAG "Read Raw:%d, Offset: %d, Scale: %f, Temperature: %f\n", trawdata, toffset, tscale, (trawdata + toffset) * tscale);
     *temperature = (float) (trawdata + toffset) * tscale;
   }
   return 0;
@@ -135,7 +258,7 @@ int SensorApiService::readTempASM(float *temperature)
  *
  * @return int.
 */
-int SensorApiService::readTempIAM(float *temperature)
+int readTempIAM(float *temperature)
 {
   int data;
   uint64_t timeStamp;
@@ -158,7 +281,7 @@ int SensorApiService::readTempIAM(float *temperature)
     return 0;
   }
   (*mTempFilePtr.iamTempFile.dataFile)>>timeStamp;
-  SENSOR_LOGD(LOG_TAG "Temp Raw values - %d,time base %lld",data,timeStamp);
+  SENSOR_LOGI(LOG_TAG "Temp Raw values - %d,time base %lld",data,timeStamp);
   *temperature = (float)data / 100.0F;
   return 0;
 }
@@ -172,7 +295,7 @@ int SensorApiService::readTempIAM(float *temperature)
  *
  * @return int.
  */
-int SensorApiService::readTempBMI(float *temperature)
+int readTempBMI(float *temperature)
 {
   int16_t tempSign = 0;
   unsigned int tempRead = 0;
@@ -193,7 +316,7 @@ int SensorApiService::readTempBMI(float *temperature)
     return 0;
   }
   *temperature = 23 + ((float)tempSign / 512.0F);
-  SENSOR_LOGD(LOG_TAG "Read Raw:%x, Temperature: %f\n", tempSign, *temperature);
+  SENSOR_LOGI(LOG_TAG "Read Raw:%x, Temperature: %f\n", tempSign, *temperature);
   return 0;
 }
 
@@ -205,7 +328,7 @@ int SensorApiService::readTempBMI(float *temperature)
  *
  * @return int.
  */
-int SensorApiService::readTempSMI(float *temperature)
+int readTempSMI(float *temperature)
 {
 
   int tempRead = 0;
@@ -222,7 +345,7 @@ int SensorApiService::readTempSMI(float *temperature)
     return 0;
   }
   (*mTempFilePtr.smiTempFile.tempFile)>>tempRead;
-  SENSOR_LOGD(LOG_TAG "Read Raw:%d, \n", tempRead);
+  SENSOR_LOGI(LOG_TAG "Read Raw:%d, \n", tempRead);
 
   if ( tempRead & 0x80 )
   {
@@ -230,7 +353,7 @@ int SensorApiService::readTempSMI(float *temperature)
   }
   *temperature = 87.5 - ((float)(127 - tempRead)/2);
 
-  SENSOR_LOGD(LOG_TAG "Read Raw:%d, Temperature: %f\n", tempRead, *temperature);
+  SENSOR_LOGI(LOG_TAG "Read Raw:%d, Temperature: %f\n", tempRead, *temperature);
   return 0;
 }
 
@@ -242,7 +365,7 @@ int SensorApiService::readTempSMI(float *temperature)
  *
  * @return void.
  */
-int SensorApiService::readTempSMI230(float *temperature)
+int readTempSMI230(float *temperature)
 {
 
   string tempString;
@@ -276,7 +399,7 @@ int SensorApiService::readTempSMI230(float *temperature)
   }
   tempRead = std::stoi(split[1]);
   *temperature =  (float) (tempRead / 1000.0); //Convert to Degree celsius
-  SENSOR_LOGD(LOG_TAG "Read Raw:%d, Temperature: %f\n", tempRead, temperature);
+  SENSOR_LOGI(LOG_TAG "Read Raw:%d, Temperature: %f\n", tempRead, temperature);
   return 0;
 }
 
@@ -288,10 +411,9 @@ int SensorApiService::readTempSMI230(float *temperature)
  *
  * @return int.
  */
-int SensorApiService::tempSensorDataPollTask(float *temperature)
-{
+int tempSensorDataPollTask(float *temperature, int mSensorType) {
     int ret = -1;
-    SENSOR_LOGD(LOG_TAG "Polling Temp Sensor ..\n");
+    SENSOR_LOGI(LOG_TAG "Polling Temp Sensor ..\n");
     switch(mSensorType)
     {
       case SENSOR_ASM330:
@@ -327,14 +449,11 @@ int SensorApiService::tempSensorDataPollTask(float *temperature)
  *
  * @return success/failure as true /false
  */
-bool SensorApiService::tempSensorDataInit()
-{
-
+bool tempSensorDataInit(int mSensorType) {
   SENSOR_LOGI(LOG_TAG "Initializing SensorTempDataInit ..\n");
-  switch ( mSensorType )
+  switch (mSensorType)
   {
     case SENSOR_ASM330:
-
       {
         char tScaleFilePath[SEARCH_PATH_SIZE]={'\0'};
         char tOffsetFilePath[SEARCH_PATH_SIZE]={'\0'};
@@ -555,25 +674,31 @@ void scalingIAMBufferData(int SensorType,sensors_event_t *event)
  *            event - structure containing raw data
  * @return void.
  */
-void scalingSMIBufferData(int SensorType,sensors_event_t *event)
+void scalingSMI130BufferData(int sensor_type, sensors_event_t *event)
 {
-  int cnt;
-  float scaleFactor = 1;
-  /* Get the scale factor based on sensor type */
-  if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
-    scaleFactor = SMI_ACC_RESL * SMI_CONVERT_ACC;
-    event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
-    event->acceleration.x *= scaleFactor;
-    event->acceleration.y *= scaleFactor;
-    event->acceleration.z *= scaleFactor;
-  }
-  else {
-    scaleFactor = SMI_CONVERT_GYRO;
-    event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
-    event->gyro.x *= scaleFactor;
-    event->gyro.y *= scaleFactor;
-    event->gyro.z *= scaleFactor;
-  }
+	float scaleFactor = 1;
+	/* Get the scale factor based on sensor type */
+	if (SENSOR_TYPE_ACCELEROMETER == sensor_type)
+	{
+		SENSOR_LOGI(LOG_TAG "scaling : x=%f y=%f z=%f event->ts %lld\n",
+			event->acceleration.x,
+			event->acceleration.y,
+			event->acceleration.z,
+			event->timestamp);
+		scaleFactor = SMI_ACC_RESL * SMI_CONVERT_ACC;
+		event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
+		event->acceleration.x *= scaleFactor;
+		event->acceleration.y *= scaleFactor;
+		event->acceleration.z *= scaleFactor;
+	}
+	if (SENSOR_TYPE_GYROSCOPE == sensor_type)
+	{
+		scaleFactor = SMI_CONVERT_GYRO;
+		event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
+		event->gyro.x *= scaleFactor;
+		event->gyro.y *= scaleFactor;
+		event->gyro.z *= scaleFactor;
+	}
 }
 
 /**
@@ -586,7 +711,6 @@ void scalingSMIBufferData(int SensorType,sensors_event_t *event)
  */
 void scalingSMI230BufferData(int SensorType,sensors_event_t *event)
 {
-  int cnt;
   float scaleFactor = 1;
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
@@ -619,54 +743,23 @@ static float process_2byte_received(int input, float scale)
   return ((float) ((int16_t)input) * scale);
 }
 
-void scalingASMBufferData(int SensorType,sensors_event_t *event)
-{
-  int cnt;
+void scalingASMBufferData(int SensorType,sensors_event_t *event) {
   float scaleFactor = 1;
   /* Get the scale factor based on sensor type */
-  if (SENSOR_TYPE_ACCELEROMETER == SensorType)
-  {
-    float temp_data[3];
+  if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
     scaleFactor = ASM_ACCEL_FSR;
     event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
     event->acceleration.x = process_2byte_received(event->acceleration.x, scaleFactor);
     event->acceleration.y = process_2byte_received(event->acceleration.y, scaleFactor);
     event->acceleration.z = process_2byte_received(event->acceleration.z, scaleFactor);
 
-    memcpy(&temp_data, &event->acceleration, 3 * sizeof(float));
-
-    event->acceleration.x = rot[0][0] * temp_data[0] +
-	    rot[1][0] * temp_data[1] +
-	    rot[2][0] * temp_data[2];
-
-    event->acceleration.y = rot[0][1] * temp_data[0] +
-	    rot[1][1] * temp_data[1] +
-	    rot[2][1] * temp_data[2];
-
-    event->acceleration.z = rot[0][2] * temp_data[0] +
-	    rot[1][2] * temp_data[1] +
-	    rot[2][2] * temp_data[2];
   }
   else {
-    float temp_data[3];
     scaleFactor = ASM_GYRO_FSR;
     event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
     event->gyro.x = process_2byte_received(event->gyro.x, scaleFactor);
     event->gyro.y = process_2byte_received(event->gyro.y, scaleFactor);
     event->gyro.z = process_2byte_received(event->gyro.z, scaleFactor);
-
-    memcpy(&temp_data, &event->gyro, 3 * sizeof(float));
-    event->gyro.x = rot[0][0] * temp_data[0] +
-	    rot[1][0] * temp_data[1] +
-	    rot[2][0] * temp_data[2];
-
-    event->gyro.y = rot[0][1] * temp_data[0] +
-	    rot[1][1] * temp_data[1] +
-	    rot[2][1] * temp_data[2];
-
-    event->gyro.z = rot[0][2] * temp_data[0] +
-	    rot[1][2] * temp_data[1] +
-	    rot[2][2] * temp_data[2];
   }
 }
 
@@ -676,24 +769,24 @@ void scalingASMBufferData(int SensorType,sensors_event_t *event)
  *            event - structure containing raw data
  * @return void.
  */
-void SensorApiService::bufferDataScaling( int SensorType, sensors_event_t *event )
+void bufferDataScaling(int mSensorType, int Sensor, sensors_event_t *event)
 {
-  switch( mSensorType )
+  switch(mSensorType)
   {
     case SENSOR_BMI160:
-      scalingBMIBufferData(SensorType, event);
+      scalingBMIBufferData(Sensor, event);
       break;
     case SENSOR_IAM20680:
-      scalingIAMBufferData(SensorType, event);
+      scalingIAMBufferData(Sensor, event);
       break;
     case SENSOR_SMI130:
-      scalingSMIBufferData(SensorType, event);
+      scalingSMI130BufferData(Sensor, event);
       break;
     case SENSOR_ASM330:
-      scalingASMBufferData(SensorType, event);
+      scalingASMBufferData(Sensor, event);
       break;
     case SENSOR_SMI230:
-      scalingSMI230BufferData(SensorType, event);
+      scalingSMI230BufferData(Sensor, event);
       break;
   }
 }
@@ -702,8 +795,7 @@ void SensorApiService::bufferDataScaling( int SensorType, sensors_event_t *event
  *
  * @return true if buffer supported else false.
  */
-bool SensorApiService::CheckBufferReadFile()
-{
+bool CheckBufferReadFile(int mSensorType) {
  char acc_boot_sample[SEARCH_PATH_SIZE]={'\0'};
  char gyr_boot_sample[SEARCH_PATH_SIZE]={'\0'};
 
@@ -749,10 +841,6 @@ bool SensorApiService::CheckBufferReadFile()
  mGyroBootSample = gyr_boot_sample;
 
  SENSOR_LOGI(LOG_TAG "mAccBootSample-%s,mGyroBootSample-%s\n",mAccBootSample.c_str(),mGyroBootSample.c_str());
-
- pthread_mutex_init(&mHalBuffMutex, NULL);
- pthread_cond_init(&mHalBuffCond, NULL);
-
  return true;
 }
 
@@ -760,34 +848,34 @@ bool SensorApiService::CheckBufferReadFile()
  *
  * write 1 to read buffer data and 0 to delete buffer data.
  */
-bool SensorApiService::WritetoBufferFile(bool enable) {
+void WritetoBufferFile(bool enable) {
   FILE  *mfdBuffAccelE = NULL;
   FILE  *mfdBuffGyroE  = NULL;
 
   if ((mfdBuffAccelE = fopen(mAccBootSample.c_str(), "w")) == 0) {
 	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
 			  mAccBootSample.c_str(), errno, strerror(errno));
-	  return false;
+	  return;
   }
 
   if ((mfdBuffGyroE = fopen(mGyroBootSample.c_str(), "w")) == 0) {
 	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
-			  mGyroBootSample.c_str(), errno, strerror(errno));
-	  return false;
+		    mGyroBootSample.c_str(), errno, strerror(errno));
+	  return;
   }
 
   if (enable == true) {
       if (fwrite("1", 1, 1, mfdBuffAccelE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)\n",
 			      mAccBootSample.c_str(), errno, strerror(errno));
-	      return false;
+	      return;
       } else {
 	      fflush(mfdBuffAccelE);
       }
       if (fwrite("1", 1, 1, mfdBuffGyroE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)\n",
 			      mGyroBootSample.c_str(), errno, strerror(errno));
-	      return false;
+	      return;
       } else {
 	      fflush(mfdBuffGyroE);
       }
@@ -797,22 +885,21 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
       if ((fwrite("0", 1, 1, mfdBuffAccelE) != 1)) {
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)",
 			      mAccBootSample.c_str(), errno, strerror(errno));
-	      return false;
+	      return;
       } else {
 	      fflush(mfdBuffAccelE);
       }
       if (fwrite("0", 1, 1, mfdBuffGyroE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)",
 			      mGyroBootSample.c_str(), errno, strerror(errno));
-	      return false;
+	      return;
       } else {
 	      fflush(mfdBuffGyroE);
       }
-      mBufferDeleted = true;
   }
   CLOSE_FILE_HANDLE(mfdBuffAccelE);
   CLOSE_FILE_HANDLE(mfdBuffGyroE);
-  return true;
+  return;
 }
 /**
  * @brief baching and for formatting of buffered data.
@@ -828,276 +915,166 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
  *
  * @return void.
  */
-bool SensorApiService::getBufferedSample(int SensorType, FILE* fd, sensors_event_t *event) {
-
-  struct input_event   ev[1];
-  static int acc_second = 0;
-  static int gyro_second = 0;
-  bool retVal = false;
-  /* Read queue until next EV_SYN */
-  while(1) {
-    // Read queue until next EV_SYN
-    if(0 == fread(ev,1,sizeof(struct input_event),fd)) {
-       return false;
-       break;
-    }
-    else {
-       //return a sample if read item is EV_SYN
-       if (ev[0].type == EV_SYN) {
-	       if(ev[0].value != 0xFFFFFFFF) {
-		       return true;
-		       break;
-	       }
-	       else {
-		       return false;
-		       break;
-	       }
-       }
-       else {
-	   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
-		   if (ev[0].code == ABS_X)
-			   event->acceleration.x = ev[0].value;
-		   else if (ev[0].code == ABS_Y)
-			   event->acceleration.y = ev[0].value;
-		   else if (ev[0].code == ABS_Z)
-			   event->acceleration.z = ev[0].value;
-		   else if (ev[0].code == ABS_RX)
-			   acc_second = ev[0].value; // how to extract time
-		   else if (ev[0].code == ABS_RY) ////nano seconds
-			   event->timestamp = (int64_t)((acc_second*1000000000LL) + ev[0].value);
-	   }
-	   if (SENSOR_TYPE_GYROSCOPE == SensorType) {
-		   if (ev[0].code == ABS_X)
-			   event->gyro.x = ev[0].value;
-		   else if (ev[0].code == ABS_Y)
-			   event->gyro.y = ev[0].value;
-		   else if (ev[0].code == ABS_Z)
-			   event->gyro.z = ev[0].value;
-		   else if (ev[0].code == ABS_RX)
-			   gyro_second = ev[0].value; // how to extract time
-		   else if (ev[0].code  == ABS_RY) ////nano seconds
-		 	   event->timestamp = (int64_t)((gyro_second*1000000000LL) + ev[0].value);
-	   }
-       }
-    }
-  }
-  return retVal;
-}
-
-static void init_rotation_location(void)
+bool getBufferedSample(int SensorType, FILE *fd, sensors_event_t *event)
 {
-  rot[0][0] = 1;
-  rot[0][1] = 0;
-  rot[0][2] = 0;
-
-  rot[1][0] = 0;
-  rot[1][1] = 1;
-  rot[1][2] = 0;
-
-  rot[2][0] = 0;
-  rot[2][1] = 0;
-  rot[2][2] = 1;
+	struct input_event ev[1];
+	static int acc_second = 0;
+	static int gyro_second = 0;
+	/* Read queue until next EV_SYN */
+	while(1)
+	{
+		// Read queue until next EV_SYN
+		if(0 == fread(ev, 1, sizeof(struct input_event), fd))
+		{
+			return false;
+		}
+		else
+		{
+			//return a sample if read item is EV_SYN
+			if (ev[0].type == EV_SYN)
+			{
+				if(ev[0].value != 0xFFFFFFFF)
+				{
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+			else
+			{
+				if (SENSOR_TYPE_ACCELEROMETER == SensorType)
+				{
+					if (ev[0].code == ABS_X)
+					{
+						event->acceleration.x = ev[0].value;
+						SENSOR_LOGI(LOG_TAG "event->acceleration.x %f\n", event->acceleration.x);
+					}
+					else if (ev[0].code == ABS_Y)
+					{
+						event->acceleration.y = ev[0].value;
+						SENSOR_LOGI(LOG_TAG "event->acceleration.y %f\n", event->acceleration.y);
+					}
+					else if (ev[0].code == ABS_Z)
+					{
+						event->acceleration.z = ev[0].value;
+						SENSOR_LOGI(LOG_TAG "event->acceleration.z %f\n", event->acceleration.z);
+					}
+					else if (ev[0].code == ABS_RX)
+					{
+						acc_second = ev[0].value; // how to extract time
+						SENSOR_LOGI(LOG_TAG "acc_seconds %d\n", acc_second);
+					}
+					else if (ev[0].code == ABS_RY)
+					{////nano seconds
+						event->timestamp = (int64_t)((acc_second * 1000000000LL) + ev[0].value);
+						SENSOR_LOGI(LOG_TAG "final: x=%f y=%f z=%f acc_second=%d event->ts %lld ev[].value %d\n",
+						event->acceleration.x,
+						event->acceleration.y,
+						event->acceleration.z,
+						acc_second,
+						event->timestamp, ev[0].value);
+					}
+				}
+				if (SENSOR_TYPE_GYROSCOPE == SensorType)
+				{
+					if (ev[0].code == ABS_X)
+						event->gyro.x = ev[0].value;
+					else if (ev[0].code == ABS_Y)
+						event->gyro.y = ev[0].value;
+					else if (ev[0].code == ABS_Z)
+						event->gyro.z = ev[0].value;
+					else if (ev[0].code == ABS_RX)
+						gyro_second = ev[0].value; // how to extract time
+					else if (ev[0].code  == ABS_RY) ////nano seconds
+						event->timestamp = (int64_t)((gyro_second * 1000000000LL) + ev[0].value);
+				}
+			}
+		}
+	}
+	return true;
 }
 
-static void update_rotation_matrix(float yawd, float pitchd, float rolld)
+void SensorBuffread(int mSensorType)
 {
-  float yaw = (yawd / 10.0f) * M_PI / 180.0f;
-  float pitch = (pitchd / 10.0f) * M_PI / 180.0f;
-  float roll = (rolld / 10.0f) * M_PI / 180.0f;
-
-  rot[0][0] = cos(yaw) * cos(roll) + sin(yaw) * sin(pitch) * sin(roll);
-  rot[0][1] = -sin(yaw) * cos(roll) + cos(yaw) * sin(pitch) * sin(roll);
-  rot[0][2] = cos(pitch) * sin(roll);
-
-  rot[1][0] = sin(yaw) * cos(pitch);
-  rot[1][1] = cos(yaw) * cos(pitch);
-  rot[1][2] = -sin(pitch);
-
-  rot[2][0] = -cos(yaw) * sin(roll) + sin(yaw) * sin(pitch) * cos(roll);
-  rot[2][1] = sin(yaw) * sin(roll) + cos(yaw) * sin(pitch) * cos(roll);
-  rot[2][2] = cos(pitch) * cos(roll);
-
-  SENSOR_LOGI(LOG_TAG "Sensor Buffer: \t%5.2f %5.2f %5.2f\t%5.2f %5.2f %5.2f\t%5.2f %5.2f %5.2f\n",
-		  rot[0][0], rot[0][1], rot[0][2],
-		  rot[1][0], rot[1][1], rot[1][2],
-		  rot[2][0], rot[2][1], rot[2][2]);
-}
-
-int read_hal_rotation_matrix(char *path, char *file)
-{
-  float yaw, pitch, roll;
-  char *file_path_name = NULL;
-  char *rag = NULL;
-  FILE *fd_config = NULL;
-  int size;
-  char buffer[BUFSIZ];
-  char *line = NULL;
-  int err = 0;
-  int value = 0;
-
-  value = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2;
-  file_path_name = (char *)calloc(value, sizeof(char));
-  if (!file_path_name) {
-	  SENSOR_LOGE(LOG_TAG "Sensor Unable to allocate memory (errno %d)\n", err);
-	  return -ENOMEM;
-  }
-
-  snprintf(file_path_name, value, "%s/%s", path, file);
-  fd_config = fopen(file_path_name, "r");
-  if (!fd_config) {
-	  err = -errno;
-	  SENSOR_LOGE(LOG_TAG "Sensor Filed to open %s (errno %d)\n",
-			  file_path_name, err);
-	  goto fail;
-  }
-
-
-  while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {
-	  if(strstr(buffer, "imu_sensor_euler_angles = ")) {
-		  line = strstr(buffer, "[");
-		  if(line != NULL){
-			  size = sscanf(&line[1], "%f,%f,%f", &roll, &pitch, &yaw);
-			  SENSOR_LOGI(LOG_TAG, "Sensor roll %f pitch %f yaw %f\n", roll, pitch, yaw);
-			  if (size > 0) {
-				  update_rotation_matrix(yaw, pitch, roll);
-			  }
-		  }
-		  break;
-	  }
-  }
-
-fail:
-  fclose(fd_config);
-  free(file_path_name);
-  file_path_name = NULL;
-
-  return 0;
-}
-
-bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
-  // Init sysFs files for both ACCEL & GYRO buffered data
-  bool accelBuffDataTxProgress = false;
-  bool gyroBuffDataTxProgress = false;
-  bool rc = false;
-  int acccount = 0;
-  int gyrocount = 0;
-  int count = 0;
-  sensors_event_t events[60];
-  sensors_event_t zevents[2];
-
-  read_hal_rotation_matrix(HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
-  std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator it = mClients.find(clientname);
-
-  accelBuffDataTxProgress = true;
-  gyroBuffDataTxProgress = true;
-  //start reading kernel buffered data;
-  // Read and process all buffered data from sysfs
-  // Before reading and processing buffered data make sure client is available to receive data
-  // interleave the data while transferring to client aplication as per batching size
-  while(accelBuffDataTxProgress || gyroBuffDataTxProgress)
-  {
-     /* Fill the accel buffered data from kernel bufer */
-     if (accelBuffDataTxProgress) {
-	     if(getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &zevents[0])) {
-		     memcpy(&events[count], &zevents[0], sizeof(sensors_event_t));
-		     bufferDataScaling(SENSOR_TYPE_ACCELEROMETER, &events[count]);
-		     SENSOR_LOGW(LOG_TAG "ACC Buffer event: x=%f y=%f z=%f timestamp=%lld acccount %d\n",
-				     events[count].acceleration.x, events[count].acceleration.y,
-				     events[count].acceleration.z, events[count].timestamp, acccount++);
-		     count++;
-	     } else {
-		     accelBuffDataTxProgress = false;
-		     SENSOR_LOGV(LOG_TAG "End ACCEL data acccount %d\n",acccount);
-	     }
-     }
-     /* Fill the gyro buffered data into from kernel buffer */
-     if (gyroBuffDataTxProgress) {
-	     if (getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &zevents[1])) {
-		     memcpy(&events[count], &zevents[1], sizeof(sensors_event_t));
-		     bufferDataScaling(SENSOR_TYPE_GYROSCOPE, &events[count]);
-		     SENSOR_LOGW(LOG_TAG "GYRO Buffer event: x=%f y=%f z=%f timestamp=%lld gyrocount %d\n",
-				     events[count].gyro.x, events[count].gyro.y, events[count].gyro.z,
-				     events[count].timestamp, gyrocount++);
-		     count++;
-	     } else {
-		     gyroBuffDataTxProgress = false;
-		     SENSOR_LOGV(LOG_TAG "END GYRO data gyrocount %d\n", gyrocount);
-	     }
-     }
-     if (count >= 50) {
-	     usleep(1*1000);
-	     rc = it->second->onSensorBufferDataReadCb(events, count);
-	     // purge this client if failed
-	     if (!rc) {
-		     return rc;
-	     }
-	     usleep(1*1000);
-	     count = 0;
-     }
-  }
-  SENSOR_LOGV(LOG_TAG "End of buffer data acccount %d gyrocount %d remaining packets %d\n",acccount, gyrocount, count);
-  /***Send remainging packets**/
-  if (count != 0) {
-	  rc = it->second->onSensorBufferDataReadCb(events, count);
-	  // purge this client if failed
-	  if (!rc) {
-		  return rc;
-	  }
-  }
-  /***Send BUFFER END PACKET*/
-  memset(&events[0], 0, sizeof(sensors_event_t));
-  events[0].type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
-  events[0].timestamp = 0xFFFFFFFF;
-  it->second->mBufferRead = false;
-  rc = it->second->onSensorBufferDataReadCb(&events[0], 1);
-  // purge this client if failed
-  if (!rc) {
-	  return rc;
-  }
-fail:
-  CLOSE_FILE_HANDLE(mfdBuffAccel);
-  CLOSE_FILE_HANDLE(mfdBuffGyro);
-  return rc;
-}
-
-void SensorApiService::SensorBuffread() {
-  bool rc = false;
-  init_rotation_location();
-  /* Open Accel Bufferd Sensor input device */
-  if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) < 0) {
-         SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
-         goto fail;
-  }
-  /* Open Gyro Bufferd Sensor input device */
-  if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) < 0) {
-         SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
-         goto fail;
-  }
-  while(mBufferSupported) {
-    pthread_mutex_lock (&mHalBuffMutex);
-    pthread_cond_wait (&mHalBuffCond, &mHalBuffMutex);
-    pthread_mutex_unlock (&mHalBuffMutex);
-
-    for (auto it = mClients.begin(); it != mClients.end();) {
-	    if (it->second->mBufferRead == true && mBufferDeleted != true) {
-		    rc = ReadSensorBufferData(it->first.c_str());
-		    // purge this client if failed
-		    if(!rc) {
-			    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
-			    std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
-			    it =deleteClientbyName(it->first.c_str());
-		    } else{
-			    ++it;
-	    }
-	    } else{
-		    ++it;
-            }
-    }
-  }
-fail:
-  CLOSE_FILE_HANDLE(mfdBuffAccel);
-  CLOSE_FILE_HANDLE(mfdBuffGyro);
-  pthread_mutex_destroy (&mHalBuffMutex);
-  pthread_cond_destroy (&mHalBuffCond);
-  SENSOR_LOGI(LOG_TAG "Exiting bufferDataprocessTask.. \n");
+	// Init sysFs files for both ACCEL & GYRO buffered data
+	FILE *mfdBuffAccel = NULL;
+	FILE *mfdBuffGyro = NULL;
+	bool accelBuffDataTxProgress = false;
+	bool gyroBuffDataTxProgress = false;
+	static int64_t acc_ts = 0;
+	static int64_t gyro_ts = 0;
+	int acccount = 0;
+	int gyrocount = 0;
+	sensors_event_t events[2];
+	sensors_event_t	zevents[2];
+	while(1)
+	{
+		/* Open Accel Bufferd Sensor input device */
+		if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) < 0)
+		{
+			SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
+			goto fail;
+		}
+		/* Open Gyro Bufferd Sensor input device */
+		if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) < 0) {
+			SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
+			goto fail;
+		}
+		WritetoBufferFile(1);
+		accelBuffDataTxProgress = true;
+		gyroBuffDataTxProgress = true;
+		//SENSOR_LOGI(LOG_TAG "start reading kernel buffered data\n");
+		// Read and process all buffered data from sysfs
+		// Before reading and processing buffered data make sure client is available to receive data
+		// interleave the data while transferring to client aplication as per batching size
+		while(accelBuffDataTxProgress || gyroBuffDataTxProgress)
+		{
+			/* Fill the accel buffered data from kernel bufer */
+			if (accelBuffDataTxProgress)
+			{
+				if(getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &zevents[0]))
+				{
+					memcpy(&events[0], &zevents[0], sizeof(sensors_event_t));
+					bufferDataScaling(mSensorType, SENSOR_TYPE_ACCELEROMETER, &events[0]);
+					SENSOR_LOGI(LOG_TAG "ACC Buffer: %d x=%f y=%f z=%f timestamp=%lld HZ=%f\n",
+						acccount++, events[0].acceleration.x, events[0].acceleration.y,
+						events[0].acceleration.z, events[0].timestamp,
+						(1.0F / (events[0].timestamp - acc_ts)) * 1000000000LL);
+						acc_ts = events[0].timestamp;
+				}
+				else
+				{
+					accelBuffDataTxProgress = false;
+					SENSOR_LOGI(LOG_TAG "End ACCEL data acccount %d\n",acccount);
+				}
+			}
+			/* Fill the gyro buffered data into from kernel buffer */
+			if (gyroBuffDataTxProgress)
+			{
+				if (getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &zevents[1]))
+				{
+					memcpy(&events[1], &zevents[1], sizeof(sensors_event_t));
+					bufferDataScaling(mSensorType, SENSOR_TYPE_GYROSCOPE, &events[1]);
+					SENSOR_LOGI(LOG_TAG "GYRO Buffer: %d x=%f y=%f z=%f timestamp=%lld HZ=%f\n",
+						gyrocount++, events[1].gyro.x, events[1].gyro.y, events[1].gyro.z,
+						events[1].timestamp,
+						(1.0F / (events[1].timestamp - gyro_ts)) * 1000000000LL);
+					gyro_ts = events[1].timestamp;
+				}
+				else
+				{
+					gyroBuffDataTxProgress = false;
+					SENSOR_LOGI(LOG_TAG "END GYRO data gyrocount %d\n", gyrocount);
+				}
+			}
+		}
+		SENSOR_LOGI(LOG_TAG "End of buffer data acccount %d gyrocount %d \n", acccount, gyrocount);
+		break;
+	}
+	fail:
+		CLOSE_FILE_HANDLE(mfdBuffAccel);
+		CLOSE_FILE_HANDLE(mfdBuffGyro);
+	SENSOR_LOGI(LOG_TAG "Exiting bufferDataprocessTask.. \n");
 }

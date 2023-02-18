@@ -172,7 +172,7 @@ public:
     void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender);
 
     // other APIs
-    void deleteClientbyName(const std::string name);
+    std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator deleteClientbyName(const std::string clientname);
     void deleteEapClientByIds(int id1, int id2);
 
 #ifdef POWERMANAGER_ENABLED
@@ -229,9 +229,10 @@ private:
     //Buffer API's
     bool CheckBufferReadFile();
     void SensorBuffread();
+    bool ReadSensorBufferData(const std::string clientname);
     void bufferDataScaling(int SensorType, sensors_event_t *event);
     bool getBufferedSample(int SensorType,  FILE* fd, sensors_event_t *event);
-    void WritetoBufferFile(bool enable);
+    bool WritetoBufferFile(bool enable);
     // private utilities
     inline SensorHalDaemonClientHandler* getClient(const std::string& clientname) {
 	    // find client from property db

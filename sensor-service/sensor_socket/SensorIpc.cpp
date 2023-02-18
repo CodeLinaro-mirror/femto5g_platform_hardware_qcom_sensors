@@ -51,6 +51,7 @@ bool SensorIpc::startListeningNonBlocking(const std::string& name) {
 void* SensorIpc::startListeningNonBlockingThread(void *arg) {
     SensorIpc* mSensorIpc = (SensorIpc*)arg;
     mSensorIpc->startListeningBlocking(mSensorIpc->mIpcName);
+    return;
 }
 
 bool SensorIpc::startListeningBlocking(const std::string& name) {
