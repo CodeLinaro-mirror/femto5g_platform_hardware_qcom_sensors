@@ -662,13 +662,13 @@ void SensorApiService::WritetoBufferFile(bool enable) {
 	FILE  *mfdBuffAccelE = NULL;
 	FILE  *mfdBuffGyroE  = NULL;
 
-	if ((mfdBuffAccelE = fopen(mAccBootSample.c_str(), "w")) == 0) {
+	if ((mfdBuffAccelE = fopen(mAccBootSample.c_str(), "w")) == NULL) {
     SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
 		    mAccBootSample.c_str(), errno, strerror(errno));
     return;
   }
 
-  if ((mfdBuffGyroE = fopen(mGyroBootSample.c_str(), "w")) == 0) {
+  if ((mfdBuffGyroE = fopen(mGyroBootSample.c_str(), "w")) == NULL) {
     SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
 		    mGyroBootSample.c_str(), errno, strerror(errno));
     return;
@@ -842,11 +842,11 @@ int read_hal_rotation_matrix(char *path, char *file)
 
   snprintf(file_path_name, value, "%s/%s", path, file);
   fd_config = fopen(file_path_name, "r");
-  if (!fd_config) {
+  if (fd_config == NULL) {
 	  err = -errno;
 	  SENSOR_LOGE(LOG_TAG "Sensor Filed to open %s (errno %d)\n",
 			  file_path_name, err);
-		fclose(fd_config);
+          goto fail;
   }
 
 
@@ -863,6 +863,7 @@ int read_hal_rotation_matrix(char *path, char *file)
 			  break;
 		  }
   }
+fail:
 fclose(fd_config);
 free(file_path_name);
 file_path_name = NULL;
@@ -891,12 +892,12 @@ void SensorApiService::SensorBuffread() {
 	   sensors_event_t events[60];
 	   sensors_event_t zevents[2];
 	   /* Open Accel Bufferd Sensor input device */
-	   if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) < 0) {
+	   if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) == NULL) {
 		   SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
 		   goto fail;
 	   }
 	   /* Open Gyro Bufferd Sensor input device */
-	   if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) < 0) {
+	   if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) == NULL) {
 		   SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
 		   goto fail;
 	   }
