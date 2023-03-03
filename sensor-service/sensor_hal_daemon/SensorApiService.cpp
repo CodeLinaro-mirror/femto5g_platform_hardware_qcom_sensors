@@ -369,6 +369,11 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 
    //Copy data to mSensor to track the sensor configuration parameters till last client deregistered.
    mSensor = new (std::nothrow) SensorConfig[mSensorCount];
+
+   if (mSensor == nullptr){
+	return false;
+   }
+
    for(int i=0; i < mSensorCount; i++) {
      mSensor[i].sensor_id    = s[i].handle;
      mSensor[i].type         = s[i].type;
@@ -379,6 +384,11 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
 
    //Create Sensor List to send to all Clients.
    mSensorList = new (std::nothrow) struct sensor_list[mSensorCount];
+
+   if (mSensorList == nullptr) {
+	return false;
+   }
+
    for(int i= 0; i< mSensorCount; i++) {
      if (s[i].type == SENSOR_TYPE_ACCELEROMETER) {
 	     strlcpy(&mSensorList[i].name[0], configParamRead.AccelName, MAX_PATH_SIZE);
@@ -711,17 +721,9 @@ std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator SensorA
     // We shall not hold the lock, as lock already held by the caller
     //
     mSensorClient--;
+    bool activate = false;
     SENSOR_LOGI(LOG_TAG ">-- deleteClientbyName %s mSensorClient %d\n",clientname.c_str(), mSensorClient);
 
-    /*Deactivate the Sensor when last client deregistered*/
-    if(mSensorClient <= 0) {
-        for(int i=0; i < mSensorCount; i++) {
-                sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE);
-                mSensor[i].Activate = 0;
-                mSensor[i].SamplingRate = 0;
-                mSensor[i].BatchCount = 0;
-        }
-    }
     // remove the client from the config request map
     for (auto it = mConfigReqs.begin(); it != mConfigReqs.end();) {
      if (strncmp(it->second.clientName.c_str(), clientname.c_str(),
@@ -742,6 +744,23 @@ std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator SensorA
     std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator itr = mClients.find(clientname);
     itr = mClients.erase(itr);
     pClient->cleanup();
+
+    activate = false;
+    //deactivate sensor if no client activated sensors
+    for (auto it = mClients.begin(); it != mClients.end(); ++it){
+         if (it->second && (it->second->mAccTracking || it->second->mGyroTracking)) {
+                             activate = true;
+         }
+    }
+
+    if (activate != true){
+       for(int i=0; i < mSensorCount; i++) {
+         sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE);
+         mSensor[i].Activate = 0;
+         mSensor[i].SamplingRate = 0;
+         mSensor[i].BatchCount = 0;
+       }
+    }
 
     SENSOR_LOGI(LOG_TAG ">-- deleteClient client=%s\n", clientname.c_str());
     return itr;
@@ -793,6 +812,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
 
+    if (pClient == nullptr) {
+	return SENSOR_ERROR_CONFIG_FAILED;
+    }
+
     for (int i=0 ; i < mSensorCount; i++)  {
          //Check for proper sensor_id
          if (pMsg->sensor_id == mSensor[i].sensor_id) {
@@ -813,6 +836,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
                      mSensor[i].BatchCount = mMinAccBatchCount;
                      SamplingRate = FREQUENCY_TO_NS(mMaxAccSampleRate);
                      BatchingRate = mMinAccBatchCount * SamplingRate  * mBatchConst;
+                     //If the sensor type is SMI230, the physical sensor is configured for 10 batch count.
+                     if(mSensorType == 4)
+                       BatchingRate = 10 * SamplingRate  * mBatchConst;
+
                      SENSOR_LOGI(LOG_TAG ">-- Configure sensor Acc sensor_id %d sampling Rate %lld BatchingRate %lld\n",
                                      pMsg->sensor_id, SamplingRate, BatchingRate);
                      ret = sensor_set_batch(pMsg->sensor_id, SamplingRate, BatchingRate);
@@ -835,6 +862,11 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 		     pClient->mAccEvents = nullptr;
              }
 	     pClient->mAccEvents = new (std::nothrow) sensors_event_t [pClient->mAccBatchCount];
+
+	     if (pClient->mAccEvents == nullptr){
+		return SENSOR_ERROR_CONFIG_FAILED;
+	     }
+
 	     memset(pClient->mAccEvents, 0, sizeof(sensors_event_t) * pClient->mAccBatchCount);
            }
 
@@ -852,6 +884,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
                      mSensor[i].BatchCount = mMinGyroBatchCount;
                      SamplingRate = FREQUENCY_TO_NS(mMaxGyroSampleRate);
                      BatchingRate = mMinGyroBatchCount * SamplingRate  * mBatchConst;
+                     //If the sensor type is SMI230, the physical sensor is configured for 10 batch count.
+                     if(mSensorType == 4)
+                       BatchingRate = 10 * SamplingRate  * mBatchConst;
+
                      SENSOR_LOGI(LOG_TAG ">--Configure sensor Gyro sensor_id %d sampling Rate %lld BatchingRate %lld\n",
                                      pMsg->sensor_id, SamplingRate, BatchingRate);
                      ret = sensor_set_batch(pMsg->sensor_id, SamplingRate, BatchingRate);
@@ -874,6 +910,11 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 		     pClient->mGyroEvents = nullptr;
 	     }
 	     pClient->mGyroEvents = new (std::nothrow) sensors_event_t [pClient->mGyroBatchCount];
+
+	     if (pClient->mGyroEvents == nullptr) {
+		return SENSOR_ERROR_CONFIG_FAILED;
+	     }
+
 	     memset(pClient->mGyroEvents, 0, sizeof(sensors_event_t) * pClient->mGyroBatchCount);
 	   }
 	 }
@@ -1094,7 +1135,7 @@ SensorApiService - implementation - getSensorTemp to send temperature
 void SensorApiService::getSensorTemp(SensorAPITempReqMsg* pMsg) {
     float temperature = 0;
 
-    SENSOR_LOGI(LOG_TAG "--<getSensorTemp\n");
+    SENSOR_LOGD(LOG_TAG "--<getSensorTemp\n");
 
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
     if (!pClient) {
@@ -1112,7 +1153,7 @@ SensorApiService - implementation - getSensorBufferData to send buffer data
 void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
     std::lock_guard<std::mutex> lock(mMutex);
     int ret = SENSOR_ERROR_BUFFER_NOT_SUPPORTED;
-
+    bool rc;
     SENSOR_LOGI(LOG_TAG "--<getSensorBufferData pMsg->enable %d\n",pMsg->enable);
 
     SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
@@ -1133,7 +1174,10 @@ void SensorApiService::getSensorBufferData(SensorAPIBufferDataReqMsg* pMsg) {
 		    ret = SENSOR_ERROR_BUFFER_DELETED;
 	    }
 	    else {
-		    ret = SENSOR_RESPONSE_SUCCESS;
+                    rc = WritetoBufferFile(pMsg->enable);
+                    if(rc){
+			ret = SENSOR_RESPONSE_SUCCESS;
+                    }
 		    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
 		    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID);
 		    pthread_mutex_lock (&mHalBuffMutex);
@@ -1188,8 +1232,12 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
     }
     self_test_fd = fopen(self_test_file_name, "w+");
 
-    if (!self_test_fd) {
-	    SENSOR_LOGE(LOG_TAG "open");
+    /*If the file discriptor to open self-test is null,
+      the execution will be returned back. */
+    if (self_test_fd == nullptr) {
+	    SENSOR_LOGE(LOG_TAG "NULL");
+	    result = Failed;
+            goto fail;
     }
 
     if (selfTestType == Positive) {
@@ -1218,6 +1266,10 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
 	    if (mSensor[i].Activate == SENSOR_ENABLE){
 		    int64_t SamplingRate = FREQUENCY_TO_NS(mSensor[i].SamplingRate);
 		    int64_t BatchingRate =  mSensor[i].BatchCount *  mSensor[i].SamplingRate  * mBatchConst;
+                    //If the sensor type is SMI230, the physical sensor is configured for 10 batch count.
+                    if(mSensorType == 4)
+                       int64_t BatchingRate = 10 * SamplingRate  * mBatchConst;
+
 		    SENSOR_LOGI(LOG_TAG ">-- onSelfTest Re-Configure sensor sensor_id %d sampling Rate %lld BatchingRate %lld\n",
 				    mSensor[i].sensor_id, SamplingRate, BatchingRate);
 		    sensor_set_batch(mSensor[i].sensor_id, SamplingRate, BatchingRate); //configure the sensor
@@ -1225,6 +1277,8 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
 	    }
     }
     SENSOR_LOGI(LOG_TAG "sensor_id = %d request_id = %d result = %d\n", sensor_id, request_id, result);
+
+fail:
     pClient->onSensorSelfTestResultCb(sensor_id, request_id, result);
 
     return;
@@ -1480,7 +1534,9 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 s->range = acc_range[0];
                 mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
                 s->maxSamplingRate = mMaxAccSampleRate;
-		if (mMinAccBatchCount <= 0)
+                if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+                        mMinGyroBatchCount = MAX_BATCH_COUNT;
+		else if (mMinAccBatchCount <= 0)
                         mMinAccBatchCount = 1;
                 s->minBatchCount   = 1;
         }
@@ -1491,7 +1547,9 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 s->range = gyro_range[0];
                 mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
                 s->maxSamplingRate = mMaxGyroSampleRate;
-		if (mMinGyroBatchCount <= 0)
+                if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+                        mMinGyroBatchCount = MAX_BATCH_COUNT;
+		else if (mMinGyroBatchCount <= 0)
                         mMinGyroBatchCount = 1;
                 s->minBatchCount   = 1;
         }

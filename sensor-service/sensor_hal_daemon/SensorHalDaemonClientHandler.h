@@ -106,6 +106,7 @@ public:
 		fd = fopen (fileName, "w");
                 if (nullptr == fd) {
                     SENSOR_LOGE(LOG_TAG "<-- failed to open file %s\n", fileName);
+		    exit(1);
                 }
 		fclose(fd);
 		getId1Id2(mName.c_str(), mName.length(),
@@ -116,8 +117,20 @@ public:
 
 	    //Intialise the client parameters and set to zero
 	    mActivate = new (std::nothrow) int[mSensorCount];
+	    if (mActivate == nullptr) {
+		return;
+	    }
+
 	    mSampleRate = new (std::nothrow) float[mSensorCount];
+	    if (mSampleRate == nullptr) {
+		return;
+	    }
+
 	    mBatchCount = new (std::nothrow) int[mSensorCount];
+	    if (mBatchCount == nullptr) {
+		return;
+	    }
+
 	    for(int i=0; i < mSensorCount; i++) {
 		    mActivate[i]=0;
 		    mSampleRate[i]=0;
