@@ -389,6 +389,7 @@ int main(int argc, char **argv)
 	if (sensors_initialize(lib) == -1)
 	{
 		SENSOR_LOGE(LOG_TAG "sensor initialization failed\n");
+		exit(1);
 	}
 
 	SENSOR_LOGI(LOG_TAG "batch_time = %lld odr %lld enable_temperature %d enable_buffer %d enable_live %d\n", batch_time, odr, enable_temperature, enable_buffer, enable_live);

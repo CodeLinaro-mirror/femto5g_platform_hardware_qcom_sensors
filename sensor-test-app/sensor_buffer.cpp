@@ -71,8 +71,8 @@ union tempFilePtr
 tempFilePtr mTempFilePtr;
 
 //To Store Buffer file paths
-std::string mAccBootSample;
-std::string mGyroBootSample;
+std::string mAccBootSample = "\0";
+std::string mGyroBootSample= "\0";
 
 
 /*Buffer read files - common*/
@@ -837,8 +837,8 @@ bool CheckBufferReadFile(int mSensorType) {
  strlcat(acc_boot_sample, ACC_BUFFER_READ, sizeof(acc_boot_sample));
  strlcat(gyr_boot_sample, GYRO_BUFFER_READ, sizeof(gyr_boot_sample));
 
- mAccBootSample = acc_boot_sample;
- mGyroBootSample = gyr_boot_sample;
+ mAccBootSample.append(acc_boot_sample);
+ mGyroBootSample.append(gyr_boot_sample);
 
  SENSOR_LOGI(LOG_TAG "mAccBootSample-%s,mGyroBootSample-%s\n",mAccBootSample.c_str(),mGyroBootSample.c_str());
  return true;
@@ -1012,13 +1012,15 @@ void SensorBuffread(int mSensorType)
 	while(1)
 	{
 		/* Open Accel Bufferd Sensor input device */
-		if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) < 0)
+		mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r");
+		if (mfdBuffAccel == NULL)
 		{
 			SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
 			goto fail;
 		}
 		/* Open Gyro Bufferd Sensor input device */
-		if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) < 0) {
+		mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r");
+		if (mfdBuffGyro == NULL) {
 			SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
 			goto fail;
 		}
