@@ -198,11 +198,6 @@ SensorApiService::~SensorApiService() {
         mSesnorMlcCaseList = nullptr;
     }
 
-    // free resource associated with the client
-    for (auto each : mClients) {
-	    SENSOR_LOGI(LOG_TAG ">-- deleted client [%s]", each.first.c_str());
-	    each.second->cleanup();
-    }
     SENSOR_LOGI(LOG_TAG "SensorApiService destructor has executed\n");
 }
 
