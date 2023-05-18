@@ -48,7 +48,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <math.h>
 
 #define HAL_CONFIGURATION_FILE "hal_config"
-#define HAL_CONFIGURATION_PATH "/systemrw/sensorhal"
+#define HAL_CONFIGURATION_PATH "/etc/sensorhal"
 
 #define RM_MIN 0
 #define RM_MAX 3600

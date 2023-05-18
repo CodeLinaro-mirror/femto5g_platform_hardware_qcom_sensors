@@ -14,7 +14,7 @@
 #include "SensorHAL.h"
 
 #define HAL_CONFIGURATION_FILE	"hal_config"
-#define HAL_CONFIGURATION_PATH	"/systemrw/sensorhal/"
+#define HAL_CONFIGURATION_PATH	"/etc/sensorhal/"
 
 enum PARSING_STRING_INDEX {
 	IMU_SENSOR_PLACEMENT_INDEX = 0,
