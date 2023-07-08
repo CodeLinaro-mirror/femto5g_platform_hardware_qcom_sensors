@@ -15,6 +15,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <unistd.h>
@@ -902,8 +907,8 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate)
                 ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_NORMAL);
                 is_gyr_open = 1;
 
-		PDEBUG("set gyro fifo wm: 60");
-		ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, 60);
+		PDEBUG("set gyro fifo wm: 10");
+		ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, 10);
 
 		PDEBUG("set gyr odr: %f", sample_rate);
 		odr_Hz = SMI230_convert_ODR(SENSORLIST_INX_GYROSCOPE_UNCALIBRATED, sample_rate);
