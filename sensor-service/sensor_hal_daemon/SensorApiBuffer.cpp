@@ -777,6 +777,16 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
   }
 
   if (enable == true) {
+      if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) == NULL) {
+         SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
+         goto fail;
+      }
+      /* Open Gyro Bufferd Sensor input device */
+      if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) == NULL) {
+         SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
+         goto fail;
+      }
+
       if (fwrite("1", 1, 1, mfdBuffAccelE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)\n",
 			      mAccBootSample.c_str(), errno, strerror(errno));
@@ -809,10 +819,15 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
 	      fflush(mfdBuffGyroE);
       }
       mBufferDeleted = true;
+      CLOSE_FILE_HANDLE(mfdBuffAccel);
+      CLOSE_FILE_HANDLE(mfdBuffGyro);
   }
   CLOSE_FILE_HANDLE(mfdBuffAccelE);
   CLOSE_FILE_HANDLE(mfdBuffGyroE);
   return true;
+fail:
+  CLOSE_FILE_HANDLE(mfdBuffAccel);
+  CLOSE_FILE_HANDLE(mfdBuffGyro);
 }
 /**
  * @brief baching and for formatting of buffered data.
@@ -1063,16 +1078,6 @@ fail:
 void SensorApiService::SensorBuffread() {
   bool rc = false;
   init_rotation_location();
-  /* Open Accel Bufferd Sensor input device */
-  if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) == NULL) {
-         SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
-         goto fail;
-  }
-  /* Open Gyro Bufferd Sensor input device */
-  if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) == NULL) {
-         SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
-         goto fail;
-  }
   while(mBufferSupported) {
     pthread_mutex_lock (&mHalBuffMutex);
     pthread_cond_wait (&mHalBuffCond, &mHalBuffMutex);
@@ -1094,9 +1099,6 @@ void SensorApiService::SensorBuffread() {
             }
     }
   }
-fail:
-  CLOSE_FILE_HANDLE(mfdBuffAccel);
-  CLOSE_FILE_HANDLE(mfdBuffGyro);
   pthread_mutex_destroy (&mHalBuffMutex);
   pthread_cond_destroy (&mHalBuffCond);
   SENSOR_LOGI(LOG_TAG "Exiting bufferDataprocessTask.. \n");
