@@ -966,7 +966,6 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
 		PINFO("write gyro wm as %d", fifo_data_len);
         ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, fifo_data_len);
 #endif
-	  }
         }
 
     }
