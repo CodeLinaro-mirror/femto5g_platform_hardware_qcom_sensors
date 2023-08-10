@@ -957,7 +957,7 @@ int read_hal_rotation_matrix(char *path, char *file)
 		  line = strstr(buffer, "[");
 		  if(line != NULL){
 			  size = sscanf(&line[1], "%f,%f,%f", &roll, &pitch, &yaw);
-			  SENSOR_LOGI(LOG_TAG, "Sensor roll %f pitch %f yaw %f\n", roll, pitch, yaw);
+			  SENSOR_LOGI(LOG_TAG "Sensor roll %f pitch %f yaw %f\n", roll, pitch, yaw);
 			  if (size > 0) {
 				  update_rotation_matrix(yaw, pitch, roll);
 			  }

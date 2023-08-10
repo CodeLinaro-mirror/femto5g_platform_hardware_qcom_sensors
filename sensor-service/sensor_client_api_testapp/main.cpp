@@ -75,7 +75,7 @@
 #undef LOG_TAG
 #define LOG_TAG "Sensor-Test-App:"
 
-#define LOGCAT_ENABLED // for getting logs in the logcat
+//#define LOGCAT_ENABLED // for getting logs in the logcat
 
 #ifdef LOGCAT_ENABLED
 #define SENSOR_LOGE(...) { ALOGE(__VA_ARGS__); }
@@ -98,9 +98,8 @@ static int live_count = 0;
 
 void Usage(void)
 {
-  SENSOR_LOGI(LOG_TAG "\nUsage:   ./sensor_test --live <enable> --sampling <> --batch <> --count <> \
-				--temperature <enbale> --buffer <enable>\n");
-  SENSOR_LOGI(LOG_TAG "\t\t\tex: ./sensor_test -l 1 -s 104 -b 10 -n 10 -e 1 -t 1\n");
+  SENSOR_LOGI(LOG_TAG "\nUsage:\nsensor_client_api_testapp --live <enable> --sampling <> --batch <> --count <> --temperature <enbale> --buffer <enable>\n");
+  SENSOR_LOGI(LOG_TAG "Ex: sensor_client_api_testapp -l 1 -s 104 -b 10 -n 10 -e 1 -t 1\n");
   return;
 }
 
@@ -149,20 +148,20 @@ static void dump_live_event(const struct sensors_event_t *e)
     switch (e->type) {
     case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
     case SENSOR_TYPE_ACCELEROMETER:
-	SENSOR_LOGI(LOG_TAG "Sensor ACC Live event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
+	SENSOR_LOGI(LOG_TAG "Sensor ACC Live event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld latency in ms=%lld sampling rate in ms=%lld\n",
             AccCount++, e->uncalibrated_accelerometer.x_uncalib, e->uncalibrated_accelerometer.y_uncalib,
             e->uncalibrated_accelerometer.z_uncalib, e->uncalibrated_accelerometer.x_bias,
             e->uncalibrated_accelerometer.y_bias, e->uncalibrated_accelerometer.z_bias,
-            e->timestamp, (getTimestamp() - e->timestamp)/1000000, (1.0F/(e->timestamp-acc_ts))*1000000000);
+            e->timestamp, (getTimestamp() - e->timestamp)/1000000, (e->timestamp-acc_ts)/1000000);
         acc_ts = e->timestamp;
         break;
     case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
     case SENSOR_TYPE_GYROSCOPE:
-	SENSOR_LOGI(LOG_TAG "Sensor GYRO Live event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
+	SENSOR_LOGI(LOG_TAG "Sensor GYRO Live event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld latency in ms=%lld sampling rate in ms=%lld\n",
             GyroCount++, e->uncalibrated_gyro.x_uncalib, e->uncalibrated_gyro.y_uncalib,
             e->uncalibrated_gyro.z_uncalib, e->uncalibrated_gyro.x_bias,
             e->uncalibrated_gyro.y_bias, e->uncalibrated_gyro.z_bias,
-            e->timestamp,(getTimestamp() - e->timestamp)/1000000, (1.0F/(e->timestamp-gyro_ts))*1000000000);
+            e->timestamp,(getTimestamp() - e->timestamp)/1000000, (e->timestamp-gyro_ts)/1000000);
         gyro_ts = e->timestamp;
         break;
     default:
@@ -179,20 +178,20 @@ static void dump_buffer_event(const struct sensors_event_t *e)
     switch (e->type) {
     case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
     case SENSOR_TYPE_ACCELEROMETER:
-	SENSOR_LOGI(LOG_TAG "Sensor ACC Buff event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
+	SENSOR_LOGI(LOG_TAG "Sensor ACC Buff event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld sampling rate in ms=%lld\n",
             AccCount++, e->uncalibrated_accelerometer.x_uncalib, e->uncalibrated_accelerometer.y_uncalib,
             e->uncalibrated_accelerometer.z_uncalib, e->uncalibrated_accelerometer.x_bias,
             e->uncalibrated_accelerometer.y_bias, e->uncalibrated_accelerometer.z_bias,
-            e->timestamp, (getTimestamp() - e->timestamp)/1000000, (1.0F/(e->timestamp-acc_ts))*1000000000);
+            e->timestamp, (e->timestamp-acc_ts)/1000000);
         acc_ts = e->timestamp;
         break;
     case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
     case SENSOR_TYPE_GYROSCOPE:
-	SENSOR_LOGI(LOG_TAG "Sensor GYRO Buff event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld s&s delta %lld HZ=%f\n",
+	SENSOR_LOGI(LOG_TAG "Sensor GYRO Buff event:%d x=%f y=%f z=%f x_bias=%.2f y_bias=%.2f z_bias=%.2f timestamp=%lld sampling rate in ms=%lld\n",
             GyroCount++, e->uncalibrated_gyro.x_uncalib, e->uncalibrated_gyro.y_uncalib,
             e->uncalibrated_gyro.z_uncalib, e->uncalibrated_gyro.x_bias,
             e->uncalibrated_gyro.y_bias, e->uncalibrated_gyro.z_bias,
-            e->timestamp,(getTimestamp() - e->timestamp)/1000000, (1.0F/(e->timestamp-gyro_ts))*1000000000);
+            e->timestamp,(e->timestamp-gyro_ts)/1000000);
         gyro_ts = e->timestamp;
         break;
     default:
@@ -243,13 +242,13 @@ static void onSensorDataReadCb(int sensor_id, const sensors_event_t *events, uin
 
     if (sensor_id == 1) {
 	    acc_sensor_ts = events[count-1].timestamp;
-	    SENSOR_LOGI(LOG_TAG "Sensor ACC Live: sensor_id %d: read events count %d batch delta %lld sensor and system delta %lld\n",
+	    SENSOR_LOGI(LOG_TAG "Sensor ACC Live: sensor_id %d: read events count %d batch delta in ms=%lld latency in ms=%lld\n",
 			    sensor_id, count, (ts_cur - ts_prv_acc)/1000000, (ts_cur - acc_sensor_ts)/1000000);
 	    ts_prv_acc = ts_cur;
     }
     else {
 	    gyro_sensor_ts = events[count-1].timestamp;
-	    SENSOR_LOGI(LOG_TAG "Sensor GYRO Live: sensor_id %d: read events count %d batch delta %lld sensor and system delta %lld\n",
+	    SENSOR_LOGI(LOG_TAG "Sensor GYRO Live: sensor_id %d: read events count %d batch delta in ms=%lld latency in ms=%lld\n",
 			    sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, (ts_cur - gyro_sensor_ts)/1000000);
 	    ts_prv_gyro = ts_cur;
     }
