@@ -947,35 +947,15 @@ bool getBufferedSample(int SensorType, FILE *fd, sensors_event_t *event)
 				if (SENSOR_TYPE_ACCELEROMETER == SensorType)
 				{
 					if (ev[0].code == ABS_X)
-					{
 						event->acceleration.x = ev[0].value;
-						SENSOR_LOGI(LOG_TAG "event->acceleration.x %f\n", event->acceleration.x);
-					}
 					else if (ev[0].code == ABS_Y)
-					{
 						event->acceleration.y = ev[0].value;
-						SENSOR_LOGI(LOG_TAG "event->acceleration.y %f\n", event->acceleration.y);
-					}
 					else if (ev[0].code == ABS_Z)
-					{
 						event->acceleration.z = ev[0].value;
-						SENSOR_LOGI(LOG_TAG "event->acceleration.z %f\n", event->acceleration.z);
-					}
 					else if (ev[0].code == ABS_RX)
-					{
 						acc_second = ev[0].value; // how to extract time
-						SENSOR_LOGI(LOG_TAG "acc_seconds %d\n", acc_second);
-					}
 					else if (ev[0].code == ABS_RY)
-					{////nano seconds
 						event->timestamp = (int64_t)((acc_second * 1000000000LL) + ev[0].value);
-						SENSOR_LOGI(LOG_TAG "final: x=%f y=%f z=%f acc_second=%d event->ts %lld ev[].value %d\n",
-						event->acceleration.x,
-						event->acceleration.y,
-						event->acceleration.z,
-						acc_second,
-						event->timestamp, ev[0].value);
-					}
 				}
 				if (SENSOR_TYPE_GYROSCOPE == SensorType)
 				{
@@ -1040,10 +1020,10 @@ void SensorBuffread(int mSensorType)
 				{
 					memcpy(&events[0], &zevents[0], sizeof(sensors_event_t));
 					bufferDataScaling(mSensorType, SENSOR_TYPE_ACCELEROMETER, &events[0]);
-					SENSOR_LOGI(LOG_TAG "ACC Buffer: %d x=%f y=%f z=%f timestamp=%lld HZ=%f\n",
+					SENSOR_LOGI(LOG_TAG "ACC Buffer: %d x=%f y=%f z=%f timestamp=%lld sampling rate in ms=%lld\n",
 						acccount++, events[0].acceleration.x, events[0].acceleration.y,
 						events[0].acceleration.z, events[0].timestamp,
-						(1.0F / (events[0].timestamp - acc_ts)) * 1000000000LL);
+						(events[0].timestamp - acc_ts)/1000000);
 						acc_ts = events[0].timestamp;
 				}
 				else
@@ -1059,10 +1039,10 @@ void SensorBuffread(int mSensorType)
 				{
 					memcpy(&events[1], &zevents[1], sizeof(sensors_event_t));
 					bufferDataScaling(mSensorType, SENSOR_TYPE_GYROSCOPE, &events[1]);
-					SENSOR_LOGI(LOG_TAG "GYRO Buffer: %d x=%f y=%f z=%f timestamp=%lld HZ=%f\n",
+					SENSOR_LOGI(LOG_TAG "GYRO Buffer: %d x=%f y=%f z=%f timestamp=%lld sampling rate in ms=%lld\n",
 						gyrocount++, events[1].gyro.x, events[1].gyro.y, events[1].gyro.z,
 						events[1].timestamp,
-						(1.0F / (events[1].timestamp - gyro_ts)) * 1000000000LL);
+						(events[1].timestamp - gyro_ts)/1000000);
 					gyro_ts = events[1].timestamp;
 				}
 				else
@@ -1078,5 +1058,5 @@ void SensorBuffread(int mSensorType)
 	fail:
 		CLOSE_FILE_HANDLE(mfdBuffAccel);
 		CLOSE_FILE_HANDLE(mfdBuffGyro);
-	SENSOR_LOGI(LOG_TAG "Exiting bufferDataprocessTask.. \n");
+		SENSOR_LOGI(LOG_TAG "Exiting bufferDataprocessTask.. \n");
 }
