@@ -46,7 +46,7 @@
  * 2nd byte minor version of HAL
  * 3nd byte bug fix version of HAL
  */
-uint8_t HAL_ver[4] = { 0, 3, 0, 0 };
+uint8_t HAL_ver[4] = { 0, 3, 2, 0 };
 
 #define UNUSED_SENSOR_T(sensor_name) \
 	{	.name = sensor_name,\
@@ -1478,21 +1478,26 @@ int32_t convert_BSX_ListInx(int32_t bsx_list_inx)
  * @param p_fd: when found, open the event node
  * @param p_num: when found, get the number of event node
  */
-void open_input_by_name(const char *event_name, int *p_fd, int *p_num)
-{
-    int fd = -1;
-    const char *dirname = "/dev/input";
+
+void open_input_by_name(const char *event_name, int *p_fd, int *p_num) {
+    int fd2 = -1;
+    const char *dirname = "/sys/class/input";
+    const char *charname = "/dev/input/event";
+    char inputname[PATH_MAX];
     char devname[PATH_MAX];
     char *filename;
     DIR *dir;
+    DIR *dir2;
     int ret;
     struct dirent entry;
-    struct dirent *result;
+    struct dirent *result, *entry2;
+    const char *targetPattern = "event";
+    size_t targetPatternLength = strlen(targetPattern);
+    int number = -1;
 
     dir = opendir(dirname);
-    if (dir == NULL)
-    {
-        PERR("couldn't open dir '%s'", dirname);
+    if (dir == NULL) {
+        PERR("couldn't open dir");
         return;
     }
 
@@ -1500,57 +1505,62 @@ void open_input_by_name(const char *event_name, int *p_fd, int *p_num)
     filename = devname + strlen(devname);
     *filename++ = '/';
 
-    while (1)
-    {
+    while (1) {
         ret = readdir_r(dir, &entry, &result);
-        if (0 != ret || NULL == result)
-        {
-            //error or end of directory stream
+        if (0 != ret || NULL == result) {
+            // error or end of directory stream
             break;
         }
 
         if (entry.d_name[0] == '.' &&
                 (entry.d_name[1] == '\0' ||
-                        (entry.d_name[1] == '.' && entry.d_name[2] == '\0')))
-        {
+                        (entry.d_name[1] == '.' && entry.d_name[2] == '\0'))) {
             continue;
         }
 
         strcpy(filename, entry.d_name);
-        fd = open(devname, O_RDONLY | O_NONBLOCK);
-        if (fd >= 0)
-        {
+        char nameFilePath[PATH_MAX];
+        snprintf(nameFilePath, sizeof(nameFilePath), "%s/name", devname);
+        FILE *fd = fopen(nameFilePath, "r");
+        if (fd != NULL) {
             char name[80];
-            if (ioctl(fd, EVIOCGNAME(sizeof(name) - 1), &name) < 1)
-            {
-                name[0] = '\0';
+            fgets(name, sizeof(name), fd);
+            size_t nameLen = strlen(name);
+            if (name[nameLen - 1] == '\n') {
+                name[nameLen - 1] = '\0';
             }
-            if (!strcmp(name, event_name))
-            {
+            fclose(fd);
+
+            if (!strcmp(name, event_name)) {
                 sscanf(entry.d_name + strlen("event"), "%8d", p_num);
+                dir2 = opendir(devname);
+                if (dir2 != NULL) {
+                    while ((entry2 = readdir(dir2)) != NULL) {
+                        if (strncmp(entry2->d_name, targetPattern, targetPatternLength) == 0) {
+                            number = atoi(entry2->d_name + targetPatternLength);
+                            break;
+                        }
+                    }
+                    closedir(dir2);
+                }
                 break;
-            }
-            else
-            {
-                close(fd);
-                fd = -1;
             }
         }
     }
 
     closedir(dir);
 
-    if (fd < 0)
-    {
-        PERR("couldn't find '%s' input device", event_name);
+    if (number != -1) {
+        snprintf(inputname, sizeof(inputname), "%s%d", charname, number);
+        fd2 = open(inputname, O_RDONLY | O_NONBLOCK);
+        if (fd2 < 0) {
+            PERR("Failed to open input device");
+        }
     }
 
-    *p_fd = fd;
-
+    *p_fd = fd2;
     return;
 }
-
-
 
 
 void *hwcntl_main(void *arg)

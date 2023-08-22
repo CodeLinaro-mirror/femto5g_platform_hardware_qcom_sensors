@@ -181,8 +181,6 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define SMI230_ACC_MAX_FIFO_BYTE	1024
 #define SMI230_ACC_MAX_FIFO_FRAME	(SMI230_ACC_MAX_FIFO_BYTE / SMI230_ACCEL_BYTES_PER_FIFO_SAMPLE)
 
-#define SMI230_GYRO_BYTES_PER_FIFO_SAMPLE      6
-
 #define SMI230_GYRO_RANGE_125DPS	125
 #define SMI230_GYRO_RANGE_250DPS	250
 #define SMI230_GYRO_RANGE_500DPS	500
@@ -817,33 +815,20 @@ static void ap_config_phyACC(bsx_f32_t sample_rate, uint16_t fifo_data_len)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
-	    is_acc_open = 1; //for sensor to enable irrespective of prv state
-            if (1 == is_acc_open)
-            {
-                PDEBUG("shutdown acc %d", SENSOR_PM_SUSPEND);
+                PDEBUG("shutdown acc");
 
                 ret = wr_sysfs_oneint("pwr_cfg", acc_input_dir_name, SENSOR_PM_SUSPEND);
 #ifdef SMI230_DATA_SYNC
                 ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_PM_SUSPEND);
 #endif
-
-                is_acc_open = 0;
-            }
         }
-	else
+	    else
         {
-	    is_acc_open = 0; //for sensor to enable irrespective of prv state
-            /*activate is included*/
-            if (0 == is_acc_open)
-            {
                 PDEBUG("set acc active");
                 ret = wr_sysfs_oneint("pwr_cfg", acc_input_dir_name, SENSOR_PM_NORMAL);
 #ifdef SMI230_DATA_SYNC
                 ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_PM_NORMAL);
 #endif
-                is_acc_open = 1;
-		PDEBUG("set acc fifo wm: 70");
-                ret = wr_sysfs_oneint("fifo_wm", acc_input_dir_name, 70);
 
 		PDEBUG("set acc odr: %f", sample_rate);
 		odr_Hz = SMI230_convert_ODR(SENSORLIST_INX_ACCELEROMETER, sample_rate);
@@ -865,7 +850,6 @@ static void ap_config_phyACC(bsx_f32_t sample_rate, uint16_t fifo_data_len)
 		PINFO("write acc wm as %d samples, in %d bytes", fifo_data_len, fifo_data_len_in_bytes);
         ret = wr_sysfs_oneint("fifo_wm", acc_input_dir_name, fifo_data_len_in_bytes);
 #endif
-            }
         }
 
     }
@@ -880,7 +864,6 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
     int32_t bandwidth = 0;
     int32_t fifo_data_sel_regval;
     float physical_Hz = 0;
-    int32_t fifo_data_len_in_bytes;
 
     PINFO("set physical GYRO rate %f", sample_rate);
 
@@ -956,26 +939,13 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
     {
         if (SAMPLE_RATE_DISABLED == sample_rate)
         {
-	    is_gyr_open = 1; //for sensor to shutdown irrespective of prv state
-            if (1 == is_gyr_open)
-            {
                 PDEBUG("shutdown gyro");
 
                 ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_SUSPEND);
-
-                is_gyr_open = 0;
-            }
         }else
         {
-	    is_gyr_open = 0; //for sensor to enable irrespective of prv state
-            /*activate is included*/
-            if (0 == is_gyr_open)
-            {
                 PDEBUG("set gyro active");
                 ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_NORMAL);
-                is_gyr_open = 1;
-		PDEBUG("set gyro fifo wm: 60");
-		ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, 60);
 
 #ifndef SMI230_DATA_SYNC
         // if in data sync mode, odr is controled through ACC api
@@ -990,15 +960,11 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
         if (fifo_data_len < 1)
             fifo_data_len = 1;
 
-        fifo_data_len_in_bytes = SMI230_GYRO_BYTES_PER_FIFO_SAMPLE * fifo_data_len;
-        PINFO("write gyro wm as %d smaples, in %d bytes", fifo_data_len, fifo_data_len_in_bytes);
-        ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, fifo_data_len_in_bytes);
+	PINFO("write gyro wm as %d", fifo_data_len);
+        ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, fifo_data_len);
 #endif
-            }
-        }
-
+	}
     }
-
     return;
 }
 
