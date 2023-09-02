@@ -47,6 +47,10 @@
 
 #define MAX_SYSFS_ATTRB (sizeof(struct sysfs_attrbs) / sizeof(char*))
 
+//Config file
+#define SENSOR_CONF_PATH "/etc/sensors.conf"
+
+
 /* Set default accel and gyro FSR (use enhanced FSR if available) */
 #ifdef ACCEL_ENHANCED_FSR_SUPPORT
 #  define DEFAULT_ACCEL_FSR        32.0f     // 32g
@@ -161,6 +165,40 @@ static struct sensor_t sRawSensorList[] =
     },
 };
 
+void SENSOR_READ_CONF(char *file_name, int *acc_range, int *gyro_range)
+{
+	FILE *file;
+	char buffer[BUFSIZ];
+	char *line;
+	int i;
+
+	file = fopen(file_name, "r");
+	if (file == NULL) {
+		LOGE("open failed: %s: %s\n", file_name, strerror(errno));
+		return;
+	}
+
+	while(fgets(buffer, sizeof(buffer), file) != NULL) {
+		for(i = 0; i < strlen(buffer); i++) { // iterate through the chars in a line
+			if(buffer[i] == '#') { // if char is a #, stop processing chars on this line
+				break;
+			} else if(buffer[i] == ' ') { // if char is whitespace, continue until something is found
+				continue;
+			} else if(strstr(buffer, "ACC_RANGE=")) {
+				line = strstr(buffer, "=");
+				sscanf(&line[1], "%d", acc_range);
+				break;
+			}
+			else if(strstr(buffer, "GYRO_RANGE=")) {
+				line = strstr(buffer, "=");
+				sscanf(&line[1], "%d", gyro_range);
+				break;
+			}
+		}
+	}
+	fclose(file);
+}
+
 MPLSensor::MPLSensor(CompassSensor *compass, PressureSensor *pressure)
     : SensorBase(NULL, NULL),
     mEnabled(0),
@@ -174,6 +212,7 @@ MPLSensor::MPLSensor(CompassSensor *compass, PressureSensor *pressure)
     mPressurePrevTimestamp(0)
 {
     VFUNC_LOG;
+    int i, acc_range = 0 , gyro_range = 0;
 
     mCompassSensor = compass;
     mPressureSensor = pressure;
@@ -258,10 +297,10 @@ MPLSensor::MPLSensor(CompassSensor *compass, PressureSensor *pressure)
     }
 
     /* disable all sensors */
-    enableGyro(0);
-    enableAccel(0);
-    enableCompass(0);
-    enablePressure(0);
+    //enableGyro(0);
+    //enableAccel(0);
+    //enableCompass(0);
+    //enablePressure(0);
 
     /* FIFO high resolution mode */
     /* This needs to be set before setting FSR */
@@ -272,12 +311,24 @@ MPLSensor::MPLSensor(CompassSensor *compass, PressureSensor *pressure)
     write_sysfs_int(mpu.high_res_mode, 0);
 #endif
 
+    SENSOR_READ_CONF(SENSOR_CONF_PATH , &acc_range, &gyro_range);
+
+    if(acc_range > 4)
+	    acc_range = 4;
+    if(acc_range < 0)
+	    acc_range = 0;
+
+    if(gyro_range > 4)
+	    gyro_range = 4;
+    if(gyro_range < 0)
+	    gyro_range = 0;
+
     /* set accel FSR */
-    write_sysfs_int(mpu.accel_fsr, ACCEL_FSR_SYSFS);
+    write_sysfs_int(mpu.accel_fsr, acc_range);
     read_sysfs_int(mpu.accel_fsr, &mAccelFsrGee); /* read actual fsr */
 
     /* set gyro FSR */
-    write_sysfs_int(mpu.gyro_fsr, GYRO_FSR_SYSFS);
+    write_sysfs_int(mpu.gyro_fsr, gyro_range);
     read_sysfs_int(mpu.gyro_fsr, &mGyroFsrDps); /* read actual fsr */
 
     /* reset batch timeout */

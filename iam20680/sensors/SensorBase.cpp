@@ -25,6 +25,7 @@
 #include <sys/select.h>
 #include <time.h>
 #include <linux/input.h>
+#include <glib.h>
 
 #include <cutils/properties.h>
 #ifdef __ANDROID__
@@ -32,6 +33,8 @@
 #endif
 
 #include "SensorBase.h"
+
+#define strlcpy g_strlcpy
 
 /*****************************************************************************/
 

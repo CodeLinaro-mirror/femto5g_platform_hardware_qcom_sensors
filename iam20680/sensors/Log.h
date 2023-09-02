@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
-#ifndef _LOG_H
-#define _LOG_H
+#ifndef LOG_H
+#define LOG_H
+
+#include <cutils/log.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* Android logs */
 #ifdef __ANDROID__
 
-#include <log/log.h>
+/* Android logs */
+#include <cutils/log.h>
 
 #define ASSERT		ALOG_ASSERT
 
@@ -40,75 +42,51 @@ extern "C" {
 #define LOGW_IF		ALOGW_IF
 #define LOGE_IF		ALOGE_IF
 
-/* Linux logs */
 #else
 
-#ifndef LOG_NDEBUG
-#define LOG_NDEBUG 0
-#endif
-#ifndef LOG_TAG
-#define LOG_TAG "xxx"
-#endif
-
+/* Linux logs */
 #if LOG_NDEBUG
 #define NDEBUG
 #endif
 #include <assert.h>
-#include <syslog.h>
 
+#ifndef LOG_TAG
+#define LOG_HEAD	"Sensor: "
+#else
 #define LOG_HEAD	LOG_TAG ": "
+#endif
 
 #if LOG_NDEBUG
-#define ASSERT(cond, ...)				\
-	if (0) {					\
-		syslog(LOG_CRIT, LOG_HEAD __VA_ARGS__);	\
-		assert(cond);				\
-	}
-#define LOGV(...)						\
-	if (0) {						\
-		syslog(LOG_DEBUG, LOG_HEAD __VA_ARGS__);	\
-	}
-#define LOGD(...)						\
-	if (0) {						\
-		syslog(LOG_DEBUG, LOG_HEAD __VA_ARGS__);	\
-	}
+#define ASSERT(cond, ...)	((void)0)
 #else
 #define ASSERT(cond, ...)				\
-	do {					\
-		syslog(LOG_CRIT, LOG_HEAD __VA_ARGS__);	\
+	do {						\
+		ALOGE(__VA_ARGS__);	\
 		assert(cond);				\
 	} while (0)
-#define LOGV(...)	syslog(LOG_DEBUG, LOG_HEAD __VA_ARGS__)
-#define LOGD(...)	syslog(LOG_DEBUG, LOG_HEAD __VA_ARGS__)
-#endif
-#define LOGI(...)	syslog(LOG_INFO, LOG_HEAD __VA_ARGS__)
-#define LOGW(...)	syslog(LOG_WARNING, LOG_HEAD __VA_ARGS__)
-#define LOGE(...)	syslog(LOG_ERR, LOG_HEAD __VA_ARGS__)
-
-#ifndef __predict_false
-#define __predict_false(exp) __builtin_expect((exp) != 0, 0)
 #endif
 
-#define LOGV_IF(cond, ...)					\
-	((__predict_false(cond)) ? ((void)LOGV(__VA_ARGS__))	\
-				 : (void)0)
-#define LOGD_IF(cond, ...)					\
-	((__predict_false(cond)) ? ((void)LOGD(__VA_ARGS__))	\
-				 : (void)0)
-#define LOGI_IF(cond, ...)					\
-	((__predict_false(cond)) ? ((void)LOGI(__VA_ARGS__))	\
-				 : (void)0)
-#define LOGW_IF(cond, ...)					\
-	((__predict_false(cond)) ? ((void)LOGW(__VA_ARGS__))	\
-				 : (void)0)
-#define LOGE_IF(cond, ...)					\
-	((__predict_false(cond)) ? ((void)LOGE(__VA_ARGS__))	\
-				 : (void)0)
+#if LOG_NDEBUG
+#define LOGV(...)	((void)0)
+#define LOGD(...)	((void)0)
+#else
+#define LOGV(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#define LOGD(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#endif
+#define LOGI(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#define LOGW(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#define LOGE(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
 
+
+#define LOGV_IF(cond, ...)	((void)LOGV(__VA_ARGS__))
+#define LOGD_IF(cond, ...)      ((void)LOGV(__VA_ARGS__))	
+#define LOGI_IF(cond, ...)	((void)LOGV(__VA_ARGS__))
+#define LOGW_IF(cond, ...)	((void)LOGV(__VA_ARGS__))
+#define LOGE_IF(cond, ...)	((void)LOGV(__VA_ARGS__))
 #endif		/* __ANDROID__ */
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif		/* _LOG_H */
+#endif		/* LOG_H */

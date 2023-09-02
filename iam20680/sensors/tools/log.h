@@ -17,6 +17,9 @@
 #ifndef _MPL_LOG_H
 #define _MPL_LOG_H
 
+#include <cutils/log.h>
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -55,8 +58,6 @@ extern "C" {
 #if MPL_LOG_NDEBUG
 #define NDEBUG
 #endif
-#include <assert.h>
-#include <syslog.h>
 
 #ifndef MPL_LOG_TAG
 #define MPL_LOG_HEAD	"xxx: "
@@ -69,7 +70,7 @@ extern "C" {
 #else
 #define MPL_ASSERT(cond, ...)					\
 	do {							\
-		syslog(LOG_CRIT, MPL_LOG_HEAD __VA_ARGS__);	\
+		ALOGE("[IAM20680] Sensor:" __VA_ARGS__);	\
 		assert(cond);					\
 	} while (0)
 #endif
@@ -77,19 +78,19 @@ extern "C" {
 #if MPL_LOG_NDEBUG
 #define MPL_LOGV(...)						\
 	if (0) {						\
-		syslog(LOG_DEBUG, MPL_LOG_HEAD __VA_ARGS__);	\
+		ALOGE("[IAM20680] Sensor:" __VA_ARGS__);	\
 	}
 #define MPL_LOGD(...)						\
 	if (0) {						\
-		syslog(LOG_DEBUG, MPL_LOG_HEAD __VA_ARGS__);	\
+		ALOGE("[IAM20680] Sensor:" __VA_ARGS__);	\
 	}
 #else
-#define MPL_LOGV(...)	syslog(LOG_DEBUG, MPL_LOG_HEAD __VA_ARGS__)
-#define MPL_LOGD(...)	syslog(LOG_DEBUG, MPL_LOG_HEAD __VA_ARGS__)
+#define MPL_LOGV(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGD(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
 #endif
-#define MPL_LOGI(...)	syslog(LOG_INFO, MPL_LOG_HEAD __VA_ARGS__)
-#define MPL_LOGW(...)	syslog(LOG_WARNING, MPL_LOG_HEAD __VA_ARGS__)
-#define MPL_LOGE(...)	syslog(LOG_ERR, MPL_LOG_HEAD __VA_ARGS__)
+#define MPL_LOGI(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGW(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGE(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
 
 #ifndef __predict_false
 #define __predict_false(exp) __builtin_expect((exp) != 0, 0)
