@@ -819,8 +819,6 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
 	      fflush(mfdBuffGyroE);
       }
       mBufferDeleted = true;
-      CLOSE_FILE_HANDLE(mfdBuffAccel);
-      CLOSE_FILE_HANDLE(mfdBuffGyro);
   }
   CLOSE_FILE_HANDLE(mfdBuffAccelE);
   CLOSE_FILE_HANDLE(mfdBuffGyroE);
