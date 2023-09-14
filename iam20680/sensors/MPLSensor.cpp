@@ -48,14 +48,6 @@
 
 #define MAX_SYSFS_ATTRB (sizeof(struct sysfs_attrbs) / sizeof(char*))
 
-//Config file
-#define SENSOR_CONF_PATH "/etc/sensors.conf"
-
-static float ACCEL_FSR = 2.0f;   // 2:2g, 4:4g, 8:8g, 16:16g
-static int   ACCEL_FSR_SYSFS = 0;       // 0:2g, 1:4g, 2:8g, 3:16g
-
-static float GYRO_FSR = 131.0f;   // 131:250dbps 65.5:500dbps 32.8:1000dbps 16.4:2000dbps
-static int   GYRO_FSR_SYSFS = 0;       // 0:250dps, 1:500dbps, 2:1000dpps, 3:2000dbps
 /*******************************************************************************
  * MPLSensor class implementation
  ******************************************************************************/
@@ -99,40 +91,6 @@ static struct sensor_t sRawSensorList[] =
 
 struct sensor_t *currentSensorList;
 
-void SENSOR_READ_CONF(char *file_name, int *acc_range, int *gyro_range)
-{
-    FILE *file;
-    char buffer[BUFSIZ];
-    char *line;
-    int i;
-
-    file = fopen(file_name, "r");
-    if (file == NULL) {
-	LOGE("open failed: %s: %s\n", file_name, strerror(errno));
-	return;
-    }
-
-    while(fgets(buffer, sizeof(buffer), file) != NULL) {
-       for(i = 0; i < strlen(buffer); i++) { // iterate through the chars in a line
-         if(buffer[i] == '#') { // if char is a #, stop processing chars on this line
-                 break;
-         } else if(buffer[i] == ' ') { // if char is whitespace, continue until something is found
-                 continue;
-         } else if(strstr(buffer, "ACC_RANGE=")) {
-                 line = strstr(buffer, "=");
-                 sscanf(&line[1], "%d", acc_range);
-                 break;
-         }
-         else if(strstr(buffer, "GYRO_RANGE=")) {
-               line = strstr(buffer, "=");
-               sscanf(&line[1], "%d", gyro_range);
-               break;
-         }
-    }
-    }
-    fclose(file);
-}
-
 MPLSensor::MPLSensor(CompassSensor *compass) :
     mEnabled(0),
     mIIOReadSize(0),
@@ -144,7 +102,7 @@ MPLSensor::MPLSensor(CompassSensor *compass) :
 
     VFUNC_LOG;
 
-    int i, acc_range = 0 , gyro_range = 0;
+    int i;
 
     mCompassSensor = compass;
 
@@ -228,61 +186,7 @@ MPLSensor::MPLSensor(CompassSensor *compass) :
     enableAccel(0);
     enableCompass(0);
 
-    SENSOR_READ_CONF(SENSOR_CONF_PATH , &acc_range, &gyro_range);
-
-    if(acc_range > 3)
-	acc_range = 3;
-    if(acc_range < 0)
-	acc_range = 0;
-
-    if(gyro_range > 3)
-	gyro_range = 3;
-    if(gyro_range < 0)
-	gyro_range = 0;
-
-    switch (acc_range) {
-	case 0:
-		ACCEL_FSR = 2.0f;
-		ACCEL_FSR_SYSFS = 0;
-	break;
-	case 1:
-		ACCEL_FSR = 4.0f;
-		ACCEL_FSR_SYSFS = 1;
-	break;
-	case 2:
-		ACCEL_FSR = 8.0f;
-		ACCEL_FSR_SYSFS = 2;
-	break;
-	case 3:
-	default:
-		ACCEL_FSR = 16.0f;
-		ACCEL_FSR_SYSFS = 3;
-	break;
-    }
-
-    switch (gyro_range) {
-        case 0:
-                GYRO_FSR = 131.0f;
-                GYRO_FSR_SYSFS = 0;
-        break;
-        case 1:
-                GYRO_FSR = 65.5f;
-                GYRO_FSR_SYSFS = 1;
-        break;
-        case 2:
-                GYRO_FSR = 31.8f;
-                GYRO_FSR_SYSFS = 2;
-        break;
-        case 3:
-        default:
-                GYRO_FSR = 16.4f;
-                GYRO_FSR_SYSFS = 3;
-        break;
-    }
-
     /* set accel FSR */
-    writeSysfs(ACCEL_FSR_SYSFS, mpu.accel_fsr);
-    writeSysfs(GYRO_FSR_SYSFS, mpu.gyro_fsr);
 
 #ifdef BATCH_MODE_SUPPORT
     /* reset batch timeout */
@@ -301,38 +205,6 @@ void MPLSensor::enableIIOSysfs(void)
     LOGV_IF(SYSFS_VERBOSE, "HAL:sysfs:echo 1 > %s (%" PRId64 ")",
             mpu.in_timestamp_en, getTimestamp());
     tempFp = fopen(mpu.in_timestamp_en, "w");
-    if (tempFp == NULL) {
-        LOGE("HAL:could not open timestamp enable");
-    } else {
-        err = fprintf(tempFp, "%d", 1);
-        if (err < 0) {
-            LOGE("HAL:could not write timestamp enable, %d", err);
-        }
-        err = fclose(tempFp);
-        if (err) {
-            LOGE("HAL:could not close write timestamp enable, %d", err);
-        }
-    }
-
-    LOGV_IF(SYSFS_VERBOSE, "HAL:sysfs:echo %d > %s (%" PRId64 ")",
-            IIO_BUFFER_LENGTH, mpu.buffer_length, getTimestamp());
-    tempFp = fopen(mpu.buffer_length, "w");
-    if (tempFp == NULL) {
-        LOGE("HAL:could not open buffer length");
-    } else {
-        err = fprintf(tempFp, "%d", IIO_BUFFER_LENGTH);
-        if (err < 0) {
-            LOGE("HAL:could not write buffer length, %d", err);
-        }
-        err = fclose(tempFp);
-        if (err) {
-            LOGE("HAL:could not close write buffer length, %d", err);
-        }
-    }
-
-    LOGV_IF(SYSFS_VERBOSE, "HAL:sysfs:echo %d > %s (%" PRId64 ")",
-            1, mpu.chip_enable, getTimestamp());
-    tempFp = fopen(mpu.chip_enable, "w");
     if (tempFp == NULL) {
         LOGE("HAL:could not open chip enable");
     } else {
@@ -637,7 +509,6 @@ int MPLSensor::rawGyroHandler(sensors_event_t* s)
     int update = 0;
     int data[3];
     int i;
-    float scale = 1.f / GYRO_FSR * 0.0174532925f;
 
     /* convert to body frame */
     for (i = 0; i < 3 ; i++) {
