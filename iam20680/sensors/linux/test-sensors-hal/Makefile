@@ -1,84 +1,50 @@
-# Sensors HAL
-CPPFLAGS += -DLOG_TAG=\"Sensors\"
-CPPFLAGS += -Iandroid_linux -D_HW_DONT_INCLUDE_CORE_
-
 # HAL source files location
 HAL_SRC_DIR := ../..
 
-# Sensors HAL version
-INV_SENSORS_HAL_VERSION_MAJOR := 8
-INV_SENSORS_HAL_VERSION_MINOR := 1
-INV_SENSORS_HAL_VERSION_PATCH := 7
-INV_SENSORS_HAL_VERSION_SUFFIX := -simple-android-linux-test1
-$(info InvenSense Sensors HAL version MA-$(INV_SENSORS_HAL_VERSION_MAJOR).$(INV_SENSORS_HAL_VERSION_MINOR).$(INV_SENSORS_HAL_VERSION_PATCH)$(INV_SENSORS_HAL_VERSION_SUFFIX))
-CPPFLAGS += -DINV_SENSORS_HAL_VERSION_MAJOR=$(INV_SENSORS_HAL_VERSION_MAJOR)
-CPPFLAGS += -DINV_SENSORS_HAL_VERSION_MINOR=$(INV_SENSORS_HAL_VERSION_MINOR)
-CPPFLAGS += -DINV_SENSORS_HAL_VERSION_PATCH=$(INV_SENSORS_HAL_VERSION_PATCH)
-CPPFLAGS += -DINV_SENSORS_HAL_VERSION_SUFFIX=\"$(INV_SENSORS_HAL_VERSION_SUFFIX)\"
+include $(HAL_SRC_DIR)/invensense.mk
 
-# InvenSense chip type
-INVENSENSE_CHIP ?= iam20680
-$(info InvenSense chip $(INVENSENSE_CHIP))
-
-# Batching support
-ifneq (,$(filter $(INVENSENSE_CHIP), iam20680))
-CPPFLAGS += -DBATCH_MODE_SUPPORT
+# Use LLVM libc++ with Clang, GNU libstdc++ by default
+ifeq ($(CXX), clang++)
+CXX_STL = -lc++
+CXXFLAGS += -stdlib=libc++
+else
+CXX_STL = -lstdc++
 endif
 
-# Compass support
-COMPASS_SUPPORT := false
-$(info InvenSense Compass support = $(COMPASS_SUPPORT))
-ifeq ($(COMPASS_SUPPORT), true)
-CPPFLAGS += -DCOMPASS_SUPPORT
-endif
+# Common flags
+CPPFLAGS += -DLOG_TAG=\"Sensors\"
+CPPFLAGS += -Iandroid_linux -D_HW_DONT_INCLUDE_CORE_
+CPPFLAGS += $(foreach inc, $(INV_INCLUDES), -I$(HAL_SRC_DIR)/$(inc))
+COMMON_FLAGS += -O2
+COMMON_FLAGS += -Wall -Wextra -Werror
+COMMON_FLAGS += -fPIC -pthread
+CFLAGS += -std=gnu11 $(COMMON_FLAGS)
+CXXFLAGS += -std=gnu++11 $(COMMON_FLAGS)
 
-# Android version
-MAJOR_VERSION := 8
-MINOR_VERSION := 1
-$(info ANDROID_VERSION = $(MAJOR_VERSION).$(MINOR_VERSION))
-CPPFLAGS += -DANDROID_MAJOR_VERSION=$(MAJOR_VERSION)
-CPPFLAGS += -DANDROID_MINOR_VERSION=$(MINOR_VERSION)
-
-# Compiler flags
-MODULE := libinvnsensors.so
-CFLAGS += -O2
-CFLAGS += -Wall -Wextra -Werror
-CFLAGS += -fPIC -pthread
-CXXFLAGS := $(CFLAGS)
-LDFLAGS := -shared -lstdc++ -lpthread
-
-# source C++ files
-SRC_CPP_FILES += $(HAL_SRC_DIR)/SensorsMain.cpp
-SRC_CPP_FILES += $(HAL_SRC_DIR)/SensorBase.cpp
-SRC_CPP_FILES += $(HAL_SRC_DIR)/MPLSensor.cpp
-SRC_CPP_FILES += $(HAL_SRC_DIR)/MPLSupport.cpp
-ifeq ($(COMPASS_SUPPORT), true)
-SRC_CPP_FILES += $(HAL_SRC_DIR)/CompassSensor.IIO.primary.cpp
-endif
-
-# source C files
-SRC_C_FILES += $(HAL_SRC_DIR)/tools/inv_sysfs_utils.c
-SRC_C_FILES += $(HAL_SRC_DIR)/tools/inv_iio_buffer.c
-SRC_C_FILES += $(HAL_SRC_DIR)/tools/ml_sysfs_helper.c
-
-# include dirs
-CPPFLAGS += -I$(HAL_SRC_DIR)/tools
+# InvenSense Sensors HAL
+INVNSENSORS := libinvnsensors.so
+CPPFLAGS += $(INV_CFLAGS)
+INVNSENSORS_SRC_CPP_FILES += $(foreach src_cpp, $(filter %.cpp,$(INV_SRCS)), $(HAL_SRC_DIR)/$(src_cpp))
+INVNSENSORS_SRC_C_FILES += $(foreach src_c, $(filter %.c,$(INV_SRCS)), $(HAL_SRC_DIR)/$(src_c))
+INVNSENSORS_LDFLAGS += $(LDFLAGS) -L./ -shared -lpthread $(CXX_STL)
+INVNSENSORS_OBJ_FILES := $(INVNSENSORS_SRC_C_FILES:.c=.o) $(INVNSENSORS_SRC_CPP_FILES:.cpp=.o)
 
 # test application
-TEST_MODULE := test-sensors-hal
-TEST_MODULE_FILES := test-sensors-hal.cpp
-
-OBJ_FILES := $(SRC_C_FILES:.c=.o) $(SRC_CPP_FILES:.cpp=.o)
+TESTAPP := test-sensors-hal
+TESTAPP_SRC_CPP_FILES := test-sensors-hal.cpp
+TESTAPP_LDFLAGS = $(LDFLAGS) -ldl -lpthread $(CXX_STL)
+TESTAPP_OBJ_FILES := $(TESTAPP_SRC_C_FILES:.c=.o) $(TESTAPP_SRC_CPP_FILES:.cpp=.o)
 
 .PHONY: all clean
 
-all: $(MODULE) $(TEST_MODULE)
+all: $(INVNSENSORS) $(TESTAPP)
 
 clean:
-	-rm -f $(OBJ_FILES) $(MODULE) $(TEST_MODULE)
+	-rm -f $(INVNSENSORS_OBJ_FILES) $(INVNSENSORS)
+	-rm -f $(TESTAPP_OBJ_FILES) $(TESTAPP)
 
-$(MODULE): $(OBJ_FILES)
-	$(CXX) $(CFLAGS) $(LDFLAGS) $^ -o $@
+$(INVNSENSORS): $(MLLITE) $(INVNSENSORS_OBJ_FILES)
+	$(CXX) $(CXXFLAGS) $^ $(INVNSENSORS_LDFLAGS) $(INVNSENSORS_LIBS) -o $@
 
-$(TEST_MODULE): $(MODULE)
-	$(CXX) $(CPPFLAGS) $(CFLAGS) $(TEST_MODULE_FILES) -ldl -lpthread -lstdc++ -o $@
+$(TESTAPP): $(TESTAPP_OBJ_FILES)
+	$(CXX) $(CXXFLAGS) $^ $(TESTAPP_LDFLAGS) -o $@
