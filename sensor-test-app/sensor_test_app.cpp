@@ -27,7 +27,7 @@
 #include <stdarg.h>
 #include "sensor_test_app.h"
 
-#define CMD_OPTIONS         "s:l:b:d:a:n:t:"
+#define CMD_OPTIONS         "s:l:b:d:a:n:t:g:"
 /*
  * Global variables
  */
@@ -42,21 +42,20 @@ static int sensor_type = SENSOR_ASM330;
 bool mBufferSupported = false;
 bool mTempSupported = false;
 
-/*
- * Functions : get the function utilities
- */
-void Usage()
-{
-	SENSOR_LOGI(LOG_TAG " \nUsage: ./sensor_test -l <lib_path>\n -b <batch_time> -d <odr> -n <val> -a <val> -s <val> -t <val>");
-	SENSOR_LOGI(LOG_TAG " <lib_path>   : /usr/lib/libsensors.so.1.0.0\n");
-	SENSOR_LOGI(LOG_TAG " <val>     : for enable/disable 1/0   <optional>\n");
-	SENSOR_LOGI(LOG_TAG " <batch_time> : batch time for sensor <optional>\n");
-	SENSOR_LOGI(LOG_TAG " <odr>        : odr value             <optional>\n");
-	SENSOR_LOGI(LOG_TAG " -n <val>     : buffer data           <optional>\n");
-	SENSOR_LOGI(LOG_TAG " -a <val>     : live data             <optional>\n");
-	SENSOR_LOGI(LOG_TAG " -s <val>     : service mode          <optional>\n");
-	SENSOR_LOGI(LOG_TAG " -t <val>     : tempeture mode        <optional>\n");
-	return;
+
+static void printHelp() {
+    SENSOR_LOGI(LOG_TAG "\n************* options *************\n");
+    SENSOR_LOGI(LOG_TAG "h: help\n");
+    SENSOR_LOGI(LOG_TAG "l: lib path\n");
+    SENSOR_LOGI(LOG_TAG "g: Get Sensor list\n");
+    SENSOR_LOGI(LOG_TAG "d: Sampling rate in ns\n");
+    SENSOR_LOGI(LOG_TAG "b: Batching rate in ns\n");
+    SENSOR_LOGI(LOG_TAG "a: Read Live data\n");
+    SENSOR_LOGI(LOG_TAG "n: Read Sensor Bufffer Data\n");
+    SENSOR_LOGI(LOG_TAG "t: Read Sensor Temperature\n");
+    SENSOR_LOGI(LOG_TAG "s: Run on boot\n");
+    SENSOR_LOGI(LOG_TAG "q: Quit\n");
+    SENSOR_LOGI(LOG_TAG "Ex: sensor_test -l /usr/lib/libsensors.so -d 10000000 -d 100000000 -n 1 -a 1 -t 1 -g 1\n");
 }
 
 void term(int signum) {
@@ -89,10 +88,9 @@ static void dump_event(struct sensors_event_t *e)
 	switch (e->type)
 	{
 		case SENSOR_TYPE_ACCELEROMETER:
-			SENSOR_LOGI(LOG_TAG "Live: ACC: count=%d, x=%+f y=%+f z=%+f, event_ts_ns=%lld, curr_ts_ns=%lld, HZ=%f\n",
+			SENSOR_LOGI(LOG_TAG "Live: ACC: count=%d, x=%+f y=%+f z=%+f, event_ts_ns=%lld, latency in ms=%lld, sampling rate in ms=%lld\n",
 				account, e->acceleration.x, e->acceleration.y, e->acceleration.z,
-				e->timestamp, ts_cur,
-				(1.0F / (e->timestamp - acc_ts)) * 1000000000);
+				e->timestamp, (ts_cur - e->timestamp)/1000000, (e->timestamp - acc_ts)/1000000);
 			acc_ts = e->timestamp;
 			break;
 
@@ -102,18 +100,16 @@ static void dump_event(struct sensors_event_t *e)
 			break;
 
 		case SENSOR_TYPE_GYROSCOPE:
-			SENSOR_LOGI(LOG_TAG "Live: GYRO: count=%d, x=%f y=%f z=%f, event_ts_ns=%lld, curr_ts_ns=%lld, HZ=%f\n",
+			SENSOR_LOGI(LOG_TAG "Live: GYRO: count=%d, x=%f y=%f z=%f, event_ts_ns=%lld, latency in ms=%lld, sampling rate in ms=%lld\n",
 				account, e->gyro.x, e->gyro.y, e->gyro.z,
-				e->timestamp, ts_cur,
-				(1.0F / (e->timestamp - gyro_ts)) * 1000000000);
+				e->timestamp, (ts_cur - e->timestamp)/1000000, (e->timestamp - gyro_ts)/1000000);
 			gyro_ts = e->timestamp;
 			break;
 
 		case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
-			SENSOR_LOGI(LOG_TAG "Live: GYRO_UN: count=%d, x=%f y=%f z=%f, event_ts_ns=%lld, curr_ts_ns=%lld, HZ=%f\n",
+			SENSOR_LOGI(LOG_TAG "Live: GYRO_UN: count=%d, x=%f y=%f z=%f, event_ts_ns=%lld, latency in ms=%lld, sampling rate in ms=%lld\n",
 				account, e->uncalibrated_gyro.x_uncalib, e->uncalibrated_gyro.y_uncalib, e->uncalibrated_gyro.z_uncalib,
-				e->timestamp, ts_cur,
-				(1.0F / (e->timestamp - gyro_ts)) * 1000000000);
+				e->timestamp, (ts_cur - e->timestamp)/1000000, (e->timestamp - gyro_ts)/1000000);
 			gyro_ts = e->timestamp;
 			break;
 
@@ -264,29 +260,19 @@ void read_live_data()
 	static uint64_t ts_prv = 0;
 	static uint64_t sensor_ts = 0;
 	int event = 0;
-	// SENSOR_LOGI(LOG_TAG "Live: Polling sensor data\n");
+	SENSOR_LOGI(LOG_TAG "Live: Polling sensor data\n");
 	ts_cur = getTimestamp();
 	ts_prv = ts_cur;
 	sensor_ts = ts_cur;
 	while(1)
 	{
 		count = poll_dev->poll(poll_dev_v0, events, sizeof(events) / sizeof(sensors_event_t));
-		ts_cur = getTimestamp();
-		//if (event < 100)
-		//{
-		SENSOR_LOGI(LOG_TAG "Live: read events=%d, batch delta=%lld ms s&s, delta %lld ms, ts_cur=%lld ns, \
-			ts_prv=%lld ns, events[count-1].ts %lld ns\n",  count, (ts_cur - ts_prv) / 1000000, \
-			(ts_cur - sensor_ts) / 1000000, ts_cur, ts_prv, sensor_ts);
-	    //}
-		//else {
-		//	deactivate_sensors();
-		//}
-		ts_prv = ts_cur;
 		sensor_ts = events[count - 1].timestamp;
-		//if (event < 100)
+		ts_cur = getTimestamp();
+		SENSOR_LOGI(LOG_TAG "Live: read events=%d, batch delta in ms=%lld latency in ms=%lld\n", count, (ts_cur - ts_prv) / 1000000, (ts_cur - sensor_ts) / 1000000);
+		ts_prv = ts_cur;
 		for(int i = 0; i < count; i++)
 			dump_event(&events[i]);
-		event = event + count;
 	}
 }
 
@@ -332,13 +318,14 @@ int main(int argc, char **argv)
 	int enable_temperature = 0;
 	int enable_buffer = 0;
 	int enable_live = 0;
+	int get_sensor_list = 0;
 	int service_run = 0;
 	pthread_t livetid;
 	pthread_t buffertid;
 	pthread_t temptid;
 
 	if(argc < 2)
-		Usage();
+		printHelp();
 
 	//checking command line argument
 	while ((ip_char = getopt (argc, argv, CMD_OPTIONS)) != -1)
@@ -348,19 +335,22 @@ int main(int argc, char **argv)
 		{
 			case 'l':
 				lib = argv[2];
-				if(strstr( lib, "asm3330") != NULL) {
+				if(strstr(lib, "asm3330") != NULL) {
 					sensor_type = SENSOR_ASM330;
 				}
-				if(strstr( lib, "smi130") != NULL) {
+				if(strstr(lib, "smi130") != NULL) {
 					sensor_type = SENSOR_SMI130;
 				}
-				if(strstr( lib, "smi230") != NULL) {
+				if(strstr(lib, "smi230") != NULL) {
 					sensor_type = SENSOR_SMI230;
 				}
-				if(strstr( lib, "iam20680") != NULL) {
+				if(strstr(lib, "iam20680") != NULL) {
 					sensor_type = SENSOR_IAM20680;
 				}
 				SENSOR_LOGV(LOG_TAG "sensor_type %d\n", sensor_type);
+				break;
+			case 'g':
+				get_sensor_list = strtol(optarg, &stopstring, 10);
 				break;
 			case 'b':
 				batch_time = strtol(optarg, &stopstring, 10);
@@ -381,7 +371,7 @@ int main(int argc, char **argv)
 				enable_buffer = strtol(optarg, &stopstring, 10);
 				break;
 			default:
-				Usage();
+				printHelp();
 				return 0;
 		}
 	}
@@ -389,6 +379,7 @@ int main(int argc, char **argv)
 	if (sensors_initialize(lib) == -1)
 	{
 		SENSOR_LOGE(LOG_TAG "sensor initialization failed\n");
+		exit(1);
 	}
 
 	SENSOR_LOGI(LOG_TAG "batch_time = %lld odr %lld enable_temperature %d enable_buffer %d enable_live %d\n", batch_time, odr, enable_temperature, enable_buffer, enable_live);
@@ -399,6 +390,12 @@ int main(int argc, char **argv)
 	//action.sa_handler = term;
 	//sigaction(SIGTERM, &action, NULL);
 
+	if(get_sensor_list) {
+		const struct sensor_t *s = NULL;
+		int sensor_num = 0;
+		sensor_num = get_sensor_list_all(&s);
+		SENSOR_LOGI("sensor_num %d\n",sensor_num);
+	}
 
 	//Initialize Temp Sensor
 	if (tempSensorDataInit(sensor_type))
