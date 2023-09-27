@@ -933,8 +933,6 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
                 PDEBUG("set gyro active");
                 ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_NORMAL);
                 is_gyr_open = 1;
-		PDEBUG("set gyro fifo wm: 60");
-		ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, 60);
 
 #ifndef SMI230_DATA_SYNC
         // if in data sync mode, odr is controled through ACC api
@@ -949,9 +947,8 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
         if (fifo_data_len < 1)
             fifo_data_len = 1;
 
-	fifo_data_len_in_bytes = SMI230_GYRO_BYTES_PER_FIFO_SAMPLE * fifo_data_len;
-	PINFO("write gyro wm as %d smaples, in %d bytes", fifo_data_len, fifo_data_len_in_bytes);
-	ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, fifo_data_len_in_bytes);
+        PINFO("write gyro wm as %d", fifo_data_len);
+        ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, fifo_data_len);
 #endif
             }
         }
