@@ -78,18 +78,18 @@ extern "C" {
 #if MPL_LOG_NDEBUG
 #define MPL_LOGV(...)						\
 	if (0) {						\
-		ALOGE("[IAM20680] Sensor:" __VA_ARGS__);	\
+		ALOGV("[IAM20680] Sensor:" __VA_ARGS__);	\
 	}
 #define MPL_LOGD(...)						\
 	if (0) {						\
-		ALOGE("[IAM20680] Sensor:" __VA_ARGS__);	\
+		ALOGD("[IAM20680] Sensor:" __VA_ARGS__);	\
 	}
 #else
-#define MPL_LOGV(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
-#define MPL_LOGD(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGV(...)	ALOGV("[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGD(...)	ALOGD("[IAM20680] Sensor:" __VA_ARGS__)
 #endif
-#define MPL_LOGI(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
-#define MPL_LOGW(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGI(...)	ALOGI("[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGW(...)	ALOGW("[IAM20680] Sensor:" __VA_ARGS__)
 #define MPL_LOGE(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
 
 #ifndef __predict_false

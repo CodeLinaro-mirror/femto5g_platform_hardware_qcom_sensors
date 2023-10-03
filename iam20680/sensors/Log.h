@@ -45,6 +45,10 @@ extern "C" {
 #else
 
 /* Linux logs */
+#ifndef LOG_NDEBUG
+#define LOG_NDEBUG 1
+#endif
+
 #if LOG_NDEBUG
 #define NDEBUG
 #endif
@@ -66,15 +70,15 @@ extern "C" {
 	} while (0)
 #endif
 
-#if LOG_NDEBUG
+//#if LOG_NDEBUG
 #define LOGV(...)	((void)0)
 #define LOGD(...)	((void)0)
-#else
-#define LOGV(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
-#define LOGD(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
-#endif
-#define LOGI(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
-#define LOGW(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+//#else
+//#define LOGV(...)	ALOGV("[IAM20680] Sensor:" __VA_ARGS__)
+//#define LOGD(...)	ALOGD("[IAM20680] Sensor:" __VA_ARGS__)
+//#endif
+#define LOGI(...)	ALOGI("[IAM20680] Sensor:" __VA_ARGS__)
+#define LOGW(...)	ALOGW("[IAM20680] Sensor:" __VA_ARGS__)
 #define LOGE(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
 
 

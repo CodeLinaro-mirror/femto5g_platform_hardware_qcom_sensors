@@ -332,7 +332,7 @@ MPLSensor::MPLSensor(CompassSensor *compass, PressureSensor *pressure)
     read_sysfs_int(mpu.gyro_fsr, &mGyroFsrDps); /* read actual fsr */
 
     /* reset batch timeout */
-    setBatchTimeout(0);
+    //setBatchTimeout(0);
 }
 
 void MPLSensor::enable_iio_sysfs(void)
@@ -1366,7 +1366,7 @@ int MPLSensor::inv_read_temperature(int *temperature, int64_t *ts)
 
     count = sscanf(raw_buf, "%d %lld", &raw, &timestamp);
     if (count < 0) {
-        LOGW("HAL:error parsing gyro temperature count=%d", count);
+        LOGV("HAL:error parsing gyro temperature count=%d", count);
         return -1;
     }
 
