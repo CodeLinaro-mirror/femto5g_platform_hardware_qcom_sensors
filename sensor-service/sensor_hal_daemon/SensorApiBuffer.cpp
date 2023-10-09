@@ -826,6 +826,7 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
 fail:
   CLOSE_FILE_HANDLE(mfdBuffAccel);
   CLOSE_FILE_HANDLE(mfdBuffGyro);
+  return false;
 }
 /**
  * @brief baching and for formatting of buffered data.
