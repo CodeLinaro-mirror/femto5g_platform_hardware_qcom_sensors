@@ -265,6 +265,18 @@ bool SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
 	    break;
      }
     }
+    /*Send Remaning of accel and gyro if sampling factor and batch count same to
+     * avoid latency issue*/
+    if (mVariableCountBatching == 1) {
+	    if(mAccCount != 0 && mAccFactor == 1){
+		    rc = SendDataToClient(&mAccEvents[0], mAccCount);
+		    mAccCount = 0;
+	    }
+	    if(mGyroCount != 0 && mGyroFactor == 1){
+		    rc = SendDataToClient(&mGyroEvents[0], mGyroCount);
+		    mGyroCount = 0;
+	    }
+    }
    }
    return rc;
 }

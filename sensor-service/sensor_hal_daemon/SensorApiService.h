@@ -101,6 +101,7 @@ typedef struct {
     int   AccRange;
     int   GyroRange;
     int   DebugLevel;
+    int   VariableCountBatching;
 } configParamToRead;
 
 
@@ -298,6 +299,7 @@ private:
     bool  mMlcSupported;
     int   mBatchConst;
     int   mDynamicConfigEnabled;
+    int   mVariableCountBatching;
 
     //Temperature file pointers
     struct asmFilePtr

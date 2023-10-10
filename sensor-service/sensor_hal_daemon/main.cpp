@@ -144,6 +144,11 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
                  sscanf(&line[1], "%d", &configParamRead->DebugLevel);
                  break;
          }
+         else if(strstr(buffer, "VARIABLE_COUNT_BASED_BATCHING=")) {
+                 line = strstr(buffer, "=");
+                 sscanf(&line[1], "%d", &configParamRead->VariableCountBatching);
+                 break;
+         }
        }
     }
     fclose(file);
@@ -157,13 +162,13 @@ void PrintSensorConfigParameters(configParamToRead configParamRead)
 	\tdynamicconfig:%d\n \
 	\tAccelName %s: AccSamplingRate :%f AccBatchcount :%d AccRange :%d\n \
 	\tGyroName  %s:GyroSamplingRate:%f GyroBatchcount:%d GyroRange:%d\n \
-	\tDebugLevel:%d\n",
+	\tVariableCountBatching:%d DebugLevel:%d\n",
 	configParamRead.SensorType,
 	configParamRead.SensorHalLibPath,
 	configParamRead.DynamicConfigEnabled,
 	configParamRead.AccelName, configParamRead.MaxAccSampleRate, configParamRead.MinAccBatchCount, configParamRead.AccRange,
 	configParamRead.GyroName,  configParamRead.MaxGyroSampleRate, configParamRead.MinGyroBatchCount, configParamRead.GyroRange,
-	configParamRead.DebugLevel);
+	configParamRead.VariableCountBatching, configParamRead.DebugLevel);
 }
 
 //MAIN
