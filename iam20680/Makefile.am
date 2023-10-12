@@ -32,7 +32,7 @@ libiam20680sensors_la_CFLAGS = $(AM_CFLAGS)
 libiam20680sensors_la_LDFLAGS = -lpthread -shared -version-info 1:0:0
 libiam20680sensors_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
-libiam20680sensors_la_LIBADD = -lstdc++
+libiam20680sensors_la_LIBADD = -lstdc++ -llog
 
 #Create and Install libraries
 lib_LTLIBRARIES = libiam20680sensors.la

@@ -106,6 +106,7 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mMinGyroBatchCount(configParamRead.MinGyroBatchCount),
     mAccRange(configParamRead.AccRange),
     mGyroRange(configParamRead.GyroRange),
+    mVariableCountBatching(configParamRead.VariableCountBatching),
     mhmi(nullptr),
     mdev(nullptr),
     mpoll_dev_v0(nullptr),
@@ -788,6 +789,7 @@ void SensorApiService::startTracking(SensorAPIStartTrackingReqMsg *pMsg) {
     }
 
     pClient->mTracking = true;
+    pClient->mVariableCountBatching = mVariableCountBatching;
     pClient->mPendingMessages.push(E_SENSORAPI_START_TRACKING_MSG_ID);
     pClient->onResponseCb(ret, E_SENSORAPI_START_TRACKING_MSG_ID);
 

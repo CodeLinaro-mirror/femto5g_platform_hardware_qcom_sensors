@@ -72,6 +72,7 @@ public:
 	    mServiceId(-1),
 	    mInstanceId(-1),
 	    mTracking(false),
+	    mVariableCountBatching(0),
 	    mAccTracking(false),
 	    mGyroTracking(false),
 	    mActivate(nullptr),
@@ -159,6 +160,7 @@ public:
     bool    mTracking;
     bool    mAccTracking;
     bool    mGyroTracking;
+    int     mVariableCountBatching;
 
     //Client config parameters of sensor
     int*    mActivate;
