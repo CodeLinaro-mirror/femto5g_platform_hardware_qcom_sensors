@@ -10,13 +10,13 @@ CFLAGS += -std=gnu11
 CFLAGS += $(INV_CFLAGS)
 
 # source C files
-SRC_C_FILES += test-sensors-sysfs.c
+SRC_C_FILES += iio-buffer-read.c
 
 # include dirs
 CFLAGS += $(foreach inc, $(INV_INCLUDES), -I$(HAL_SRC_DIR)/$(inc))
 
 # test application
-TEST_MODULE := test-sensors-sysfs
+TEST_MODULE := iio-buffer-read
 
 OBJ_FILES := $(SRC_C_FILES:.c=.o)
 

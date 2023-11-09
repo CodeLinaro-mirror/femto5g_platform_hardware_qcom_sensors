@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2020 InvenSense, Inc.
+ * Copyright (C) 2023 InvenSense, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,11 @@
 #include <getopt.h>
 #include <math.h>
 #include <string.h>
+#include <sys/ioctl.h>
 
-#define VERSION_STR             "1.2.1"
+#define IIO_BUFFER_GET_FD_IOCTL                 _IOWR('i', 0x91, int)
+
+#define VERSION_STR             "1.0.0"
 #define USAGE_NOTE              ""
 
 #define IIO_BUFFER_LENGTH       32768
@@ -42,12 +45,13 @@
 
 /* sysfs to control chip */
 #define SYSFS_PATH              "/sys/bus/iio/devices/iio:device%lu"
+#define SYSFS_BUFFER_PATH	"buffer%lu"
 #define SYSFS_CHIP_NAME         "name"
-#define SYSFS_CHIP_ENABLE       "buffer/enable"
-#define SYSFS_BUFFER_LENGTH     "buffer/length"
-#define SYSFS_SCAN_EL_EN      "scan_elements/in_accel_en"
-#define SYSFS_SCAN_EL_INDEX   "scan_elements/in_accel_index"
-#define SYSFS_SCAN_EL_TYPE    "scan_elements/in_accel_type"
+#define SYSFS_BUFFER_ENABLE     "enable"
+#define SYSFS_BUFFER_LENGTH     "length"
+#define SYSFS_SCAN_EL_EN        "in_accel_en"
+#define SYSFS_SCAN_EL_INDEX     "in_accel_index"
+#define SYSFS_SCAN_EL_TYPE      "in_accel_type"
 #define SYSFS_GYRO_ORIENT       "info_anglvel_matrix"
 #define SYSFS_GYRO_FIFO_ENABLE  "in_anglvel_enable"
 #define SYSFS_GYRO_FSR          "in_anglvel_scale"
@@ -65,34 +69,15 @@ enum {
     SENSOR_NUM
 };
 
-enum {
-    ACCEL_FSR_2G = 0,
-    ACCEL_FSR_4G = 1,
-    ACCEL_FSR_8G = 2,
-    ACCEL_FSR_16G = 3,
-    ACCEL_FSR_32G = 4       /* only for ICM42686, ICM40609D */
-};
-
-enum {
-    GYRO_FSR_250DPS = 0,
-    GYRO_FSR_500DPS = 1,
-    GYRO_FSR_1000DPS = 2,
-    GYRO_FSR_2000DPS = 3,
-    GYRO_FSR_4000DPS = 4    /* only for ICM42686 */
-};
-
-/* update below for required FSR (except for FIFO high res mode chips) */
-#define DEFAULT_ACCEL_FSR    ACCEL_FSR_8G
-#define DEFAULT_GYRO_FSR     GYRO_FSR_2000DPS
-
 /* iio sysfs path */
 static char iio_sysfs_path[1024] = "";
+static char iio_buffer_path[32] = "";
 
 /* iio device path */
 static char iio_dev_path[1024] = "";
 
 /* file descriptor for IIO_DEVICE */
-static int iio_fd = -1;
+static int iio_buffer_fd = -1;
 
 /* saved timestamp for each sensor */
 static int64_t accel_prev_ts;
@@ -124,20 +109,16 @@ static int iio_read_size;
 static const struct option options[] = {
     {"help", no_argument, NULL, 'h'},
     {"device", required_argument, NULL, 'd'},
-    {"accel", required_argument, NULL, 'a'},
-    {"gyro", required_argument, NULL, 'g'},
+    {"buffer", required_argument, NULL, 'b'},
     {"convert", no_argument, NULL, 'c'},
-    {"batch", required_argument, NULL, 'b'},
     {0, 0, 0, 0},
 };
 
 static const char *options_descriptions[] = {
     "Show this help and quit.",
     "Choose device by numero.",
-    "Turn accelerometer on with ODR (Hz).",
-    "Turn gyroscope on with ODR (Hz).",
+    "Choose buffer by numero.",
     "Show data after unit conversion (m/s^2, rad/s)",
-    "Set batch timeout in ms.",
 };
 
 /* get the current time */
@@ -149,14 +130,13 @@ static int64_t get_current_timestamp(void)
     return  (int64_t)tp.tv_sec * 1000000000LL + (int64_t)tp.tv_nsec;
 }
 
-/* write a value to sysfs */
-static int write_sysfs_int(char *attr, int data)
+static int write_buffer_sysfs_int(char *attr, int data)
 {
     FILE *fp;
     int ret;
-    char path[1024];
+    static char path[1024];
 
-    ret = snprintf(path, sizeof(path), "%s/%s", iio_sysfs_path, attr);
+    ret = snprintf(path, sizeof(path), "%s/%s/%s", iio_sysfs_path, iio_buffer_path, attr);
     if (ret < 0 || ret >= (int)sizeof(path)) {
         return -1;
     }
@@ -183,7 +163,7 @@ static int read_sysfs_int(char *attr, int *data)
 {
     FILE *fp;
     int ret;
-    char path[1024];
+    static char path[1024];
 
     ret = snprintf(path, sizeof(path), "%s/%s", iio_sysfs_path, attr);
     if (ret < 0 || ret >= (int)sizeof(path)) {
@@ -210,7 +190,7 @@ static int read_sysfs_int(char *attr, int *data)
 /* get sensor orientation from sysfs */
 static int get_sensor_orient(int sensor, int *orient)
 {
-    char path[1024];
+    static char path[1024];
     FILE *fp;
     int ret;
     char *attr;
@@ -259,8 +239,8 @@ static int show_chip_name(void)
 {
     FILE *fp;
     int ret;
-    char name[256];
-    char path[1024];
+    static char name[256];
+    static char path[1024];
 
     ret = snprintf(path, sizeof(path), "%s/%s", iio_sysfs_path, SYSFS_CHIP_NAME);
     if (ret < 0 || ret >= (int)sizeof(path)) {
@@ -285,28 +265,29 @@ static int show_chip_name(void)
 }
 
 /* setup iio */
-static int setup_iio(void)
+static int setup_iio(int buffer_no)
 {
+    int iio_fd;
     int ret;
-    char path[1024];
+    static char path[1024];
 
     /* disable */
-    ret = write_sysfs_int(SYSFS_CHIP_ENABLE, 0);
+    ret = write_buffer_sysfs_int(SYSFS_BUFFER_ENABLE, 0);
     if (ret)
         return ret;
 
     /* scan_elements en */
-    ret = write_sysfs_int(SYSFS_SCAN_EL_EN, 1);
+    ret = write_buffer_sysfs_int(SYSFS_SCAN_EL_EN, 1);
     if (ret)
         return ret;
 
     /* buffer length */
-    ret = write_sysfs_int(SYSFS_BUFFER_LENGTH, IIO_BUFFER_LENGTH);
+    ret = write_buffer_sysfs_int(SYSFS_BUFFER_LENGTH, IIO_BUFFER_LENGTH);
     if (ret)
         return ret;
 
     /* enable */
-    ret = write_sysfs_int(SYSFS_CHIP_ENABLE, 1);
+    ret = write_buffer_sysfs_int(SYSFS_BUFFER_ENABLE, 1);
     if (ret)
         return ret;
 
@@ -323,55 +304,16 @@ static int setup_iio(void)
         return -errno;
     }
 
+    ret = ioctl(iio_fd, IIO_BUFFER_GET_FD_IOCTL, &buffer_no);
+    close(iio_fd);
+    if (ret == -1) {
+        printf("failed to do ioctl error %d\n", errno);
+        fflush(stdout);
+        return -errno;
+    }
+    iio_buffer_fd = buffer_no;
+
     return 0;
-}
-
-/* enable sensor through sysfs */
-static int enable_sensor(int sensor, int en)
-{
-    int ret = 0;
-
-    if (sensor == SENSOR_ACCEL) {
-        ret = write_sysfs_int(SYSFS_ACCEL_FIFO_ENABLE, en);
-    } else if (sensor == SENSOR_GYRO) {
-        ret = write_sysfs_int(SYSFS_GYRO_FIFO_ENABLE, en);
-    } else {
-        printf("invalid sensor type\n");
-    }
-    fflush(stdout);
-    return ret;
-}
-
-/* set odr through sysfs */
-static int set_sensor_rate(int sensor, int hz)
-{
-    int ret = 0;
-
-    if (sensor == SENSOR_ACCEL) {
-        ret = write_sysfs_int(SYSFS_ACCEL_RATE, hz);
-    } else if (sensor == SENSOR_GYRO) {
-        ret = write_sysfs_int(SYSFS_GYRO_RATE, hz);
-    } else {
-        printf("invalid sensor type\n");
-    }
-    fflush(stdout);
-    return ret;
-}
-
-/* set fsr through sysfs */
-static int set_sensor_fsr(int sensor, int fsr)
-{
-    int ret = 0;
-
-    if (sensor == SENSOR_ACCEL) {
-        ret = write_sysfs_int(SYSFS_ACCEL_FSR, fsr);
-    } else if (sensor == SENSOR_GYRO) {
-        ret = write_sysfs_int(SYSFS_GYRO_FSR, fsr);
-    } else {
-        printf("invalid sensor type\n");
-    }
-    fflush(stdout);
-    return ret;
 }
 
 /* get fsr through sysfs */
@@ -390,12 +332,6 @@ static int get_sensor_fsr(int sensor, int *fsr)
     return ret;
 }
 
-/* set batch timeout */
-static int set_sensor_batch_timeout(int ms)
-{
-    return write_sysfs_int(SYSFS_BATCH_TIMEOUT, ms);
-}
-
 /* show usage */
 static void usage(void)
 {
@@ -409,42 +345,6 @@ static void usage(void)
                 options_descriptions[i]);
     printf("Version:\n\t%s\n", VERSION_STR);
     printf("Note:\n\t%s\n\n", USAGE_NOTE);
-    fflush(stdout);
-}
-
-/* show batch information */
-static void show_batch_info(bool accel_en, bool gyro_en, unsigned long accel_hz, unsigned long gyro_hz, unsigned long batch_ms)
-{
-    int64_t curr_ts = get_current_timestamp();
-    int64_t odr_ns;
-    unsigned long odr_hz = 4;
-
-    if (accel_en && accel_hz > odr_hz)
-        odr_hz = accel_hz;
-    if (gyro_en && gyro_hz > odr_hz)
-        odr_hz = gyro_hz;
-
-    odr_ns = NS_IN_SEC / odr_hz;
-
-    if (batch_ms) {
-        if (curr_ts > (last_poll_time_ns + odr_ns)) {
-            if (accel_en) {
-                if (batched_sample_accel_nb)
-                    printf("INFO Previous batch count for Accel is %d\n",
-                            batched_sample_accel_nb);
-                batched_sample_accel_nb = 0;
-            }
-            if (gyro_en) {
-                if (batched_sample_gyro_nb)
-                    printf("INFO Previous batch count for Gyro  is %d\n",
-                            batched_sample_gyro_nb);
-                batched_sample_gyro_nb = 0;
-            }
-            printf("INFO New batch duration %" PRId64 " ms\n",
-                    (curr_ts - last_poll_time_ns) / 1000000);
-        }
-    }
-    last_poll_time_ns = curr_ts;
     fflush(stdout);
 }
 
@@ -470,7 +370,7 @@ static int read_and_show_data(int *accel_orient, int *gyro_orient, double accel_
 
     /* read data from char device */
     nbytes = sizeof(iio_read_buf) - iio_read_size;
-    len = read(iio_fd, &iio_read_buf[iio_read_size], nbytes);
+    len = read(iio_buffer_fd, &iio_read_buf[iio_read_size], nbytes);
     //printf("read len = %d\n", len);
     if (len < 0) {
         printf("failed to read iio buffer\n");
@@ -604,24 +504,8 @@ static void sig_handler(int s)
 
     (void)s;
 
-    /* disable all sensors */
-    printf("Disable accel\n");
-    ret = enable_sensor(SENSOR_ACCEL, 0);
-    if (ret) {
-        printf("failed to enable accel\n");
-        fflush(stdout);
-        return;
-    }
-    printf("Disable gyro\n");
-    ret = enable_sensor(SENSOR_GYRO, 0);
-    if (ret) {
-        printf("failed to enable gyro\n");
-        fflush(stdout);
-        return;
-    }
-
     printf("Disable buffer\n");
-    ret = write_sysfs_int(SYSFS_CHIP_ENABLE, 0);
+    ret = write_buffer_sysfs_int(SYSFS_BUFFER_ENABLE, 0);
     if (ret) {
         printf("failed to disable buffer\n");
         fflush(stdout);
@@ -629,10 +513,7 @@ static void sig_handler(int s)
     }
 
     /* close */
-    if (iio_fd != -1) {
-        close(iio_fd);
-        iio_fd = -1;
-    }
+    close(iio_buffer_fd);
 
     fflush(stdout);
     exit(1);
@@ -646,65 +527,29 @@ int main(int argc, char *argv[])
     int gyro_orient[9], accel_orient[9];
     struct sigaction sig_action;
     int opt, option_index;
-    bool accel_en = false;
-    bool gyro_en = false;
-    unsigned long accel_hz = 5;
-    unsigned long gyro_hz = 5;
     unsigned long device_no = 0;
+    unsigned long buffer_no = 0;
     bool convert = false;
-    unsigned long batch_ms = 0;
     int accel_fsr_gee = 0;
     int gyro_fsr_dps = 0;
     double accel_scale = 0;
     double gyro_scale = 0;
 
-    int accel_fsr = DEFAULT_ACCEL_FSR;
-    int gyro_fsr = DEFAULT_GYRO_FSR;
-
-    /* Force FSR settings for FIFO high res chips */
-#ifdef FIFO_HIGH_RES_ENABLE
-
-#ifdef ACCEL_ENHANCED_FSR_SUPPORT
-    accel_fsr = ACCEL_FSR_32G;
-#else
-    accel_fsr = ACCEL_FSR_16G;
-#endif
-
-#ifdef GYRO_ENHANCED_FSR_SUPPORT
-    gyro_fsr = GYRO_FSR_4000DPS;
-#else
-    gyro_fsr = GYRO_FSR_2000DPS;
-#endif
-
-#endif
-
-    while ((opt = getopt_long(argc, argv, "hd:a:g:cb:", options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hd:b:c", options, &option_index)) != -1) {
         switch (opt) {
-            case 'a':
-                accel_en = true;
-                accel_hz = strtoul(optarg, NULL, 10);
-                break;
-            case 'g':
-                gyro_en = true;
-                gyro_hz = strtoul(optarg, NULL, 10);
-                break;
             case 'd':
                 device_no = strtoul(optarg, NULL, 10);
                 break;
+            case 'b':
+                buffer_no = strtoul(optarg, NULL, 10);
+                break;
             case 'c':
                 convert = true;
-                break;
-            case 'b':
-                batch_ms = (int)strtoul(optarg, NULL, 10);
                 break;
             case 'h':
                 usage();
                 return 0;
         }
-    }
-    if (!accel_en && !gyro_en) {
-        usage();
-        return 0;
     }
 
     /* signal handling */
@@ -717,6 +562,12 @@ int main(int argc, char *argv[])
     ret = snprintf(iio_sysfs_path, sizeof(iio_sysfs_path), SYSFS_PATH, device_no);
     if (ret < 0 || ret >= (int)sizeof(iio_sysfs_path)) {
         printf("error %d cannot set iio sysfs path\n", ret);
+        fflush(stdout);
+        return -errno;
+    }
+    ret = snprintf(iio_buffer_path, sizeof(iio_buffer_path), SYSFS_BUFFER_PATH, buffer_no);
+    if (ret < 0 || ret >= (int)sizeof(iio_buffer_path)) {
+        printf("error %d cannot set iio buffer path\n", ret);
         fflush(stdout);
         return -errno;
     }
@@ -755,80 +606,23 @@ int main(int argc, char *argv[])
     }
 
     /* setup iio */
-    printf(">Set up IIO\n");
+    printf(">Set up IIO with buffer #%lu\n", buffer_no);
     fflush(stdout);
-    ret = setup_iio();
+    ret = setup_iio(buffer_no);
     if (ret) {
         printf("failed to set up iio\n");
         fflush(stdout);
         return ret;
     }
 
-    /* make sure all sensors are disabled */
-    printf(">Disable accel\n");
-    fflush(stdout);
-    ret = enable_sensor(SENSOR_ACCEL, 0);
-    if (ret) {
-        printf("failed to enable accel\n");
-        fflush(stdout);
-        return ret;
-    }
-    printf(">Disable gyro\n");
-    fflush(stdout);
-    ret = enable_sensor(SENSOR_GYRO, 0);
-    if (ret) {
-        printf("failed to enable gyro\n");
-        fflush(stdout);
-        return ret;
-    }
-
-    /* set batch mode */
-    if (accel_en || gyro_en) {
-        printf(">Set batch timeout\n");
-        fflush(stdout);
-        ret = set_sensor_batch_timeout(batch_ms);
-        if (ret)
-            return ret;
-    }
-
-    /* set FIFO high resolution mode */
-#ifdef FIFO_HIGH_RES_ENABLE
-    printf(">Enable FIFO High resolution mode\n");
-    write_sysfs_int(SYSFS_HIGH_RES_MODE, 1); // do not check error
-#else
-    printf(">Disable FIFO High resolution mode\n");
-    write_sysfs_int(SYSFS_HIGH_RES_MODE, 0); // do not check error
-#endif
-    fflush(stdout);
-
     /* accel setup */
-    if (accel_en) {
-        printf(">Set accel FSR\n");
-        fflush(stdout);
-        ret = set_sensor_fsr(SENSOR_ACCEL, accel_fsr);
-        if (ret)
-            return ret;
-        printf(">Get accel FSR\n");
-        fflush(stdout);
-        ret = get_sensor_fsr(SENSOR_ACCEL, &accel_fsr_gee);
-        if (ret)
-            return ret;
-        printf(">Set accel rate\n");
-        fflush(stdout);
-        ret = set_sensor_rate(SENSOR_ACCEL, accel_hz);
-        if (ret)
-            return ret;
-        printf(">Enable accel\n");
-        fflush(stdout);
-        ret = enable_sensor(SENSOR_ACCEL, 1);
-        if (ret) {
-            printf("failed to enable accel\n");
-            fflush(stdout);
-            return ret;
-        }
-        accel_prev_ts = get_current_timestamp();
-        batched_sample_accel_nb = 0;
-    }
+    printf(">Get accel FSR\n");
+    fflush(stdout);
+    ret = get_sensor_fsr(SENSOR_ACCEL, &accel_fsr_gee);
+    if (ret)
+        return ret;
+    accel_prev_ts = get_current_timestamp();
+    batched_sample_accel_nb = 0;
 #ifdef FIFO_HIGH_RES_ENABLE
     accel_scale = (double)accel_fsr_gee / 524288.f * 9.80665f; // LSB(20bit) to m/s^2
 #else
@@ -836,33 +630,13 @@ int main(int argc, char *argv[])
 #endif
 
     /* gyro setup */
-    if (gyro_en) {
-        printf(">Set gyro FSR\n");
-        fflush(stdout);
-        ret = set_sensor_fsr(SENSOR_GYRO, gyro_fsr);
-        if (ret)
-            return ret;
-        printf(">Get gyro FSR\n");
-        fflush(stdout);
-        ret = get_sensor_fsr(SENSOR_GYRO, &gyro_fsr_dps);
-        if (ret)
-            return ret;
-        printf(">Set gyro rate\n");
-        fflush(stdout);
-        ret = set_sensor_rate(SENSOR_GYRO, gyro_hz);
-        if (ret)
-            return ret;
-        printf(">Enable gyro\n");
-        fflush(stdout);
-        ret = enable_sensor(SENSOR_GYRO, 1);
-        if (ret) {
-            printf("failed to enable gyro\n");
-            fflush(stdout);
-            return ret;
-        }
-        gyro_prev_ts = get_current_timestamp();
-        batched_sample_gyro_nb = 0;
-    }
+    printf(">Get gyro FSR\n");
+    fflush(stdout);
+    ret = get_sensor_fsr(SENSOR_GYRO, &gyro_fsr_dps);
+    if (ret)
+        return ret;
+    gyro_prev_ts = get_current_timestamp();
+    batched_sample_gyro_nb = 0;
 #ifdef FIFO_HIGH_RES_ENABLE
     gyro_scale = (double)gyro_fsr_dps / 524288.f * M_PI / 180; // LSB(20bit) to rad/s
 #else
@@ -875,15 +649,13 @@ int main(int argc, char *argv[])
     while (1) {
         struct pollfd fds[1];
         int nb;
-        fds[0].fd = iio_fd;
+        fds[0].fd = iio_buffer_fd;
         fds[0].events = POLLIN;
         fds[0].revents = 0;
         nb = poll(fds, 1, -1);
         if (nb > 0) {
             if (fds[0].revents & (POLLIN | POLLPRI)) {
                 fds[0].revents = 0;
-                /* show batch information */
-                show_batch_info(accel_en, gyro_en, accel_hz, gyro_hz, batch_ms);
                 /* read sensor from FIFO and show */
                 read_and_show_data(accel_orient, gyro_orient, accel_scale, gyro_scale, convert);
             }

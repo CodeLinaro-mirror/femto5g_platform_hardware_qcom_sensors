@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014-2017 The Android Open Source Project
- * Copyright (C) 2017-2018 InvenSense, Inc.
+ * Copyright (C) 2017-2020 InvenSense, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,40 +15,20 @@
  * limitations under the License.
  */
 
-#ifndef COMPASS_SENSOR_PRIMARY_H
-#define COMPASS_SENSOR_PRIMARY_H
+#ifndef COMPASS_SENSOR_H
+#define COMPASS_SENSOR_H
 
+#include <stdlib.h>
 #include <stdint.h>
-#include <errno.h>
-#include <sys/cdefs.h>
-#include <sys/types.h>
-
-#include <stdint.h>
-#include <errno.h>
-#include <sys/cdefs.h>
-#include <sys/types.h>
-#include <poll.h>
 
 #include "InvnSensors.h"
 #include "SensorBase.h"
+
 #include "inv_iio_buffer.h"
 
 #define MAX_CHIP_ID_LEN (20)
 #define COMPASS_ON_PRIMARY "in_magn_x_raw"
 
-//COMPASS_ID_AK09911
-#define COMPASS_AKM9911_RANGE           (4912.f)
-#define COMPASS_AKM9911_RESOLUTION      (0.6f)
-#define COMPASS_AKM9911_POWER           (2.4f)
-#define COMPASS_AKM9911_MINDELAY        (10000)
-#define COMPASS_AKM9911_MAXDELAY        (200000)
-
-//COMPASS_ID_AK09916
-#define COMPASS_AKM9916_RANGE           (9830.f)
-#define COMPASS_AKM9916_RESOLUTION      (0.15f)
-#define COMPASS_AKM9916_POWER           (10.f)
-#define COMPASS_AKM9916_MINDELAY        (10000)
-#define COMPASS_AKM9916_MAXDELAY        (200000)
 
 class CompassSensor : public SensorBase {
 
@@ -56,55 +36,51 @@ public:
     CompassSensor();
     virtual ~CompassSensor();
 
-    virtual int readEvents(sensors_event_t* data, int count) { (void)data; (void)count; return 0; }
-    virtual int readSample(int *data, int64_t *timestamp, int len);
-    virtual int getFd() const;
     virtual int enable(int32_t handle, int enabled);
     virtual int batch(int handle, int flags, int64_t period_ns, int64_t timeout) { (void)handle; (void)flags; (void)period_ns; (void)timeout; return 0; }
     virtual int flush(int handle) {(void)handle; return 0;}
-    virtual int setDelay(int handle, int64_t period_ns);
-    virtual void getOrientationMatrix(int8_t *orient);
+    virtual int setDelay(int32_t handle, int64_t ns);
+    // unnecessary for MPL
+    virtual int readEvents(sensors_event_t *data, int count)
+        { (void)data; (void)count; return 0; }
 
+    int readSample(int *data, int64_t *timestamp);
     int providesCalibration() { return 0; }
+    void getOrientationMatrix(signed char *orient);
     int getAccuracy() { return 0; }
+    int isSensorPresent(void);
+    int populateSensorList(struct sensor_t *list, int len);
     void fillList(struct sensor_t *list);
 
-protected:
-    virtual void enableIIOSysfs(void);
-    virtual int initSysfsAttr(void);
 private:
-    struct sysfs_attrbs {
-       char *buffer_enable;
-       char *buffer_length;
-
-       char *compass_enable;
-       char *compass_index;
-       char *compass_type;
-       char *compass_x_enable;
-       char *compass_x_index;
-       char *compass_x_type;
-       char *compass_y_enable;
-       char *compass_y_index;
-       char *compass_y_type;
-       char *compass_z_enable;
-       char *compass_z_index;
-       char *compass_z_type;
-       char *timestamp_enable;
-       char *timestamp_index;
-       char *timestamp_type;
-       char *compass_rate;
-       char *compass_scale;
-       char *compass_offset;
-       char *compass_x_scale;
-       char *compass_x_offset;
-       char *compass_y_scale;
-       char *compass_y_offset;
-       char *compass_z_scale;
-       char *compass_z_offset;
-       char *timestamp_scale;
-       char *timestamp_offset;
-       char *compass_orient;
-    } compassSysFs;
+    enum sysfs_attr {
+        BUFFER_ENABLE,
+        BUFFER_LENGTH,
+        COMPASS_X_ENABLE,
+        COMPASS_X_INDEX,
+        COMPASS_X_TYPE,
+        COMPASS_Y_ENABLE,
+        COMPASS_Y_INDEX,
+        COMPASS_Y_TYPE,
+        COMPASS_Z_ENABLE,
+        COMPASS_Z_INDEX,
+        COMPASS_Z_TYPE,
+        TIMESTAMP_ENABLE,
+        TIMESTAMP_INDEX,
+        TIMESTAMP_TYPE,
+        COMPASS_RATE,
+        COMPASS_X_SCALE,
+        COMPASS_X_OFFSET,
+        COMPASS_Y_SCALE,
+        COMPASS_Y_OFFSET,
+        COMPASS_Z_SCALE,
+        COMPASS_Z_OFFSET,
+        TIMESTAMP_SCALE,
+        TIMESTAMP_OFFSET,
+        COMPASS_ORIENT,
+        SYSFS_ATTR_NB,
+    };
+    char *compassSysFs[SYSFS_ATTR_NB];
 
     char dev_full_name[MAX_CHIP_ID_LEN];
 
@@ -112,7 +88,6 @@ private:
         MAG_X_CHANNEL,
         MAG_Y_CHANNEL,
         MAG_Z_CHANNEL,
-        MAG_CHANNEL,
         TIMESTAMP_CHANNEL,
         CHANNELS_NB,
     };
@@ -124,13 +99,15 @@ private:
 
     // implementation specific
     signed char mCompassOrientation[9];
-    int compass_fd;
     int mEnable;
     int64_t mDelay;
     int64_t mMinDelay;
     int64_t mMaxDelay;
-
+    int64_t mTimestamp;
     char mIIOBuffer[CHANNELS_NB * 8 * IIO_BUFFER_LENGTH];
+
+    void enable_iio_sysfs(void);
+    int inv_init_sysfs_attributes(void);
 };
 
 /*****************************************************************************/

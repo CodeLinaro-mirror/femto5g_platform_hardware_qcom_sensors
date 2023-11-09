@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 InvenSense, Inc.
+ * Copyright (C) 2014-2020 InvenSense, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,23 +29,26 @@ __BEGIN_DECLS
 #endif
 
 enum {
-    ID_RG = 0,
+    ID_G = 0,
     ID_A,
-    ID_RM,
+    ID_M,
+    ID_PS,
     ID_NUMBER
 };
 
 enum {
-    RawGyro = ID_RG,
+    Gyro = ID_G,
     Accelerometer = ID_A,
-    RawMagneticField = ID_RM,
+    MagneticField = ID_M,
+    Pressure = ID_PS,
     TotalNumSensors = ID_NUMBER,
 };
 
 /* Physical parameters of the sensors supported by Invensense MPL */
-#define SENSORS_RAW_GYROSCOPE_HANDLE               (ID_RG)
+#define SENSORS_GYROSCOPE_HANDLE                   (ID_G)
 #define SENSORS_ACCELERATION_HANDLE                (ID_A)
-#define SENSORS_RAW_MAGNETIC_FIELD_HANDLE          (ID_RM)
+#define SENSORS_MAGNETIC_FIELD_HANDLE              (ID_M)
+#define SENSORS_PRESSURE_HANDLE                    (ID_PS)
 
 __END_DECLS
 
