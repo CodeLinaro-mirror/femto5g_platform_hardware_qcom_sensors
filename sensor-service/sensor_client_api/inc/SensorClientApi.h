@@ -24,6 +24,12 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 
 #ifndef SENSORCLIENTAPI_H
@@ -35,6 +41,11 @@
 #include <memory>
 #include <sensors.h>
 #include <SensorList.h>
+
+/** Sensor Client Interface Major Version */
+#define SCI_MAJOR_VERSION  1
+/** Sensor Client Interface Minor Version */
+#define SCI_MINOR_VERSION  1
 
 using std::string;
 
@@ -58,9 +69,10 @@ typedef std::function<void(
                 (sensor_list->sampling_rate) to requested sampling rate by sensor_config api).
     @param[out] batch_count: The reported batch count is multiplication of minBatchCount and
                 should be nearest to or equal to requested batch count in sensor_config.
+    @param[out] rotate: sensor data rotation identifier.
 */
 typedef std::function<void(
-    int sensor_id, float sampling_rate, int batch_count
+    int sensor_id, float sampling_rate, int batch_count, bool rotate
 )> BatchingCb;
 
 /** @brief
@@ -247,6 +259,7 @@ public:
 
         @param[in]  SampingRate: sampling rate of sensors. <br/>
         @param[in]  BatchCount: batch count of sensor events. <br/>
+        @param[in]  Rotate: Rotate data as per configure or not. <br/>
         @param[out] BatchingCb: callback to notify the updated sampling rate and batch count. <br/>
 
         @return:
@@ -262,7 +275,7 @@ public:
 		SENSOR_ERROR_CONFIG_FAILED            : physical sensor configuration fail.
 
     **/
-    int sensor_config(int sensor_id, float SampingRate, int BatchCount, BatchingCb batchingCallback);
+    int sensor_config(int sensor_id, float sampingRate, int batchCount, bool rotate, BatchingCb batchingCallback);
 
     /*================================== Sensor Control - Activate/Deactivate ================================== */
     /** @brief Activates or deactivates a sensor <b/r>
@@ -435,6 +448,30 @@ public:
                 SENSOR_ERROR_INVALID_INPUT_PARAMETERS : invalid input of sensor_id or enable.
     **/
     int sensor_self_test(int sensor_id, SelfTestType selfTestType, int request_id, SelfTestResultCallback);
+    /*================================== Sensor Euler Angles Update ============================================ */
+    /** @brief update euler angles for sensor <b/r>
+
+        // This API is called to calculate rotational matrix
+	// It takes yaw, pitch and roll as a parameters
+	// The values should be inbetween o to 3600 range
+
+	This API need to call only once with required config, the rotated data will be reported
+	to applicaion using SensorDataReadCb along with respecitve sensor_id.
+
+        @param[in] rolld: rotation around Y [0 , 3600] degree*10, Positive counter-clockwise, Resolution: 0.1 degree/bit. <br/>
+        @param[in] pitchd: rotation around X [0 , 3600] degree*10, Positive counter-clockwise, Resolution: 0.1 degree/bit. <br/>
+        @param[in] yawd: rotation around Z [0 , 3600] degree*10, Positive counter-clockwise, Resolution: 0.1 degree/bit. <br/>
+
+        @return:
+                SENSOR_RESPONSE_SUCCESS               : Success
+                SENSOR_ERROR_CLIENT_REGISTER_FAILED   : client is not registered
+                SENSOR_ERROR_INVALID_CLIENT           : client id is not generated
+                SENSOR_ERROR_IPC_FAILED               : failed socket communication b/w SHD
+                                                        and client lib.
+                SENSOR_ERROR_NO_SENSORS_FOUND         : no sensors supported by h/w
+                SENSOR_ERROR_INVALID_INPUT_PARAMETERS : invalid input of sensor_id or enable.
+    **/
+    int sensor_update_rotation_matrix(uint16_t rolld, uint16_t pitchd, uint16_t yawd);
 private:
     /** Internal implementation for SensorClient */
     SensorClientImpl* mApiImpl;

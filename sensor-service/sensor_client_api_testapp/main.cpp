@@ -25,7 +25,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
@@ -123,7 +123,7 @@ static void PrintSensorList(struct sensor_list *sensor, int sensor_count)
            SENSOR_LOGI(LOG_TAG "\tsensor_id: %d\n",sensor[i].sensor_id);
            SENSOR_LOGI(LOG_TAG "\ttype: %d\n",sensor[i].type);
            SENSOR_LOGI(LOG_TAG "\trange: %d\n",sensor[i].range);
-           SENSOR_LOGI(LOG_TAG "\tmaxSamplingRate: %d\n",sensor[i].maxSamplingRate);
+           SENSOR_LOGI(LOG_TAG "\tmaxSamplingRate: %f\n",sensor[i].maxSamplingRate);
            SENSOR_LOGI(LOG_TAG "\tminBatchCount: %d\n",sensor[i].minBatchCount);
            SENSOR_LOGI(LOG_TAG "\tmaxBatchCount: %d\n",sensor[i].maxBatchCount);
            SENSOR_LOGI(LOG_TAG "\todr rate: %fHZ %fHZ %fHZ %fHZ %fHZ %fHZ\n",
@@ -227,9 +227,9 @@ static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
     }
 }
 
-static void onBatchingCb(int sensor_id , float sampling_rate, int batch_count)
+static void onBatchingCb(int sensor_id , float sampling_rate, int batch_count, bool Rotate)
 {
-  SENSOR_LOGI(LOG_TAG "hanndle %d sampling_rate %f batch_count %d \n", sensor_id, sampling_rate, batch_count);
+  SENSOR_LOGI(LOG_TAG "hanndle %d sampling_rate %f batch_count %d Rotate %d\n", sensor_id, sampling_rate, batch_count, Rotate);
 }
 
 static void onSensorDataReadCb(int sensor_id, const sensors_event_t *events, uint32_t count)
@@ -306,6 +306,7 @@ static void printHelp() {
     SENSOR_LOGI(LOG_TAG "f: flush/Delete Sensor Bufffer Data\n");
     SENSOR_LOGI(LOG_TAG "m: get mlc case list\n");
     SENSOR_LOGI(LOG_TAG "e: enable/disable mlc case event\n");
+    SENSOR_LOGI(LOG_TAG "r: set sensor rotation matrix\n");
     SENSOR_LOGI(LOG_TAG "q: Quit\n");
 }
 
@@ -317,7 +318,11 @@ int main(int argc, char *argv[]) {
    char odr[10];
    char enable[10];
    char batchcount[10];
+   char rm[10];
+   char rotate[10];
+   bool Rotate = 0;
    int batch_count = 0;
+   uint32_t roll = 0, pitch = 0, yaw = 0;
    sensor_state state = SENSOR_DISABLE;
    int mlc_enable = 0;
    int i = 0, j= 0;
@@ -389,7 +394,7 @@ int main(int argc, char *argv[]) {
 	   if(ret < 0) {
 		   SENSOR_LOGE(LOG_TAG "sensor control failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
 	   }
-	   ret = pClient->sensor_config(sensor[i].sensor_id, odr_rate, batch_count, onBatchingCb);
+	   ret = pClient->sensor_config(sensor[i].sensor_id, odr_rate, batch_count, Rotate, onBatchingCb);
 	   if(ret < 0) {
 		   SENSOR_LOGE(LOG_TAG "sensor config  failed sensor[i].sensor_id %d ret %d \n", sensor[i].sensor_id, ret);
 	   }
@@ -441,19 +446,23 @@ int main(int argc, char *argv[]) {
 		SENSOR_LOGI(LOG_TAG "Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n",
                        sensor[i].odr[0],sensor[i].odr[1],sensor[i].odr[2],
 		       sensor[i].odr[3],sensor[i].odr[4],sensor[i].odr[5]);
-
 		memset (odr, 0, sizeof(odr)/sizeof(odr[0]));
 		memset (batchcount, 0, sizeof(batchcount)/sizeof(batchcount[0]));
 		fgets(odr, sizeof(odr)/sizeof(odr[0]), stdin);
 		j=strtol(odr,&stopstring,10);
+
 		SENSOR_LOGI(LOG_TAG "Enter batch set: ");
 		fgets(batchcount, sizeof(batchcount)/sizeof(batchcount[0]), stdin);
 		batch_count=strtol(batchcount,&stopstring,10);
 
-		SENSOR_LOGI(LOG_TAG "\nConfiguring sensor sensor_id %d  sampling rate %fHZ and batch count %d\n",
-				sensor[i].sensor_id, sensor[i].odr[j], batch_count);
+		SENSOR_LOGI(LOG_TAG "Enter Rotate:1  or Rotate:0 ");
+		fgets(rotate, sizeof(rotate)/sizeof(rotate[0]), stdin);
+		Rotate=strtol(rotate,&stopstring,10);
 
-		ret = pClient->sensor_config(sensor[i].sensor_id, sensor[i].odr[j], batch_count, onBatchingCb);
+		SENSOR_LOGI(LOG_TAG "\nConfiguring sensor sensor_id %d  sampling rate %fHZ and batch count %d Rotate %d\n",
+				sensor[i].sensor_id, sensor[i].odr[j], batch_count, Rotate);
+
+		ret = pClient->sensor_config(sensor[i].sensor_id, sensor[i].odr[j], batch_count, Rotate, onBatchingCb);
 		if(ret < 0) {
 			SENSOR_LOGE(LOG_TAG "sensor config  failed ret %d \n", ret);
 		}
@@ -565,6 +574,32 @@ int main(int argc, char *argv[]) {
                         }
 		}
         }
+        break;
+     case 'r':
+        if (pClient) {
+		SENSOR_LOGI(LOG_TAG "sensor set Euler angles\n");
+
+		SENSOR_LOGI(LOG_TAG "\nEnter roll min 0 max 3600 value:");
+		memset(rm, 0, sizeof(rm)/sizeof(rm[0]));
+		fgets(rm, sizeof(rm)/sizeof(rm[0]), stdin);
+		roll=strtol(rm,&stopstring,10);
+
+		SENSOR_LOGI(LOG_TAG "\nEnter pitch min 0 max 3600 value:");
+		memset(rm, 0, sizeof(rm)/sizeof(rm[0]));
+		fgets(rm, sizeof(rm)/sizeof(rm[0]), stdin);
+		pitch=strtol(rm,&stopstring,10);
+
+		SENSOR_LOGI(LOG_TAG "\nEnter yaw min 0 max 3600 value:");
+		memset(rm, 0, sizeof(rm)/sizeof(rm[0]));
+		fgets(rm, sizeof(rm)/sizeof(rm[0]), stdin);
+		yaw=strtol(rm,&stopstring,10);
+
+		ret = pClient->sensor_update_rotation_matrix(roll, pitch, yaw);
+		if(ret < 0) {
+			SENSOR_LOGE(LOG_TAG "sensor set Euler angles failed ret %d \n", ret);
+			break;
+		}
+	}
         break;
      case 'h':
 	printHelp();

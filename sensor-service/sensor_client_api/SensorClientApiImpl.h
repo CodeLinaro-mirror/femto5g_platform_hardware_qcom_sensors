@@ -24,6 +24,12 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 #ifndef SENSORCLIENTAPIIMPL_H
 #define SENSORCLIENTAPIIMPL_H
@@ -50,15 +56,18 @@
 #undef LOG_TAG
 #define LOG_TAG "SensorSvc_ClientApp:"
 
+#define RM_MIN 0
+#define RM_MAX 3600
+
 using namespace std;
-using namespace sensor_util;
+using namespace sensor_socket;
 
 #ifdef FEATURE_EXTERNAL_AP
-using sensor_util::SensorQsocket;
-using sensor_util::SensorQsocketSender;
+using sensor_socket::SensorQsocket;
+using sensor_socket::SensorQsocketSender;
 #else  // FEATURE_EXTERNAL_AP
-using sensor_util::SensorIpc;
-using sensor_util::SensorIpcSender;
+using sensor_socket::SensorIpc;
+using sensor_socket::SensorIpcSender;
 #endif // FEATURE_EXTERNAL_AP
 
 namespace sensor_client
@@ -74,6 +83,7 @@ struct SensorTrackingOption {
 	int sensor_id;
 	float sampling_rate;
 	int batch_count;
+	bool rotate;
 	sensor_state state;
 	SensorDataReadCb mSensorDataReadCb;
 };
@@ -93,7 +103,7 @@ public:
     //Sensor Control
     virtual int sensorControl(int sensor_id, sensor_state state);
     //Sensor Config
-    virtual int startBatching(int sensor_id, float sampling_rate, int batch_count, BatchingCb);
+    virtual int startBatching(int sensor_id, float sampling_rate, int batch_count, bool rotate, BatchingCb);
     //Sensor Read Events
     virtual int startTracking(int sensor_id, SensorDataReadCb);
     //Sensor request MLC case supported
@@ -106,6 +116,8 @@ public:
     virtual int startBufferDataRead(bool enable, SensorBufferDataReadCb);
     //Sensor Self Test
     virtual int selfTest(int sensor_id, SelfTestType selfTestType, int request_id, SelfTestResultCallback);
+    //Sensor update rotation matrix
+    virtual int setEulerAngles(uint16_t rolld, uint16_t pitchd, uint16_t yawd);
     // convenient methods
     inline bool sendMessage(const uint8_t* data, uint32_t length) const {
         return (mIpcSender != nullptr) && mIpcSender->send(data, length);

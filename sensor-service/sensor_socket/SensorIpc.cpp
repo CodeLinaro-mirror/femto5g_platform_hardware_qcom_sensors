@@ -25,6 +25,12 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
+ *
  */
 
 #include <sys/types.h>
@@ -32,7 +38,7 @@
 #include <errno.h>
 #include "SensorIpc.h"
 
-namespace sensor_util {
+namespace sensor_socket {
 
 #ifdef LOG_TAG
 #undef LOG_TAG
