@@ -3,8 +3,8 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: sensor-test-app
-Description: Qualcomm sensor test app
+Name: sensor-test-app-legacy
+Description: Qualcomm sensor test app legacy
 Version: @VERSION@
 Libs:
 Cflags:

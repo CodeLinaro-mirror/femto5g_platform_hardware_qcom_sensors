@@ -25,7 +25,7 @@
 #include <utils/Log.h>
 #include <ctype.h>
 #include <stdarg.h>
-#include "sensor_test_app.h"
+#include "SensorTestApp.h"
 
 #define CMD_OPTIONS         "s:l:b:d:a:n:t:g:"
 /*
@@ -266,13 +266,13 @@ void read_live_data()
 	sensor_ts = ts_cur;
 	while(1)
 	{
-		count = poll_dev->poll(poll_dev_v0, events, sizeof(events) / sizeof(sensors_event_t));
-		sensor_ts = events[count - 1].timestamp;
-		ts_cur = getTimestamp();
-		SENSOR_LOGI(LOG_TAG "Live: read events=%d, batch delta in ms=%lld latency in ms=%lld\n", count, (ts_cur - ts_prv) / 1000000, (ts_cur - sensor_ts) / 1000000);
-		ts_prv = ts_cur;
-		for(int i = 0; i < count; i++)
-			dump_event(&events[i]);
+	  count = poll_dev->poll(poll_dev_v0, events, sizeof(events) / sizeof(sensors_event_t));
+	  sensor_ts = events[count - 1].timestamp;
+	  ts_cur = getTimestamp();
+	  SENSOR_LOGI(LOG_TAG "Live: read events=%d, batch delta in ms=%lld latency in ms=%lld\n", count, (ts_cur - ts_prv) / 1000000, (ts_cur - sensor_ts) / 1000000);
+	  ts_prv = ts_cur;
+	  for(int i = 0; i < count; i++)
+		  dump_event(&events[i]);
 	}
 }
 

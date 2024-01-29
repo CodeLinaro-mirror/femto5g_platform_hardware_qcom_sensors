@@ -122,4 +122,3 @@ bool tempSensorDataInit(int mSensorType);
 bool CheckBufferReadFile(int mSensorType);
 int tempSensorDataPollTask(float *temperature, int mSensorType);
 void SensorBuffread(int mSensorType);
-
