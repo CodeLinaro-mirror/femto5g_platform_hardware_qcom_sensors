@@ -20,7 +20,7 @@ cc_binary {
     init_rc: ["android.hardware.sensors@aidl-service-stmicroelectronics.rc"],
     vintf_fragments: ["android.hardware.sensors@aidl-stmicroelectronics.xml"],
     vendor: true,
-    enabled: false,
+    enabled: true,
     owner: "STMicroelectronics",
     shared_libs: [
         "libbase",
