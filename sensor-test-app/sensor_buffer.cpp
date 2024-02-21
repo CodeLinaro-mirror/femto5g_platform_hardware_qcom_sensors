@@ -992,13 +992,13 @@ void SensorBuffread(int mSensorType)
 	while(1)
 	{
 		/* Open Accel Bufferd Sensor input device */
-		if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) < 0)
+		if ((mfdBuffAccel = fopen(ACCNAME_BUFF_PATH, "r")) != NULL)
 		{
 			SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", ACCNAME_BUFF_PATH, errno, strerror(errno));
 			goto fail;
 		}
 		/* Open Gyro Bufferd Sensor input device */
-		if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) < 0) {
+		if ((mfdBuffGyro = fopen(GYRNAME_BUFF_PATH, "r")) != NULL) {
 			SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n", GYRNAME_BUFF_PATH, errno, strerror(errno));
 			goto fail;
 		}
