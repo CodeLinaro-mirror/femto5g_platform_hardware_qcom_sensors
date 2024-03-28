@@ -5,7 +5,7 @@
 # Requires autoconf tool later than 2.61
 AC_PREREQ(2.61)
 # Initialize the gps sensor-test package version 1.0.0
-AC_INIT([sensor-test],1.0.0)
+AC_INIT([sensor-test-app-legacy],1.0.0)
 # Does not strictly follow GNU Coding standards
 AM_INIT_AUTOMAKE([foreign])
 # Disables auto rebuilding of configure, Makefile.ins
@@ -67,7 +67,7 @@ AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
 
 AC_CONFIG_FILES([ \
         Makefile \
-        sensor-test.pc \
+        sensor-test-app-legacy.pc \
         ])
 
 AC_OUTPUT

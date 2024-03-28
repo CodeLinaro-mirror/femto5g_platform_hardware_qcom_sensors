@@ -38,7 +38,7 @@
 #include <cstring>
 #include <math.h>
 #include <errno.h>
-#include "sensor_test_app.h"
+#include "SensorTestApp.h"
 
 using namespace std;
 
@@ -78,8 +78,8 @@ std::string mGyroBootSample;
 /*Buffer read files - common*/
 #define ACC_BUFFER_READ         "read_acc_boot_sample"
 #define GYRO_BUFFER_READ        "read_gyro_boot_sample"
-#define ACCNAME_BUFF_PATH		"/dev/input/accbuff"
-#define GYRNAME_BUFF_PATH		"/dev/input/gyrobuff"
+#define ACCNAME_BUFF_PATH	"/dev/input/accbuff"
+#define GYRNAME_BUFF_PATH	"/dev/input/gyrobuff"
 
 /*ASM330 temperature*/
 #define ASM_TEMP_SEARCH         "asm330lhh_temp"
