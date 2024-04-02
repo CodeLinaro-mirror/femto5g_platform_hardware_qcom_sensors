@@ -1,33 +1,38 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * STMicroelectronics IIO default types
+ * STMicroelectronics IIO custom types
  *
  * MEMS Software Solutions Team
  *
  * Copyright 2023 STMicroelectronics Inc.
  */
 
-#ifndef __STM_IIO_DEFAULT_TYPE__
-#define __STM_IIO_DEFAULT_TYPE__
+#ifndef __STM_IIO_CUSTOM_TYPE__
+#define __STM_IIO_CUSTOM_TYPE__
 
-/*
- * IIO default types doesn't introduce any custom define:
- * currently defining default standard IIO defines only, all won't support
- * STM CUSTOM IIO defines.
- *
- * Part of the IIO types that SensorHAL uses are already defined in the types.h
- * file of the IIO UAPI interface, while others are custom and are exported by
- * the STMicroelectrinics IIO drivers from the repository:
- * https://github.com/STMicroelectronics/st-mems-android-linux-drivers-iio
- *
- * This file introduces the define __STM_IIO_DEFAULT_TYPE__ which leads in the
- * sensorhal_iio_types.h file to the declaration of the custom types of sensors
- * used in the HAL backwards compatible with the previous management.
- *
- * When this file is replaced with the file exported from:
- * https://github.com/STMicroelectronics/st-mems-android-linux-drivers-iio/drivers/iio/stm/common/stm_iio_types.h
- * it introduces custom sensor type to starting support the kernel 6.1 for the new
- * drivers.
- */
+/* Linux IIO driver custom types */
+enum {
+	STM_IIO_LAST = 0x3f,
+	STM_IIO_SIGN_MOTION = STM_IIO_LAST - 6,
+	STM_IIO_STEP_COUNTER = STM_IIO_LAST - 5,
+	STM_IIO_TILT = STM_IIO_LAST - 4,
+	STM_IIO_TAP = STM_IIO_LAST - 3,
+	STM_IIO_TAP_TAP = STM_IIO_LAST - 2,
+	STM_IIO_WRIST_TILT_GESTURE = STM_IIO_LAST - 1,
+	STM_IIO_GESTURE = STM_IIO_LAST,
+};
 
-#endif /* __STM_IIO_DEFAULT_TYPE__ */
+enum {
+	STM_IIO_EV_DIR_LAST = 0x1f,
+	STM_IIO_EV_DIR_FIFO_EMPTY = STM_IIO_EV_DIR_LAST - 1,
+	STM_IIO_EV_DIR_FIFO_DATA = STM_IIO_EV_DIR_LAST,
+};
+
+enum {
+	STM_IIO_EV_TYPE_LAST = 0x1f,
+	STM_IIO_EV_TYPE_FIFO_FLUSH = STM_IIO_EV_TYPE_LAST - 1,
+	STM_IIO_EV_TYPE_TIME_SYNC = STM_IIO_EV_TYPE_LAST,
+};
+
+#endif /* __STM_IIO_CUSTOM_TYPE__ */
 
