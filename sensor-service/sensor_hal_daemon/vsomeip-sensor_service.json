@@ -20,8 +20,8 @@
         {
             "service" : "0x1234",
             "instance" : "0x5678",
-            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
-            "unreliable" : "31000",
+            "reliable" : { "port" : "30510", "enable-magic-cookies" : "false" },
+            "unreliable" : "31001",
             "someip-tp": {
 		"service-to-client": ["0x9471", "0x9475", "0x9476", "0x9477", "0x9478", "0x9479", "0x947A", "0x947B"]
             }
@@ -32,7 +32,7 @@
     {
         "enable" : "true",
         "multicast" : "224.244.224.245",
-        "port" : "30490",
+        "port" : "30491",
         "protocol" : "udp"
     }
 }

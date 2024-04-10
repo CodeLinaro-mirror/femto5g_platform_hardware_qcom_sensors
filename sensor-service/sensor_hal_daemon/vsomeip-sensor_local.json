@@ -23,8 +23,8 @@
         {
             "service" : "0x1234",
             "instance" : "0x5678",
-            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
-            "unreliable" : "31000"
+            "reliable" : { "port" : "30510", "enable-magic-cookies" : "false" },
+            "unreliable" : "31001"
         }
     ],
     "routing" : "client-sample",
@@ -32,7 +32,7 @@
     {
         "enable" : "true",
         "multicast" : "224.244.224.245",
-        "port" : "30490",
+        "port" : "30491",
         "protocol" : "udp"
     }
 }
