@@ -3,6 +3,7 @@ AM_CFLAGS = \
     -I inc/ \
     -I src/ \
     $(SENSORS_CFLAGS)\
+    $(SENSORUTILLIB_CFLAGS)\
     $(SENSORSOCKET_CFLAGS)\
     -std=c++11\
     -fpermissive
@@ -12,6 +13,7 @@ ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -std=c++11
 
 requiredlibs = \
+     $(SENSORUTILLIB_LIBS) \
      $(SENSORSOCKET_LIBS)
 
 h_sources = \

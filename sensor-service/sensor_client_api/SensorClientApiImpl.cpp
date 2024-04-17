@@ -25,8 +25,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
@@ -272,8 +271,9 @@ int SensorClientImpl::sensorControl(int sensor_id, sensor_state state) {
 /******************************************************************************
 SensorClientImpl - StartBatching
 ******************************************************************************/
-int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batch_count, BatchingCb batchingCallback) {
-    SENSOR_LOGI(LOG_TAG ">>> sensorBatching sensor_id %d sampling_rate %f batch_count %d\n", sensor_id, sampling_rate, batch_count);
+int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batch_count, bool rotate, BatchingCb batchingCallback) {
+    SENSOR_LOGI(LOG_TAG ">>> sensorBatching sensor_id %d sampling_rate %f batch_count %d rotate %f\n",
+		    sensor_id, sampling_rate, batch_count, rotate);
 
     int ret = 0;
     bool SensorId = false;
@@ -299,6 +299,7 @@ int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batc
 		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 	    mSensorTrackingOption[i].sampling_rate = sampling_rate;
 	    mSensorTrackingOption[i].batch_count = batch_count;
+	    mSensorTrackingOption[i].rotate = rotate;
             break;
          }
       }
@@ -311,7 +312,7 @@ int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batc
     if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
       pthread_mutex_lock (&mSensorLibMutex);
       SensorAPIStartBatchingReqMsg msg (mSocketName,
-	      sensor_id, sampling_rate, batch_count);
+	      sensor_id, sampling_rate, batch_count, rotate);
       bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
 	      sizeof(msg));
       if (true != rc) {
@@ -607,6 +608,46 @@ int SensorClientImpl::selfTest(int sensor_id, SelfTestType selfTestType, int req
 	}
 }
 
+/******************************************************************************************************
+SensorClientImpl - setEulerAngles
+******************************************************************************************************/
+int SensorClientImpl::setEulerAngles(uint16_t rolld, uint16_t pitchd, uint16_t yawd) {
+    SENSOR_LOGI(LOG_TAG ">>> setEulerAngles roll %d  pitch %d yaw %d\n", rolld, pitchd, yawd);
+
+    int ret = 0;
+    lock_guard<mutex> lock(mMutex);
+
+    //Check about Client registered to daemon
+    if (!mHalRegistered) {
+            SENSOR_LOGE(LOG_TAG ">>> startBatching - Not registered yet\n");
+            return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+    }
+
+    //Input parameter check
+    if(yawd < RM_MIN || pitchd < RM_MIN || rolld < RM_MIN || yawd > RM_MAX || pitchd > RM_MAX || rolld > RM_MAX)
+	    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+
+    if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
+	    pthread_mutex_lock (&mSensorLibMutex);
+	    SensorAPIEulerAnglesReqMsg msg(mSocketName, rolld, pitchd, yawd);
+	    bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+			    sizeof(msg));
+	    if (true != rc) {
+		    pthread_mutex_unlock (&mSensorLibMutex);
+		    return SENSOR_ERROR_IPC_FAILED;
+	    }
+	    mTimeout = timeout(3);
+	    ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
+	    pthread_mutex_unlock (&mSensorLibMutex);
+	    if (ret == ETIMEDOUT)
+		    return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
+	    else
+		    return mRespReturn;
+    }
+    else
+	    return SENSOR_ERROR_INVALID_CLIENT;
+}
+
 /******************************************************************************
 SensorClientImpl - SensorReconfigure Enable
 ******************************************************************************/
@@ -623,7 +664,8 @@ bool SensorClientImpl::SensorReconfigure(bool enable) {
 			SensorAPIStartBatchingReqMsg Configmsg (mSocketName,
 					mSensorTrackingOption[i].sensor_id,
 					mSensorTrackingOption[i].sampling_rate,
-					mSensorTrackingOption[i].batch_count);
+					mSensorTrackingOption[i].batch_count,
+					mSensorTrackingOption[i].rotate);
 			rc = sendMessage(reinterpret_cast<uint8_t*>(&Configmsg),
 					sizeof(Configmsg));
 			SensorAPIEnableReqMsg Enablemsg (mSocketName, mSensorTrackingOption[i].sensor_id,
@@ -713,12 +755,12 @@ void SensorClientImpl::onReceive(const string& data) {
        //Received hal capability message from SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_CAPABILILTIES_MSG_ID:
        {
-                SENSOR_LOGI(LOG_TAG "<<< capabilities indication");
                 if (sizeof(SensorAPICapabilitiesIndMsg) != length) {
                     SENSOR_LOGE(LOG_TAG  "payload size does not match for message with id: %d",
                              pMsg->msgId);
                 }
 		SensorAPICapabilitiesIndMsg* pCapIndMsg = (SensorAPICapabilitiesIndMsg*)(pMsg);
+                SENSOR_LOGI(LOG_TAG "<<< capabilities indication mask %d", pCapIndMsg->mask);
 		mHalRegistered = true;
 		SensorReconfigure(mShdRestarted);
 		mShdRestarted = false;
@@ -887,7 +929,7 @@ void SensorClientImpl::onReceive(const string& data) {
 	   }
 	   const SensorAPIStartBatchingReqMsg* pBatchMsg = (SensorAPIStartBatchingReqMsg*)(pMsg);
            if (mBatchingCb) {
-                   mBatchingCb(pBatchMsg->sensor_id, pBatchMsg->samplingRate, pBatchMsg->batchCount);
+                   mBatchingCb(pBatchMsg->sensor_id, pBatchMsg->samplingRate, pBatchMsg->batchCount, pBatchMsg->rotate);
            }
            break;
        }
@@ -972,6 +1014,21 @@ void SensorClientImpl::onReceive(const string& data) {
                   mSelfTestResultCb(pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result);
           }
           break;
+       }
+       //Received Sensor Euler angle set Resp from SHD(SENSOR HAL DAEMON)
+       case E_SENSORAPI_SENSOR_EULER_ANGLES_REQ_MSG_ID:
+       {
+           if (sizeof(SensorAPIGenericRespMsg) != length) {
+                   SENSOR_LOGE(LOG_TAG "payload size does not match for message with id: %d\n",
+                                   pMsg->msgId);
+           }
+
+           const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
+           pthread_mutex_lock (&mSensorLibMutex);
+           mRespReturn = pRespMsg->ret;
+           pthread_cond_signal (&mSensorLibCond);
+           pthread_mutex_unlock (&mSensorLibMutex);
+           break;
        }
        //Received unknown message from SHD(SENSOR HAL DAEMON)
        default:

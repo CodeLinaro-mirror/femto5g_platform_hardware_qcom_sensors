@@ -2,6 +2,7 @@ AM_CFLAGS = \
     -DDEBUG \
     -I \
     $(QMIFW_CFLAGS) \
+    $(SENSORUTILLIB_CFLAGS) \
     -fpermissive
 
 if USE_QSOCKET
@@ -12,19 +13,16 @@ ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -std=c++14
 
 requiredlibs = \
-	       $(QMIFW_LIBS)
+	       $(QMIFW_LIBS) \
+               $(SENSORUTILLIB_LIBS)
 
 h_sources = \
 	    ./SensorIpc.h \
-	    ./SensorQsocket.h \
-	    ./SensorThread.h \
-	    ./SensorLog.h
+	    ./SensorQsocket.h
 
 c_sources = \
 	    ./SensorIpc.cpp \
-	    ./SensorQsocket.cpp\
-	    ./SensorThread.cpp \
-	    ./SensorLog.cpp
+	    ./SensorQsocket.cpp
 
 libsensor_socket_la_SOURCES = \
 	$(c_sources) $(h_sources)

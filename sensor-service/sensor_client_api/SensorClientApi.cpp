@@ -24,6 +24,12 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 #include <SensorClientApi.h>
 #include <SensorClientApiImpl.h>
@@ -83,7 +89,7 @@ int SensorClient::sensor_control(int sensor_id, sensor_state state) {
 /******************************************************************************
 SensorClient - SensorConfig
 ******************************************************************************/
-int SensorClient::sensor_config(int sensor_id, float sampling_rate, int batch_count, BatchingCb batchingCallback) {
+int SensorClient::sensor_config(int sensor_id, float sampling_rate, int batch_count, bool rotate, BatchingCb batchingCallback) {
     //Chek for Client Register
     if (!mApiImpl) {
         SENSOR_LOGE(LOG_TAG "NULL mApiImpl\n");
@@ -94,7 +100,7 @@ int SensorClient::sensor_config(int sensor_id, float sampling_rate, int batch_co
         SENSOR_LOGE(LOG_TAG "NULL BatchingCb\n");
         return SENSOR_ERROR_CALLBACK_MISSING;
     }
-    return mApiImpl->startBatching(sensor_id, sampling_rate, batch_count, batchingCallback);
+    return mApiImpl->startBatching(sensor_id, sampling_rate, batch_count, rotate, batchingCallback);
 }
 
 /******************************************************************************
@@ -148,10 +154,6 @@ int SensorClient::sensor_mlc_event_enable(char *mlc_case_name, bool enable,
 }
 
 /******************************************************************************
-SensorClientApi - SensorTemperature
-******************************************************************************/
-
-/******************************************************************************
 SensorClient - SensorTemperature
 ******************************************************************************/
 int SensorClient::sensor_read_temperature(SensorTempReadCb sensortempreadCallback) {
@@ -201,6 +203,18 @@ int SensorClient::sensor_self_test(int sensor_id, SelfTestType selfTestType, int
         return SENSOR_ERROR_CALLBACK_MISSING;
     }
     return mApiImpl->selfTest(sensor_id, selfTestType, request_id, selftestResultCallback);
+}
+
+/******************************************************************************
+SensorClient - SensorUpdate Rotation Matrix
+******************************************************************************/
+int SensorClient::sensor_update_rotation_matrix(uint16_t rolld, uint16_t pitchd, uint16_t yawd) {
+    //Chek for Client Register
+    if (!mApiImpl) {
+        SENSOR_LOGE(LOG_TAG "NULL mApiImpl\n");
+        return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+    }
+    return mApiImpl->setEulerAngles(rolld, pitchd, yawd);
 }
 
 } // namespace sensor_client
