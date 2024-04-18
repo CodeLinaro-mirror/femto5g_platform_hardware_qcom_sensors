@@ -1,0 +1,16 @@
+cc_binary {
+    name: "sensor_test_app",
+    cflags: [
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    ],
+    srcs: ["sensorcontrol.cpp"],
+    shared_libs: [
+    "libcutils",
+    "libutils",
+    "libsensor",
+    "liblog",
+    ],
+}
+
