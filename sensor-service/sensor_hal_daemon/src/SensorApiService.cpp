@@ -1729,7 +1729,7 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
     std::lock_guard<std::mutex> lock(mMutex);
     SENSOR_LOGI(LOG_TAG "--< onPowerEvent %d", powerState);
     mPowerState = powerState;
-    for (auto it = mClients.begin(); it != mClients.end();) {
+    for (auto it = mClients.begin(); it != mClients.end(); it++) {
 	it->second->onCapabilitiesCallback(mask);
     }
 }
