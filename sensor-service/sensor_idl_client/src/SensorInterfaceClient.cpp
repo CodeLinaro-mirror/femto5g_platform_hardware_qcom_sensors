@@ -23,10 +23,30 @@
 #include <string.h>
 #include <sys/types.h>
 #include <gptp_helper.h>
+#include <signal.h>
 
 using namespace v0::com::qualcomm::qti::sensor;
 using namespace std;
 #define NSEC_IN_ONE_SEC       (1000000000ULL)   /* nanosec in a sec */
+struct SensorTrackingOption {
+   int sensor_id;
+   float sampling_rate;
+   int batch_count;
+   SensorInterface::SensorState state;
+};
+
+shared_ptr<SensorInterfaceProxy<>> myProxy;
+int32_t sensor_count = 0;
+SensorInterface::SensorState state = SensorInterface::SensorState::SENSOR_DISABLE;
+SensorInterface::SensorResponse resp;
+struct SensorTrackingOption *mSensorTrackingOption;
+vector<SensorInterface::SensorList> sensor;
+CommonAPI::CallStatus callStatus;
+CommonAPI::CallInfo info(1000);
+bool SHD_RESTARTED = false;
+uint32_t capSubscription;
+uint32_t batchSubscription;
+uint32_t dataSubscription;
 
 static uint64_t getTimestamp() {
     struct timespec ts;
@@ -69,6 +89,22 @@ void parseSensorResponse(SensorInterface::SensorResponse resp) {
 	       cout << "SENSOR_ERROR_UNKNOWN " << resp << endl;
 	       break;
     }
+}
+
+void DeInitHandles()
+{
+   CommonAPI::CallStatus callStatus;
+    SensorInterface::SensorResponse resp;
+
+   myProxy->getSensorCapabilitiesEvent().unsubscribe(capSubscription);
+   myProxy->getSensorConfigUpdateEvent().unsubscribe(batchSubscription);
+   myProxy->getSensorDataReadEvent().unsubscribe(dataSubscription);
+
+   myProxy->DeRegisterSensorClient(callStatus, resp, &info);
+   if (callStatus != CommonAPI::CallStatus::SUCCESS) {
+	   cout << "DeRegisterSensorClient() Remote call failed! callStatus " << (int)callStatus << endl;
+   }
+   parseSensorResponse(resp);
 }
 
 static void onCapabilitiesCb(SensorInterface::SensorCapabilitiesMask mask) {
@@ -191,22 +227,12 @@ static void printHelp() {
 }
 
 int main() {
-    int32_t sensor_count = 0;
-    struct timespec ts;
-    SensorInterface::SensorState state = SensorInterface::SensorState::SENSOR_DISABLE;
-    SensorInterface::SensorResponse resp;
-    const string name = "World";
-    CommonAPI::CallStatus callStatus;
-    string returnMessage;
-    CommonAPI::CallInfo info(1000);
-    info.sender_ = 1234;
-    vector<SensorInterface::SensorList> sensor;
     char *stopstring;
     char odr[10];
     char enable[10];
     char batchcount[10];
-    int batch_count = 0, j = 0;
-    int i = 0;
+    int batch_count = 0, j = 0, i = 0;
+    info.sender_ = 1234;
 
     CommonAPI::Runtime::setProperty("LogContext", "E01C");
     CommonAPI::Runtime::setProperty("LogApplication", "E01C");
@@ -218,7 +244,7 @@ int main() {
     string instance = "com.qualcomm.qti.sensor.SensorInterface";
     string connection = "client-sample";
 
-    shared_ptr<SensorInterfaceProxy<>> myProxy = runtime->buildProxy<SensorInterfaceProxy>(domain, instance, connection);
+    myProxy=runtime->buildProxy<SensorInterfaceProxy>(domain,instance,connection);
 
     cout << "Checking IDL Service availability !!" << endl;
     while (!myProxy->isAvailable())
@@ -230,25 +256,51 @@ int main() {
     else 
 	    cout << " gptpinit failed" << endl;
 
-    myProxy->getSensorCapabilitiesEvent().subscribe(
+    myProxy->getProxyStatusEvent().subscribe([&] (const CommonAPI::AvailabilityStatus status) {
+      switch (status) {
+	case CommonAPI::AvailabilityStatus::UNKNOWN:
+	cout << "Sensor Service Unkown" << endl;
+	SHD_RESTARTED = true;
+	break;
+	case CommonAPI::AvailabilityStatus::NOT_AVAILABLE:
+	cout << "Sensor Service NOT_AVAILABLE" << endl;
+	SHD_RESTARTED = true;
+	break;
+	case CommonAPI::AvailabilityStatus::AVAILABLE:
+	cout << "Sensor Service AVAILABLE" << endl;
+	SHD_RESTARTED = false;
+	myProxy->RegisterSensorClient(callStatus, resp, &info);
+	for (int i=0; i < sensor_count; i++) {
+	 cout << "Reconfiguring Enabled Sensors" << endl;
+	 if (mSensorTrackingOption[i].state == SensorInterface::SensorState::SENSOR_ENABLE) {
+	   myProxy->SensorConfig(mSensorTrackingOption[i].sensor_id, mSensorTrackingOption[i].sampling_rate,
+			mSensorTrackingOption[i].batch_count, callStatus, resp, &info);
+	   myProxy->SensorControl(mSensorTrackingOption[i].sensor_id, mSensorTrackingOption[i].state, callStatus, resp, &info);
+	 }
+	}
+	break;
+      }
+    });
+
+    capSubscription = myProxy->getSensorCapabilitiesEvent().subscribe(
         [&](const ::v0::com::qualcomm::qti::sensor::SensorInterface::SensorCapabilitiesMask &mask) {
 	cout << "<<--Received SensorCapabilitiesMask :" << mask << endl;
 	onCapabilitiesCb(mask);
 	cout << "<<-----" << endl;
-	});
+    });
 
-    myProxy->getSensorConfigUpdateEvent().subscribe(
+    batchSubscription = myProxy->getSensorConfigUpdateEvent().subscribe(
        [&](int32_t sensor_id, float SamplingRate, int32_t BatchCount) {
        cout << "<<--Received SensorConfigUpdate id: " << sensor_id << " SamplingRate : " << SamplingRate << " BatchCount : " << BatchCount << endl;
        cout << "<<-------" << endl;
-       });
+    });
 
-    myProxy->getSensorDataReadEvent().subscribe(
+    dataSubscription = myProxy->getSensorDataReadEvent().subscribe(
        [&](vector< ::v0::com::qualcomm::qti::sensor::SensorInterface::SensorEvent > events, uint32_t count) {
        cout << "<<--Received SensorDataRead sensor_id: " << events[0].getSensorId() << endl;
        onSensorDataReadCb(events, count);
        cout << "<<-------" << endl;
-       });
+    });
 
     cout << "==== Register new client ====>> " << endl;
     myProxy->RegisterSensorClient(callStatus, resp, &info);
@@ -262,8 +314,11 @@ int main() {
     myProxy->GetSensorList(callStatus, sensor, sensor_count, &info);
     if (callStatus != CommonAPI::CallStatus::SUCCESS) {
 	    printf( "sensor get list ret %d \n", (int)callStatus);
+	    return;
     }
     PrintSensorList(sensor, sensor_count);
+    mSensorTrackingOption = new (std::nothrow) struct SensorTrackingOption[sensor_count];
+
     sleep(1);
 
     printHelp();
@@ -301,7 +356,12 @@ int main() {
 		if (callStatus != CommonAPI::CallStatus::SUCCESS) {
 			printf( "sensor config  failed sensor[i].sensor_id %d ret %d \n", sensor[i].getSensorId(), (int)callStatus);
 		}
-		parseSensorResponse(resp);
+		else {
+			parseSensorResponse(resp);
+			mSensorTrackingOption[i].sensor_id = sensor[i].getSensorId();
+			mSensorTrackingOption[i].sampling_rate = mODR[j];
+			mSensorTrackingOption[i].batch_count = batch_count;
+		}
 	    }
 	    break;
 	  case 'a':
@@ -317,7 +377,10 @@ int main() {
 		if (callStatus != CommonAPI::CallStatus::SUCCESS) {
 			printf( "sensor control failed sensor[i].sensor_id %d ret %d \n", sensor[i].getSensorId(), (int)callStatus);
 		}
-		parseSensorResponse(resp);
+		else {
+			parseSensorResponse(resp);
+			mSensorTrackingOption[i].state = state;
+		}
 	    }
 	    break;
 	  case 'h':
@@ -334,11 +397,8 @@ int main() {
     }//while(1)
 
 EXIT:
-    myProxy->DeRegisterSensorClient(callStatus, resp, &info);
-    if (callStatus != CommonAPI::CallStatus::SUCCESS) {
-	    cout << "DeRegisterSensorClient() Remote call failed! callStatus " << (int)callStatus << endl;
-    }
-    parseSensorResponse(resp);
     printf("Done\n");
+    usleep(5000);
+    DeInitHandles();
     exit(0);
 }
