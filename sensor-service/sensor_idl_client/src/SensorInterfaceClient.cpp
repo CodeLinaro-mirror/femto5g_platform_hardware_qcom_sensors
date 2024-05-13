@@ -107,6 +107,26 @@ void DeInitHandles()
    parseSensorResponse(resp);
 }
 
+void signalHandler(int signal)
+{
+   cout << "signalHandler " <<endl;
+   DeInitHandles();
+   exit(0);
+   return;
+}
+
+void regSigHandler()
+{
+   struct sigaction mySigAction = {};
+
+   mySigAction.sa_handler = signalHandler;
+   sigemptyset(&mySigAction.sa_mask);
+   sigaction(SIGHUP, &mySigAction, NULL);
+   sigaction(SIGTERM, &mySigAction, NULL);
+   sigaction(SIGINT, &mySigAction, NULL);
+   sigaction(SIGPIPE, &mySigAction, NULL);
+}
+
 static void onCapabilitiesCb(SensorInterface::SensorCapabilitiesMask mask) {
     switch (mask) {
       case SensorInterface::SensorCapabilitiesMask::SHD_READY:
@@ -233,6 +253,8 @@ int main() {
     char batchcount[10];
     int batch_count = 0, j = 0, i = 0;
     info.sender_ = 1234;
+
+    regSigHandler();
 
     CommonAPI::Runtime::setProperty("LogContext", "E01C");
     CommonAPI::Runtime::setProperty("LogApplication", "E01C");
