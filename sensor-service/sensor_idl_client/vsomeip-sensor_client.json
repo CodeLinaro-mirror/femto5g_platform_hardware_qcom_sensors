@@ -3,7 +3,7 @@
     "netmask" : "255.255.0.0",
     "logging" :
     {
-        "level" : "verbose",
+        "level" : "error",
         "console" : "true",
         "file" : { "enable" : "true", "path" : "/var/log/vsomeip.log" },
         "dlt" : "true"
