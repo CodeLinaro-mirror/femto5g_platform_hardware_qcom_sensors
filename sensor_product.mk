@@ -13,6 +13,14 @@ ENABLE_SENSOR_CONFIGS := true
 endif
 endif
 
+ifeq ($(filter $(TARGET_BOARD_PLATFORM), gen4),$(TARGET_BOARD_PLATFORM)) #gen4_gvm -> lemans, monaco HQX. gen4_au -> lemans metal
+ifneq ($(ENABLE_HYP), false)  #gen4_au -> lemans metal
+PRODUCT_PACKAGES += android.hardware.sensors@aidl-service-qc
+PRODUCT_PACKAGES += vsomeip-sensor_client.json
+PRODUCT_PACKAGES += SensorInterfaceClient
+endif
+endif
+
 else
 PRODUCT_PACKAGES += android.hardware.sensors-service.example
 
