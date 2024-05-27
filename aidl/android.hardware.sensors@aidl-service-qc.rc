@@ -1,3 +1,6 @@
+on boot
+export COMMONAPI_CONFIG /vendor/etc/commonapi4someip.ini
+export VSOMEIP_CONFIGURATION /vendor/etc/vsomeip-sensor_client.json
 service vendor.sensors-default /vendor/bin/hw/android.hardware.sensors@aidl-service-qc
     class hal
     user system
