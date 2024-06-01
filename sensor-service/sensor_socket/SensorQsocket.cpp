@@ -25,7 +25,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
@@ -62,9 +62,9 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <SensorQsocket.h>
+#include "SensorQsocket.h"
 
-namespace sensor_util {
+namespace sensor_socket {
 
 #ifdef LOG_TAG
 #undef LOG_TAG

@@ -39,6 +39,10 @@ PKG_CHECK_MODULES([QMIFW], [qmi-framework])
 AC_SUBST([QMIFW_CFLAGS])
 AC_SUBST([QMIFW_LIBS])
 
+PKG_CHECK_MODULES([SENSORUTILLIB], [sensor-util-lib])
+AC_SUBST([SENSORUTILLIB_CFLAGS])
+AC_SUBST([SENSORUTILLIB_LIBS])
+
 AC_ARG_WITH([core_includes],
       AC_HELP_STRING([--with-core-includes=@<:@dir@:>@],
          [Specify the location of the core headers]),

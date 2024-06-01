@@ -37,6 +37,18 @@ PKG_CHECK_MODULES([SENSORSOCKET], [sensor-socket])
 AC_SUBST([SENSORSOCKET_CFLAGS])
 AC_SUBST([SENSORSOCKET_LIBS])
 
+PKG_CHECK_MODULES([SENSORUTILLIB], [sensor-util-lib])
+AC_SUBST([SENSORUTILLIB_CFLAGS])
+AC_SUBST([SENSORUTILLIB_LIBS])
+
+PKG_CHECK_MODULES([COMMONAPI], [CommonAPI])
+AC_SUBST([COMMONAPI_CFLAGS])
+AC_SUBST([COMMONAPI_LIBS])
+
+PKG_CHECK_MODULES([COMMONAPI_SOMEIP], [CommonAPI-SomeIP])
+AC_SUBST([COMMONAPI_SOMEIP_CFLAGS])
+AC_SUBST([COMMONAPI_SOMEIP_LIBS])
+
 AC_ARG_WITH([pwrmgrlib],
     AC_HELP_STRING([--with-pwrmgrlib], [with power manager library]))
 
@@ -47,6 +59,22 @@ AM_COND_IF(POWERMANAGER_ENABLED, [
     AC_SUBST([PM_CFLAGS])
     AC_SUBST([PM_LIBS])
 ])
+
+AC_ARG_WITH([sensor_head_type],
+	        AC_HELP_STRING([--with-sensor_head_type], [with location client library]))
+
+AM_CONDITIONAL(SENSOR_HEAD_TYPE_SUPPORT, test "x$with_sensor_head_type" = "xyes")
+
+AM_COND_IF(SENSOR_HEAD_TYPE_SUPPORT, [
+    PKG_CHECK_MODULES([LOCCLIENTAPI], [location-client-api])
+    AC_SUBST([LOCCLIENTAPI_CFLAGS])
+    AC_SUBST([LOCCLIENTAPI_LIBS])
+])
+
+AC_ARG_WITH([gptp],
+    AC_HELP_STRING([--with-gptp], [with gptp support library]))
+
+AM_CONDITIONAL(PTP_SUPPORTED, test "x$with_gptp" = "xyes")
 
 AC_ARG_WITH([glib],
       AC_HELP_STRING([--with-glib],
