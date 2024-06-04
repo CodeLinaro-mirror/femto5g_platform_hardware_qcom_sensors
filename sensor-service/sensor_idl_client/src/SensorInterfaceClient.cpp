@@ -254,6 +254,13 @@ int main() {
     int batch_count = 0, j = 0, i = 0;
     info.sender_ = 1234;
 
+    const char* envVarName = "COMMONAPI_CONFIG"; // Specify the environment variable name
+    const char* envVarValue = std::getenv(envVarName); // Get the value
+    const char* envVarNameSomeIP = "VSOMEIP_CONFIGURATION"; // Specify the environment variable name
+    const char* envVarValueSomeIP = std::getenv(envVarNameSomeIP); // Get the value
+    const char* envCommonApi = "/usr/etc/vsomeip/SensorInterface/commonapi4someip.ini";
+    const char* envSomeIP = "/usr/etc/vsomeip/SensorInterface/vsomeip-sensor_local.json";
+
     regSigHandler();
 
     CommonAPI::Runtime::setProperty("LogContext", "E01C");
@@ -269,8 +276,21 @@ int main() {
     myProxy=runtime->buildProxy<SensorInterfaceProxy>(domain,instance,connection);
 
     cout << "Checking IDL Service availability !!" << endl;
-    while (!myProxy->isAvailable())
-	    usleep(10);
+    if(envVarValue != nullptr && envVarValueSomeIP != nullptr){
+	    if(strcmp(envVarValue, envCommonApi) == 0 && strcmp(envVarValueSomeIP, envSomeIP) == 0){
+	            cout << "Environment variables are set properly" << endl;
+        	    while (!myProxy->isAvailable())
+                	    usleep(10);
+	    }
+	    else {
+		    cout << "Environment variables are not set properly" << endl;
+	            exit(EXIT_FAILURE);
+	    }
+    }
+    else {
+            cout << "Environment variables are not set properly" << endl;
+            exit(EXIT_FAILURE);
+    }
     cout << "IDL Service is now available !!" << endl;
 
     if (gptpInit())
