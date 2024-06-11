@@ -1651,7 +1651,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
       //Check for SMI230 sensor
       case SENSOR_SMI230: {
         if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
-                float samplingRate[6] = {12, 25, 50, 100, 200};
+                float samplingRate[6] = {12, 25, 50, 100, 200, 400};
                 int acc_range[4] = {2, 4, 8, 16};
 		char rangeFilePath[SEARCH_PATH_SIZE]={'\0'};
 		find_path(DYN_INPUT_TYPE, rangeFilePath, "SMI230ACC", sizeof(rangeFilePath));
@@ -1667,7 +1667,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 s->minBatchCount   = mMinAccBatchCount;
 	}
         if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
-                float samplingRate[6] = {100, 200};
+                float samplingRate[6] = {100, 200, 400};
                 int gyro_range[5] = {125, 250, 500, 1000, 2000};
 		char rangeFilePath[SEARCH_PATH_SIZE]={'\0'};
 		find_path(DYN_INPUT_TYPE, rangeFilePath, "SMI230GYRO", sizeof(rangeFilePath));
