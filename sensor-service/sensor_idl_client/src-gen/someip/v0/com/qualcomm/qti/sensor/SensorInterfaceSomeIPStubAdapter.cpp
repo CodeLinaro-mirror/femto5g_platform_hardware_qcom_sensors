@@ -38,7 +38,7 @@ std::shared_ptr<CommonAPI::SomeIP::StubAdapter> createSensorInterfaceSomeIPStubA
 void initializeSensorInterfaceSomeIPStubAdapter() {
     CommonAPI::SomeIP::AddressTranslator::get()->insert(
         "local:com.qualcomm.qti.sensor.SensorInterface:v0_1:com.qualcomm.qti.sensor.SensorInterface",
-         0x1234, 0x5678, 0, 1);
+         0xee01, 0x1, 0, 1);
     CommonAPI::SomeIP::Factory::get()->registerStubAdapterCreateMethod(
         "com.qualcomm.qti.sensor.SensorInterface:v0_1",
         &createSensorInterfaceSomeIPStubAdapter);

@@ -10,29 +10,29 @@
     "applications" :
     [
         {
-            "name" : "client-sample",
-            "id" : "0x1343"
+            "name" : "sensor-fidl-client",
+            "id" : "0x2"
         },
         {
-            "name" : "service-sample",
-            "id" : "0x1277"
+            "name" : "sensor-fidl-service",
+            "id" : "0x1"
         }            
     ],
     "services" :
     [
         {
-            "service" : "0x1234",
-            "instance" : "0x5678",
+            "service" : "0xEE01",
+            "instance" : "0x1",
             "reliable" : { "port" : "30510", "enable-magic-cookies" : "false" },
             "unreliable" : "31001"
         }
     ],
-    "routing" : "client-sample",
+    "routing" : "sensor-fidl-client",
     "service-discovery" :
     {
         "enable" : "true",
         "multicast" : "224.244.224.245",
-        "port" : "30491",
+        "port" : "30490",
         "protocol" : "udp"
     }
 }

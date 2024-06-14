@@ -261,26 +261,9 @@ int main() {
     const char* envCommonApi = "/usr/etc/vsomeip/SensorInterface/commonapi4someip.ini";
     const char* envSomeIP = "/usr/etc/vsomeip/SensorInterface/vsomeip-sensor_local.json";
 
-    regSigHandler();
-
-    CommonAPI::Runtime::setProperty("LogContext", "E01C");
-    CommonAPI::Runtime::setProperty("LogApplication", "E01C");
-    CommonAPI::Runtime::setProperty("LibraryBase", "SensorInterface");
-
-    shared_ptr < CommonAPI::Runtime > runtime = CommonAPI::Runtime::get();
-
-    string domain = "local";
-    string instance = "com.qualcomm.qti.sensor.SensorInterface";
-    string connection = "client-sample";
-
-    myProxy=runtime->buildProxy<SensorInterfaceProxy>(domain,instance,connection);
-
-    cout << "Checking IDL Service availability !!" << endl;
     if(envVarValue != nullptr && envVarValueSomeIP != nullptr){
 	    if(strcmp(envVarValue, envCommonApi) == 0 && strcmp(envVarValueSomeIP, envSomeIP) == 0){
 	            cout << "Environment variables are set properly" << endl;
-        	    while (!myProxy->isAvailable())
-                	    usleep(10);
 	    }
 	    else {
 		    cout << "Environment variables are not set properly" << endl;
@@ -291,7 +274,25 @@ int main() {
             cout << "Environment variables are not set properly" << endl;
             exit(EXIT_FAILURE);
     }
-    cout << "IDL Service is now available !!" << endl;
+
+    regSigHandler();
+
+    CommonAPI::Runtime::setProperty("LogContext", "SensorInterface");
+    CommonAPI::Runtime::setProperty("LogApplication", "SensorInterface");
+    CommonAPI::Runtime::setProperty("LibraryBase", "SensorInterface");
+
+    shared_ptr < CommonAPI::Runtime > runtime = CommonAPI::Runtime::get();
+
+    string domain = "local";
+    string instance = "com.qualcomm.qti.sensor.SensorInterface";
+    string connection = "sensor-fidl-client";
+
+    myProxy=runtime->buildProxy<SensorInterfaceProxy>(domain,instance,connection);
+
+    cout << "Checking Sensor Service availability !!" << endl;
+    while (!myProxy->isAvailable())
+	    usleep(10);
+    cout << "Sensor Service is now available !!" << endl;
 
     if (gptpInit())
 	    cout << " gptpinit success" << endl;
