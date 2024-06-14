@@ -11,28 +11,29 @@
     "applications" :
     [
         {
-            "name" : "client-sample",
-            "id" : "0x1343"
+            "name" : "sensor-fidl-client",
+            "id" : "0x2"
         }
     ],
     "services" :
      [
         {
-            "service" : "0x1234",
-            "instance" : "0x5678",
+            "service" : "0xEE01",
+            "instance" : "0x1",
             "unreliable" : "30510",
             "someip-tp": 
             {
-                "client-to-service": ["0x9471", "0x9475", "0x9476", "0x9477", "0x9478", "0x9479", "0x947A", "0x947B"]
+		"client-to-service": ["0x80E9", "0x80EA", "0x80EB"]
             }
         }
     ],
-    "routing" : "client-sample",
+    "max-payload-size-unreliable" : "15000",
+    "routing" : "location-fidl-client",
     "service-discovery" :
     {
         "enable" : "true",
         "multicast" : "224.244.224.245",
-        "port" : "30491",
+        "port" : "30490",
         "protocol" : "udp"
     }
 }

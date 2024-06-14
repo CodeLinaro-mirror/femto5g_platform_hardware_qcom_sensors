@@ -23,6 +23,10 @@
 using aidl::android::hardware::sensors::Sensors;
 
 int main() {
+    SENSOR_LOGI(SENSOR_TAG "%s --> ", __func__);
+    setenv("VSOMEIP_CONFIGURATION", "/vendor/etc/vsomeip-sensor_client.json", 1);
+    setenv("COMMONAPI_CONFIG", "/vendor/etc/commonapi4someip.ini" ,1);
+
     ABinderProcess_setThreadPoolMaxThreadCount(0);
 
     // Make a default sensors service

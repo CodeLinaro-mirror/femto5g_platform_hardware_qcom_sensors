@@ -11,11 +11,14 @@
 #include <vector>
 #include <cutils/log.h>
 
-#define ACCEL_CALIBRATED_SENSOR_ID 4
-#define GYRO_CALIBRATED_SENSOR_ID  5
+#define ACCEL_CALIBRATED_SENSOR_ID   3
+#define ACCEL_UNCALIBRATED_SENSOR_ID 1 
+#define GYRO_CALIBRATED_SENSOR_ID    4
+#define GYRO_UNCALIBRATED_SENSOR_ID  16
+#define HEADING_SENSOR_ID   5
 
 #define DEBUG_LEVEL 3
-#define SENSOR_TAG "SensorSvc_AIDL:"
+#define SENSOR_TAG "SensorInterface_AIDL:"
 
 #define LOGCAT_ENABLED
 
@@ -23,20 +26,17 @@
 #define IF_SENSOR_LOGW if(( DEBUG_LEVEL >= 2) && ( DEBUG_LEVEL <= 5))
 #define IF_SENSOR_LOGI if(( DEBUG_LEVEL >= 3) && ( DEBUG_LEVEL <= 5))
 #define IF_SENSOR_LOGD if(( DEBUG_LEVEL >= 4) && ( DEBUG_LEVEL <= 5))
-#define IF_SENSOR_LOGV if(( DEBUG_LEVEL >= 5) && ( DEBUG_LEVEL <= 5))
 
 #ifdef LOGCAT_ENABLED
 #define SENSOR_LOGE(...) IF_SENSOR_LOGE { ALOGE(__VA_ARGS__); }
 #define SENSOR_LOGW(...) IF_SENSOR_LOGW { ALOGW(__VA_ARGS__); }
 #define SENSOR_LOGI(...) IF_SENSOR_LOGI { ALOGI(__VA_ARGS__); }
 #define SENSOR_LOGD(...) IF_SENSOR_LOGD { ALOGD(__VA_ARGS__); }
-#define SENSOR_LOGV(...) IF_SENSOR_LOGV { ALOGV(__VA_ARGS__); }
 #else
 #define SENSOR_LOGE(...) IF_SENSOR_LOGE { printf(__VA_ARGS__); }
 #define SENSOR_LOGW(...) IF_SENSOR_LOGW { printf(__VA_ARGS__); }
 #define SENSOR_LOGI(...) IF_SENSOR_LOGI { printf(__VA_ARGS__); }
 #define SENSOR_LOGD(...) IF_SENSOR_LOGD { printf(__VA_ARGS__); }
-#define SENSOR_LOGV(...) IF_SENSOR_LOGV { printf(__VA_ARGS__); }
 #endif
 
 using std::vector;
@@ -107,10 +107,6 @@ public:
     std::vector<SensorCoreList> getSensorCoreList() {
         return sensorListVector;
     }
-    int accel_cal_id;
-    int accel_uncal_id;
-    int gyro_cal_id;
-    int gyro_uncal_id;
 };
 
 #endif /* ANDROID_SENSOR_CORE_LIB */

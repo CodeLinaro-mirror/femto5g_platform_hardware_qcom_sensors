@@ -63,16 +63,12 @@ class Sensors : public BnSensors, public ISensorsEventCallback, public SensorCor
           mReadWakeLockQueueRun(false),
           mAutoReleaseWakeLockTime(0),
           mHasWakeLock(false) {
-          //AddSensor<AccelSensor>();
-          //AddSensor<GyroSensor>();
-          //AddSensor<AmbientTempSensor>();
-          //AddSensor<PressureSensor>();
-          //AddSensor<MagnetometerSensor>();
-          //AddSensor<LightSensor>();
-          //AddSensor<ProximitySensor>();
-          //AddSensor<RelativeHumiditySensor>();
-          //AddSensor<HingeAngleSensor>();
-	  SensorCore_Init();
+	AddSensor<AccelSensor>();
+	AddSensor<AccelUncalSensor>();
+	AddSensor<GyroSensor>();
+	AddSensor<GyroUncalSensor>();
+	AddSensor<HeadingSensor>();
+	SensorCore_Init();
     }
 
     virtual ~Sensors() {
@@ -109,8 +105,6 @@ class Sensors : public BnSensors, public ISensorsEventCallback, public SensorCor
     ::ndk::ScopedAStatus setOperationMode(
             ::aidl::android::hardware::sensors::ISensors::OperationMode in_mode) override;
     ::ndk::ScopedAStatus unregisterDirectChannel(int32_t in_channelHandle) override;
-    void onNewSensorsData(std::vector<SensorCoreData> &sensorData) override;
-    void postEvents1(const std::vector<Event> &events, bool wakeup);
     void postEvents(const std::vector<Event>& events, bool wakeup) override {
 
         std::lock_guard<std::mutex> lock(mWriteLock);
@@ -128,6 +122,7 @@ class Sensors : public BnSensors, public ISensorsEventCallback, public SensorCor
             }
         }
     }
+    void onNewSensorsData(std::vector<SensorCoreData> &sensorData) override;
 
   protected:
     // Add a new sensor

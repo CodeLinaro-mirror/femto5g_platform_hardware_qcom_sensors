@@ -17,7 +17,9 @@ ifeq ($(filter $(TARGET_BOARD_PLATFORM), gen4),$(TARGET_BOARD_PLATFORM)) #gen4_g
 ifneq ($(ENABLE_HYP), false)  #gen4_au -> lemans metal
 PRODUCT_PACKAGES += android.hardware.sensors@aidl-service-qc
 PRODUCT_PACKAGES += vsomeip-sensor_client.json
+PRODUCT_PACKAGES += vsomeip-sensor_test_client.json
 PRODUCT_PACKAGES += SensorInterfaceClient
+ENABLE_SENSOR_CONFIGS := true
 endif
 endif
 

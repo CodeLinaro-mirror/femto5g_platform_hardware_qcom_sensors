@@ -47,7 +47,7 @@ Sensor::~Sensor() {
     mRunThread.join();
 }
 
-const SensorInfo& Sensor::getSensorInfo() const {
+SensorInfo& Sensor::getSensorInfo() {
     return mSensorInfo;
 }
 
@@ -202,24 +202,52 @@ std::vector<Event> OnChangeSensor::readEvents() {
 }
 
 AccelSensor::AccelSensor(int32_t sensorHandle, ISensorsEventCallback* callback) : Sensor(callback) {
-    mSensorInfo.sensorHandle = sensorHandle;
-    mSensorInfo.name = "Accel Sensor";
-    mSensorInfo.vendor = "Vendor String";
+    mSensorInfo.sensorHandle = 3;
+    mSensorInfo.name = "Accel calibrated Sensor";
+    mSensorInfo.vendor = "Bosch-SMI230";
     mSensorInfo.version = 1;
     mSensorInfo.type = SensorType::ACCELEROMETER;
     mSensorInfo.typeAsString = "";
-    mSensorInfo.maxRange = 78.4f;  // +/- 8g
-    mSensorInfo.resolution = 1.52e-5;
+    mSensorInfo.maxRange = 19.6f;  // +/- 2g
+    mSensorInfo.resolution = 0.002393;
     mSensorInfo.power = 0.001f;          // mA
-    mSensorInfo.minDelayUs = 10 * 1000;  // microseconds
-    mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
+    mSensorInfo.minDelayUs = (1.0f/100) * 1000000L;  // microseconds
+    mSensorInfo.maxDelayUs = (1.0f/12)  * 1000000L;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
-    mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_DATA_INJECTION);
+    mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_CONTINUOUS_MODE);
 };
 
 void AccelSensor::readEventPayload(EventPayload& payload) {
+    EventPayload::Vec3 vec3 = {
+            .x = 0,
+            .y = 0,
+            .z = 9.8,
+            .status = SensorStatus::ACCURACY_HIGH,
+    };
+    payload.set<EventPayload::Tag::vec3>(vec3);
+}
+
+AccelUncalSensor::AccelUncalSensor(int32_t sensorHandle, ISensorsEventCallback* callback) : Sensor(callback) {
+    mSensorInfo.sensorHandle = 1;
+    mSensorInfo.name = "Accel uncalibrated Sensor";
+    mSensorInfo.vendor = "Bosch-SMI230";
+    mSensorInfo.version = 1;
+    mSensorInfo.type = SensorType::ACCELEROMETER_UNCALIBRATED;
+    mSensorInfo.typeAsString = "";
+    mSensorInfo.maxRange = 19.6f;  // +/- 2g
+    mSensorInfo.resolution = 0.002393;
+    mSensorInfo.power = 0.001f;          // mA
+    mSensorInfo.minDelayUs = (1.0f/100) * 1000000L;  // microseconds
+    mSensorInfo.maxDelayUs = (1.0f/12)  * 1000000L;
+    mSensorInfo.fifoReservedEventCount = 0;
+    mSensorInfo.fifoMaxEventCount = 0;
+    mSensorInfo.requiredPermission = "";
+    mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_CONTINUOUS_MODE);
+};
+
+void AccelUncalSensor::readEventPayload(EventPayload& payload) {
     EventPayload::Vec3 vec3 = {
             .x = 0,
             .y = 0,
@@ -268,7 +296,7 @@ MagnetometerSensor::MagnetometerSensor(int32_t sensorHandle, ISensorsEventCallba
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
-    mSensorInfo.flags = 0;
+    mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_DATA_INJECTION);
 };
 
 void MagnetometerSensor::readEventPayload(EventPayload& payload) {
@@ -329,21 +357,21 @@ void ProximitySensor::readEventPayload(EventPayload& payload) {
 }
 
 GyroSensor::GyroSensor(int32_t sensorHandle, ISensorsEventCallback* callback) : Sensor(callback) {
-    mSensorInfo.sensorHandle = sensorHandle;
-    mSensorInfo.name = "Gyro Sensor";
-    mSensorInfo.vendor = "Vendor String";
+    mSensorInfo.sensorHandle = 4;
+    mSensorInfo.name = "Gyro calibrated Sensor";
+    mSensorInfo.vendor = "Bosch-SMI230";
     mSensorInfo.version = 1;
     mSensorInfo.type = SensorType::GYROSCOPE;
     mSensorInfo.typeAsString = "";
-    mSensorInfo.maxRange = 1000.0f * M_PI / 180.0f;
+    mSensorInfo.maxRange = 125;
     mSensorInfo.resolution = 1000.0f * M_PI / (180.0f * 32768.0f);
     mSensorInfo.power = 0.001f;
-    mSensorInfo.minDelayUs = 10 * 1000;  // microseconds
-    mSensorInfo.maxDelayUs = kDefaultMaxDelayUs;
+    mSensorInfo.minDelayUs = (1.0f/100) * 1000000L;  // microseconds
+    mSensorInfo.maxDelayUs = (1.0f/100) * 1000000L;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
-    mSensorInfo.flags = 0;
+    mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_CONTINUOUS_MODE);
 };
 
 void GyroSensor::readEventPayload(EventPayload& payload) {
@@ -354,6 +382,56 @@ void GyroSensor::readEventPayload(EventPayload& payload) {
             .status = SensorStatus::ACCURACY_HIGH,
     };
     payload.set<EventPayload::Tag::vec3>(vec3);
+}
+
+GyroUncalSensor::GyroUncalSensor(int32_t sensorHandle, ISensorsEventCallback* callback) : Sensor(callback) {
+    mSensorInfo.sensorHandle = 16;
+    mSensorInfo.name = "Gyro Uncalibrated Sensor";
+    mSensorInfo.vendor = "Bosch-SMI230";
+    mSensorInfo.version = 1;
+    mSensorInfo.type = SensorType::GYROSCOPE_UNCALIBRATED;
+    mSensorInfo.typeAsString = "";
+    mSensorInfo.maxRange = 125;
+    mSensorInfo.resolution = 1000.0f * M_PI / (180.0f * 32768.0f);
+    mSensorInfo.power = 0.001f;
+    mSensorInfo.minDelayUs = (1.0f/100) * 1000000L;  // microseconds
+    mSensorInfo.maxDelayUs = (1.0f/100) * 1000000L;
+    mSensorInfo.fifoReservedEventCount = 0;
+    mSensorInfo.fifoMaxEventCount = 0;
+    mSensorInfo.requiredPermission = "";
+    mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_CONTINUOUS_MODE);
+};
+
+void GyroUncalSensor::readEventPayload(EventPayload& payload) {
+    EventPayload::Vec3 vec3 = {
+            .x = 0,
+            .y = 0,
+            .z = 0,
+            .status = SensorStatus::ACCURACY_HIGH,
+    };
+    payload.set<EventPayload::Tag::vec3>(vec3);
+}
+
+HeadingSensor::HeadingSensor(int32_t sensorHandle, ISensorsEventCallback* callback) : Sensor(callback) {
+    mSensorInfo.sensorHandle = 5;
+    mSensorInfo.name = "Heading Sensor";
+    mSensorInfo.vendor = "Qcom";
+    mSensorInfo.version = 1;
+    mSensorInfo.type = SensorType::HEADING;
+    mSensorInfo.typeAsString = "";
+    mSensorInfo.maxRange = 1.0f;
+    mSensorInfo.resolution = 1.0f;
+    mSensorInfo.power = 0.001f;
+    mSensorInfo.minDelayUs = (1.0f/100) * 1000000L;  // microseconds
+    mSensorInfo.maxDelayUs = (1.0f/100) * 1000000L;
+    mSensorInfo.fifoReservedEventCount = 0;
+    mSensorInfo.fifoMaxEventCount = 0;
+    mSensorInfo.requiredPermission = "";
+    mSensorInfo.flags = static_cast<uint32_t>(SensorInfo::SENSOR_FLAG_BITS_CONTINUOUS_MODE);
+}
+
+void HeadingSensor::readEventPayload(EventPayload& payload) {
+    payload.set<EventPayload::Tag::scalar>(180.0f);
 }
 
 AmbientTempSensor::AmbientTempSensor(int32_t sensorHandle, ISensorsEventCallback* callback)

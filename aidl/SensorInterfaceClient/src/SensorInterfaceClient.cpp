@@ -29,6 +29,9 @@ using namespace std;
 
 #define NSEC_IN_ONE_SEC       (1000000000ULL)   /* nanosec in a sec */
 #define GPTP_IF_LIB_NAME      "libgptp.so"
+#define ACCEL_UNCALIBRATED_SENSOR_ID 1
+#define GYRO_UNCALIBRATED_SENSOR_ID  16
+#define HEADING_SENSOR_ID   5
 void gptpUpdateNotification(struct gptp_update update);
 const char * libName = GPTP_IF_LIB_NAME;
 void *gPTPLibHandle = nullptr;
@@ -231,19 +234,19 @@ static void  onSensorDataReadCb(vector<SensorInterface::SensorEvent> events, uin
   if ((nullptr != gPTPReqIf) && (nullptr != gPTPReqIf->gptpGetCurPtpTimeIf)) {
 	  retPtp = gPTPReqIf->gptpGetCurPtpTimeIf(&ts_cur);
   }
-  if (sensor_id == 1) {
+  if (sensor_id == ACCEL_UNCALIBRATED_SENSOR_ID) {
 	  acc_sensor_ts = events[count-1].getGptptimestamp();
 	  printf( "Sensor ACC Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			  sensor_id, count, (ts_cur - ts_prv_acc)/1000000, ts_cur, (ts_cur - acc_sensor_ts)/1000000);
 	  ts_prv_acc = ts_cur;
   }
-  if (sensor_id == 16 ) {
+  if (sensor_id == GYRO_UNCALIBRATED_SENSOR_ID) {
 	  gyro_sensor_ts = events[count-1].getGptptimestamp();
 	  printf( "Sensor GYRO Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			  sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, ts_cur, (ts_cur - gyro_sensor_ts)/1000000);
 	  ts_prv_gyro = ts_cur;
   }
-  if (sensor_id == 3 ) {
+  if (sensor_id == HEADING_SENSOR_ID) {
 	  head_sensor_ts = events[count-1].getGptptimestamp();
 	  printf( "Sensor HEAD Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			  sensor_id, count, (ts_cur - ts_prv_head)/1000000, ts_cur, (ts_cur - head_sensor_ts)/1000000);
@@ -286,6 +289,7 @@ static void printHelp() {
 
 int main() {
 
+    bool SHD_RESTARTED = false;
     int32_t sensor_count = 0;
     struct timespec ts;
     SensorInterface::SensorState state = SensorInterface::SensorState::SENSOR_DISABLE;
@@ -303,6 +307,10 @@ int main() {
     char batchcount[10];
     int batch_count = 0, j = 0;
 
+    printf("%s --> ", __func__);
+    setenv("VSOMEIP_CONFIGURATION", "/vendor/etc/vsomeip-sensor_test_client.json", 1);
+    setenv("COMMONAPI_CONFIG", "/vendor/etc/commonapi4someip.ini" ,1);
+ 
     regSigHandler();
 
     /* GPTP */
@@ -312,23 +320,39 @@ int main() {
 	    gPTPReqIf->gptpInitIf();
     }
 
-    CommonAPI::Runtime::setProperty("LogContext", "E01C");
-    CommonAPI::Runtime::setProperty("LogApplication", "E01C");
+    CommonAPI::Runtime::setProperty("LogContext", "SensorInterface");
+    CommonAPI::Runtime::setProperty("LogApplication", "SensorInterface");
     CommonAPI::Runtime::setProperty("LibraryBase", "SensorInterface");
 
     shared_ptr < CommonAPI::Runtime > runtime = CommonAPI::Runtime::get();
 
     string domain = "local";
     string instance = "com.qualcomm.qti.sensor.SensorInterface";
-    string connection = "client-sample";
+    string connection = "sensor-fidl-test-client";
 
     myProxy=runtime->buildProxy<SensorInterfaceProxy>(domain,instance,connection);
 
-    cout << "Checking IDL Service availability !!" << endl;
+    cout << "Checking Sensor Service availability !!" << endl;
     while (!myProxy->isAvailable())
 	    usleep(10);
-    cout << "IDL Service is now available !!" << endl;
+    cout << "Sensor Service is now available !!" << endl;
 
+    myProxy->getProxyStatusEvent().subscribe([&] (const CommonAPI::AvailabilityStatus status) {
+	switch (status) {
+	case CommonAPI::AvailabilityStatus::UNKNOWN:
+	cout << "Sensor Service Unkown" << endl;
+	SHD_RESTARTED = true;
+	break;
+	case CommonAPI::AvailabilityStatus::NOT_AVAILABLE:
+	cout << "Sensor Service NOT_AVAILABLE" << endl;
+	SHD_RESTARTED = true;
+	break;
+	case CommonAPI::AvailabilityStatus::AVAILABLE:
+	cout << "Sensor Service AVAILABLE" << endl;
+	SHD_RESTARTED = false;
+	cout << "<<-----" << endl;
+	}
+	});
 
     capSubscription = myProxy->getSensorCapabilitiesEvent().subscribe(
        [&](const ::v0::com::qualcomm::qti::sensor::SensorInterface::SensorCapabilitiesMask &mask) {

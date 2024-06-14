@@ -28,6 +28,11 @@ prebuilt_etc {
     vendor: true,
     src: "./SensorInterfaceClient/vsomeip-sensor_client.json",
 }
+prebuilt_etc {
+    name: "vsomeip-sensor_test_client.json",
+    vendor: true,
+    src: "./SensorInterfaceClient/vsomeip-sensor_test_client.json",
+}
 gen_core_stub_srcs = [
     "src-gen/core/v0/com/qualcomm/qti/sensor/*Stub*.cpp"
 ]
@@ -152,7 +157,7 @@ filegroup {
 }
 
 cc_library_static {
-    name: "libsensorsexampleimpl1",
+    name: "libsensorsimpl",
     vendor: true,
     shared_libs: [
         "libbase",
@@ -196,7 +201,7 @@ cc_binary {
        "libSensor-core-api_headers",	
     ],
     static_libs: [
-        "libsensorsexampleimpl1",
+        "libsensorsimpl",
     ],
     srcs: ["main.cpp"],
 }

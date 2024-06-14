@@ -44,7 +44,7 @@ class Sensor {
     Sensor(ISensorsEventCallback* callback);
     virtual ~Sensor();
 
-    const SensorInfo& getSensorInfo() const;
+    SensorInfo& getSensorInfo();
     void batch(int64_t samplingPeriodNs);
     virtual void activate(bool enable);
     ndk::ScopedAStatus flush();
@@ -98,9 +98,33 @@ class AccelSensor : public Sensor {
     virtual void readEventPayload(EventPayload& payload) override;
 };
 
+class AccelUncalSensor : public Sensor {
+  public:
+    AccelUncalSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+
+  protected:
+    virtual void readEventPayload(EventPayload& payload) override;
+};
+
 class GyroSensor : public Sensor {
   public:
     GyroSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+
+  protected:
+    virtual void readEventPayload(EventPayload& payload) override;
+};
+
+class GyroUncalSensor : public Sensor {
+  public:
+    GyroUncalSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+
+  protected:
+    virtual void readEventPayload(EventPayload& payload) override;
+};
+
+class HeadingSensor : public Sensor {
+  public:
+    HeadingSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
 
   protected:
     virtual void readEventPayload(EventPayload& payload) override;

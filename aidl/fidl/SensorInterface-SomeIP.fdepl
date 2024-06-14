@@ -5,50 +5,50 @@ import "platform:/plugin/org.genivi.commonapi.someip/deployment/CommonAPI-4-SOME
 import "SensorInterface.fidl"
 
 define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.sensor.SensorInterface {
-    SomeIpServiceID = 4660
+    SomeIpServiceID = 60929    /** 0xEE01*/
 
     method RegisterSensorClient {
-        SomeIpMethodID = 30001
+        SomeIpMethodID = 32001      /** 0x7D01 */
         SomeIpReliable = true
     }
 
     method DeRegisterSensorClient {
-        SomeIpMethodID = 30002
+        SomeIpMethodID = 32002      /** 0x7D02 */
         SomeIpReliable = true
     }
 
     method GetSensorList {
-        SomeIpMethodID = 30003
+        SomeIpMethodID = 32003      /** 0x7D03 */
         SomeIpReliable = true
     }
 
     method SensorConfig {
-        SomeIpMethodID = 30004
+        SomeIpMethodID = 32004      /** 0x7D04 */
         SomeIpReliable = true
     }
 
     method SensorControl {
-        SomeIpMethodID = 30005
+        SomeIpMethodID = 32005      /** 0x7D05 */
         SomeIpReliable = true
     }
 
     broadcast SensorCapabilities {
-        SomeIpEventID = 38005
-        SomeIpEventGroups = { 38002 }
+        SomeIpEventID = 33001      /** 0x80E9 */
+        SomeIpEventGroups = { 33000 }
         out {
         }
     }
 
     broadcast SensorConfigUpdate {
-        SomeIpEventID = 38006
-        SomeIpEventGroups = { 38002 }
+        SomeIpEventID = 33002      /** 0x80EA */
+        SomeIpEventGroups = { 33000 }
         out {
         }
     }
 
     broadcast SensorDataRead {
-        SomeIpEventID = 38007
-        SomeIpEventGroups = { 38002 }
+        SomeIpEventID = 33003      /** 0x80EB */
+        SomeIpEventGroups = { 33000 }
         out {
         }
     }
@@ -70,56 +70,57 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.sen
     }
 
     struct SensorList {
-        sensorVersion		 {}
-        name 	 		 {}
-        vendor			 {}
-        sensorId		 {}
-        type			 {}
-        maxSamplingRate		 {}
-        minBatchCount		 {}
-        maxBatchCount		 {}
-	odr                      {}
-        range			 {}
-        resolution	         {}
-        maxRange		 {}
+        sensorVersion    {}
+        name             {}
+        vendor           {}
+        sensorId         {}
+        type             {}
+        maxSamplingRate  {}
+        minBatchCount    {}
+        maxBatchCount    {}
+        odr              {}
+        range            {}
+        resolution       {}
+        maxRange         {}
     }
 
     struct SensorHeadingEvent {
-	heading                  {}
-	accuracy                 {}
+        heading          {}
+        accuracy         {}
     }
 
     struct SensorUncalibratedEvent {
-        x_uncalib 		 {}
-        y_uncalib		 {}
-        z_uncalib	         {}
-        x_bias			 {}
-        y_bias			 {}
-        z_bias			 {}
+        x_uncalib        {}
+        y_uncalib        {}
+        z_uncalib        {}
+        x_bias           {}
+        y_bias           {}
+        z_bias           {}
     }
 
     union SensorData {
-	imu_event                {}
-	heading_event            {}
+        imu_event        {}
+        heading_event    {}
     }
 
     struct SensorEvent {
-        sensorId		 {}
-        type			 {}
-        timestamp		 {}
-	gptptimestamp            {}
-	data			 {}
+        sensorId         {}
+        type             {}
+        timestamp        {}
+        gptptimestamp    {}
+        data             {}
     }
 }
 
 define org.genivi.commonapi.someip.deployment for provider as Service {
     instance com.qualcomm.qti.sensor.SensorInterface {
         InstanceId = "com.qualcomm.qti.sensor.SensorInterface"
-        
-        SomeIpInstanceID = 22136
-    
+
+        SomeIpInstanceID = 1        /**Instance 0x01*/
+
         SomeIpUnicastAddress = "192.168.1.1"
         SomeIpReliableUnicastPort = 30499
         SomeIpUnreliableUnicastPort = 30499
     }
 }
+

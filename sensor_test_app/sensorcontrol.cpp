@@ -64,7 +64,7 @@ class SensorStats {
         void setEnable(bool en) { enabled = en; }
         const bool& getEnable() const { return enabled; }
 
-        // shorthand for sensor->getName().string()
+        // shorthand for sensor->getName().c_str()
         const char* getName() const;
         // short hand for sensor->getType()
         int getType() const;
@@ -100,7 +100,7 @@ SensorStats::SensorStats(Sensor const* sensor) : sensorHandle(sensor)
 const char* SensorStats::getName() const
 {
     if (sensorHandle) 
-        return (sensorHandle->getName().string());
+        return (sensorHandle->getName().c_str());
     else
         return ("<not set>");
 }
@@ -426,8 +426,8 @@ void print_help(char *argv0)
  */
 void dumpMetadata(Sensor const* sensor)
 {
-    printf("Sensor '%s' metadata:\n",   sensor->getName().string());
-    printf("    vendor       : %s\n",   sensor->getVendor().string());
+    printf("Sensor '%s' metadata:\n",   sensor->getName().c_str());
+    printf("    vendor       : %s\n",   sensor->getVendor().c_str());
     printf("    handle       : %d\n",   sensor->getHandle());
     printf("    type         : %d\n",   sensor->getType());
     printf("    min value    : %f\n",   sensor->getMinValue());
@@ -479,7 +479,7 @@ int main(int argc, char** argv)
     for (int ii = 0; ii < int(count); ii++) {
         const Sensor *sensor = list[ii];
         if (mplOnly) {
-            if (strncmp(sensor->getName().string(), "MPL", 3)) {
+            if (strncmp(sensor->getName().c_str(), "MPL", 3)) {
                 continue;
             }
         }
@@ -490,7 +490,7 @@ int main(int argc, char** argv)
                    "(name '%s', type '%d') - "
                    "already assigned as index '%d' "
                    "(name '%s', type '%d').\n",
-                   sensor->getHandle(), sensor->getName().string(),
+                   sensor->getHandle(), sensor->getName().c_str(),
                    sensor->getType(), oldIndex,
                    sensorStatsList[oldIndex].getName(),
                    sensorStatsList[oldIndex].getType()
@@ -677,14 +677,14 @@ int main(int argc, char** argv)
         String8 sensorSel(clSensorSel);
         int sensorIndex = -1;
         // -> check if it is a sensor index (Warning: system dependent)
-        int tmpIndex = atoi(sensorSel.string());
+        int tmpIndex = atoi(sensorSel.c_str());
         if (tmpIndex > 0) {
             if (tmpIndex <= int(sensorStatsList.size())) {
                 sensorIndex = tmpIndex;
             } else {
                 printf("\n");
                 printf("Error: cannot find requested sensor index '%s'\n",
-                       sensorSel.string());
+                       sensorSel.c_str());
                 printf("\n");
                 return(20);
             }
@@ -698,7 +698,7 @@ int main(int argc, char** argv)
             if (sensorIndex == -1) {
                 printf("\n");
                 printf("Error: cannot find requested sensor name '%s'\n",
-                       sensorSel.string());
+                       sensorSel.c_str());
                 printf("\n");
                 return(21);
             }
@@ -707,17 +707,17 @@ int main(int argc, char** argv)
         Sensor const* sensor = sensorStatsList[sensorIndex].getSensor();
         if (verbose)
             printf("sensor name/index = %s / %d\n", 
-                   sensor->getName().string(), sensorIndex + 1);
+                   sensor->getName().c_str(), sensorIndex + 1);
 
         //
         // validate the command-line arguments: rate
         //
         String8 rateLiteral(clRateSel);
-        int rateHz = atoi(rateLiteral.string());
+        int rateHz = atoi(rateLiteral.c_str());
         if (rateHz == 0) {
             printf("\n");
             printf("Error: invalid rate specification '%s'\n", 
-                   rateLiteral.string());
+                   rateLiteral.c_str());
             printf("\n");
             return(30);
         }
@@ -762,7 +762,7 @@ int main(int argc, char** argv)
         //
         nsecs_t delayNs = nsecs_t(1000000000LL / rateHz);
         printf("## enabling '%s' @ %d Hz (%lld ms)\n", 
-               sensor->getName().string(), rateHz, delayNs / 1000000LL);
+               sensor->getName().c_str(), rateHz, delayNs / 1000000LL);
         //q->enableSensorBatch(sensor->getHandle(), delayNs / 1000, 0, false);
 
         //
