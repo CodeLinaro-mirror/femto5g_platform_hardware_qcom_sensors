@@ -127,8 +127,8 @@ BoschSensor::BoschSensor(const BoschSensor & other)
 
 BoschSensor::~BoschSensor()
 {
-    pthread_kill(thread_sensord, SIGTERM);
-    pthread_kill(thread_hwcntl, SIGTERM);
+    pthread_cancel(thread_sensord);
+    pthread_cancel(thread_hwcntl);
 
     //pthread_join(thread_sensord, NULL);
     //pthread_join(thread_hwcntl, NULL);
