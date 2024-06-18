@@ -35,8 +35,8 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "SensorInterfaceStubImpl.hpp"
 #include <time.h>
 
-#define SENSOR_TYPE_HEADING   5
-#define SENSOR_ID_HEADING   3
+#define SENSOR_TYPE_HEADING   42
+#define SENSOR_ID_HEADING   5
 
 #define NSEC_IN_ONE_SEC       (1000000000ULL)   /* nanosec in a sec */
 
@@ -142,7 +142,7 @@ vector<SensorInterface::SensorList> SensorInterfaceStubImpl::parseSensorList(str
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
 	  memset(&idlSensorList, 0, sizeof(idlSensorList));
 	  idlSensorList.setName("Heading");
-	  idlSensorList.setVendor("Heading-Sensor");
+	  idlSensorList.setVendor("Qcom");
 	  idlSensorList.setSensorVersion(1);
 	  idlSensorList.setSensorId(SENSOR_ID_HEADING);
 	  idlSensorList.setType(SENSOR_TYPE_HEADING);

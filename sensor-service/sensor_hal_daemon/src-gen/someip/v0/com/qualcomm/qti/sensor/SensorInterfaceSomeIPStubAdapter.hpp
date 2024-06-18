@@ -153,26 +153,26 @@ public:
             std::make_tuple(&::v0::com::qualcomm::qti::sensor::SensorInterface_::SensorResponseDeployment))
         
     {
-        SensorInterfaceSomeIPStubAdapterHelper::addStubDispatcher( { CommonAPI::SomeIP::method_id_t(0x7531) }, &registerSensorClientStubDispatcher );
-        SensorInterfaceSomeIPStubAdapterHelper::addStubDispatcher( { CommonAPI::SomeIP::method_id_t(0x7532) }, &deRegisterSensorClientStubDispatcher );
-        SensorInterfaceSomeIPStubAdapterHelper::addStubDispatcher( { CommonAPI::SomeIP::method_id_t(0x7533) }, &getSensorListStubDispatcher );
-        SensorInterfaceSomeIPStubAdapterHelper::addStubDispatcher( { CommonAPI::SomeIP::method_id_t(0x7534) }, &sensorConfigStubDispatcher );
-        SensorInterfaceSomeIPStubAdapterHelper::addStubDispatcher( { CommonAPI::SomeIP::method_id_t(0x7535) }, &sensorControlStubDispatcher );
+        SensorInterfaceSomeIPStubAdapterHelper::addStubDispatcher( { CommonAPI::SomeIP::method_id_t(0x7d01) }, &registerSensorClientStubDispatcher );
+        SensorInterfaceSomeIPStubAdapterHelper::addStubDispatcher( { CommonAPI::SomeIP::method_id_t(0x7d02) }, &deRegisterSensorClientStubDispatcher );
+        SensorInterfaceSomeIPStubAdapterHelper::addStubDispatcher( { CommonAPI::SomeIP::method_id_t(0x7d03) }, &getSensorListStubDispatcher );
+        SensorInterfaceSomeIPStubAdapterHelper::addStubDispatcher( { CommonAPI::SomeIP::method_id_t(0x7d04) }, &sensorConfigStubDispatcher );
+        SensorInterfaceSomeIPStubAdapterHelper::addStubDispatcher( { CommonAPI::SomeIP::method_id_t(0x7d05) }, &sensorControlStubDispatcher );
         // Provided events/fields
         {
             std::set<CommonAPI::SomeIP::eventgroup_id_t> itsEventGroups;
-            itsEventGroups.insert(CommonAPI::SomeIP::eventgroup_id_t(0x9472));
-            CommonAPI::SomeIP::StubAdapter::registerEvent(CommonAPI::SomeIP::event_id_t(0x9475), itsEventGroups, CommonAPI::SomeIP::event_type_e::ET_EVENT, CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE);
+            itsEventGroups.insert(CommonAPI::SomeIP::eventgroup_id_t(0x80e8));
+            CommonAPI::SomeIP::StubAdapter::registerEvent(CommonAPI::SomeIP::event_id_t(0x80e9), itsEventGroups, CommonAPI::SomeIP::event_type_e::ET_EVENT, CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE);
         }
         {
             std::set<CommonAPI::SomeIP::eventgroup_id_t> itsEventGroups;
-            itsEventGroups.insert(CommonAPI::SomeIP::eventgroup_id_t(0x9472));
-            CommonAPI::SomeIP::StubAdapter::registerEvent(CommonAPI::SomeIP::event_id_t(0x9476), itsEventGroups, CommonAPI::SomeIP::event_type_e::ET_EVENT, CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE);
+            itsEventGroups.insert(CommonAPI::SomeIP::eventgroup_id_t(0x80e8));
+            CommonAPI::SomeIP::StubAdapter::registerEvent(CommonAPI::SomeIP::event_id_t(0x80ea), itsEventGroups, CommonAPI::SomeIP::event_type_e::ET_EVENT, CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE);
         }
         {
             std::set<CommonAPI::SomeIP::eventgroup_id_t> itsEventGroups;
-            itsEventGroups.insert(CommonAPI::SomeIP::eventgroup_id_t(0x9472));
-            CommonAPI::SomeIP::StubAdapter::registerEvent(CommonAPI::SomeIP::event_id_t(0x9477), itsEventGroups, CommonAPI::SomeIP::event_type_e::ET_EVENT, CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE);
+            itsEventGroups.insert(CommonAPI::SomeIP::eventgroup_id_t(0x80e8));
+            CommonAPI::SomeIP::StubAdapter::registerEvent(CommonAPI::SomeIP::event_id_t(0x80eb), itsEventGroups, CommonAPI::SomeIP::event_type_e::ET_EVENT, CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE);
         }
     }
 
@@ -189,7 +189,7 @@ void SensorInterfaceSomeIPStubAdapterInternal<_Stub, _Stubs...>::fireSensorCapab
     >>
         ::sendEvent(
             *this,
-            CommonAPI::SomeIP::event_id_t(0x9475),
+            CommonAPI::SomeIP::event_id_t(0x80e9),
             false,
              deployed_capsMask 
     );
@@ -205,7 +205,7 @@ void SensorInterfaceSomeIPStubAdapterInternal<_Stub, _Stubs...>::fireSensorConfi
     >>
         ::sendEvent(
             *this,
-            CommonAPI::SomeIP::event_id_t(0x9476),
+            CommonAPI::SomeIP::event_id_t(0x80ea),
             false,
              deployed_sensorId 
             , _samplingRate
@@ -222,7 +222,7 @@ void SensorInterfaceSomeIPStubAdapterInternal<_Stub, _Stubs...>::fireSensorDataR
     >>
         ::sendEvent(
             *this,
-            CommonAPI::SomeIP::event_id_t(0x9477),
+            CommonAPI::SomeIP::event_id_t(0x80eb),
             false,
              deployed_events 
             ,  deployed_count 

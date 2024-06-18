@@ -186,15 +186,15 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 
     mInstance = this;
 
-    CommonAPI::Runtime::setProperty("LogContext", "E01S");
-    CommonAPI::Runtime::setProperty("LogApplication", "E01S");
+    CommonAPI::Runtime::setProperty("LogContext", "SensorInterface");
+    CommonAPI::Runtime::setProperty("LogApplication", "SensorInterface");
     CommonAPI::Runtime::setProperty("LibraryBase", "SensorInterface");
 
     std::shared_ptr<CommonAPI::Runtime> runtime = CommonAPI::Runtime::get();
 
     std::string domain = "local";
     std::string instance = "com.qualcomm.qti.sensor.SensorInterface";
-    std::string connection = "service-sample";
+    std::string connection = "sensor-fidl-service";
 
     myService = std::make_shared<SensorInterfaceStubImpl>(this);
     bool successfullyRegistered = runtime->registerService(domain, instance, myService, connection);
