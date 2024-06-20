@@ -200,7 +200,7 @@ interface SensorInterface {
              Heading values reported by this sensor must be between 0.0 (inclusive) and 360.0 (exclusive), 
              with 0 indicating north, 90 east, 180 south, and 270 west.
         **/
-	SENSOR_TYPE_HEADING = 5 
+	SENSOR_TYPE_HEADING = 42
     }
 
     enumeration SensorResponse {

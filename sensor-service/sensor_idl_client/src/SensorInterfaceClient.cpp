@@ -28,6 +28,10 @@
 using namespace v0::com::qualcomm::qti::sensor;
 using namespace std;
 #define NSEC_IN_ONE_SEC       (1000000000ULL)   /* nanosec in a sec */
+#define ACCEL_UNCALIBRATED_SENSOR_ID 1
+#define GYRO_UNCALIBRATED_SENSOR_ID  16
+#define HEADING_SENSOR_ID   5
+
 struct SensorTrackingOption {
    int sensor_id;
    float sampling_rate;
@@ -193,19 +197,19 @@ static void  onSensorDataReadCb(vector<SensorInterface::SensorEvent> events, uin
 
     int sensor_id = events[0].getSensorId();
 
-    if (sensor_id == 1) {
+    if (sensor_id == ACCEL_UNCALIBRATED_SENSOR_ID) {
 	    acc_sensor_ts = events[count-1].getGptptimestamp();
 	    printf( "Sensor ACC Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			    sensor_id, count, (ts_cur - ts_prv_acc)/1000000, ts_cur, (ts_cur - acc_sensor_ts)/1000000);
 	    ts_prv_acc = ts_cur;
     }
-    if (sensor_id == 16 ) {
+    if (sensor_id == GYRO_UNCALIBRATED_SENSOR_ID) {
 	    gyro_sensor_ts = events[count-1].getGptptimestamp();
 	    printf( "Sensor GYRO Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			    sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, ts_cur, (ts_cur - gyro_sensor_ts)/1000000);
 	    ts_prv_gyro = ts_cur;
     }
-    if (sensor_id == 3 ) {
+    if (sensor_id == HEADING_SENSOR_ID) {
 	    head_sensor_ts = events[count-1].getGptptimestamp();
 	    printf( "Sensor HEAD Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			    sensor_id, count, (ts_cur - ts_prv_head)/1000000, ts_cur, (ts_cur - head_sensor_ts)/1000000);
