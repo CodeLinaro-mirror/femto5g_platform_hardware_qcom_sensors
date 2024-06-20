@@ -227,6 +227,10 @@ public:
     SensorConfig *mSensor;
     std::shared_ptr<SensorInterfaceStubImpl> myService;
     float rot[3][3];
+#ifdef SENSOR_HEAD_TYPE_SUPPORT
+    void EnableHeadingSensor();
+    void DisableHeadingSensor();
+#endif
 private:
     void  getSensorTemp(SensorAPITempReqMsg*);
     void  getSensorBufferData(SensorAPIBufferDataReqMsg*);

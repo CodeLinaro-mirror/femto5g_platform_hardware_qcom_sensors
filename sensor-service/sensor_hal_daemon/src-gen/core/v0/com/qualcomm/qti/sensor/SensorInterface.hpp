@@ -52,7 +52,7 @@ public:
             SENSOR_TYPE_GYROSCOPE = 4,
             SENSOR_TYPE_GYROSCOPE_UNCALIBRATED = 16,
             SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED = 35,
-            SENSOR_TYPE_HEADING = 5
+            SENSOR_TYPE_HEADING = 42
         };
     
         Sensortype()

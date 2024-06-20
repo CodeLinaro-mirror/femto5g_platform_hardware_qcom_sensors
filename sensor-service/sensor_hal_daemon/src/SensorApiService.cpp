@@ -149,16 +149,6 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     }
 #endif
 
-#ifdef SENSOR_HEAD_TYPE_SUPPORT
-    // create Location client API
-    pLcaClient = new LocationClientApi(onLocationCapabilitiesCb);
-    if (!pLcaClient)
-	    SENSOR_LOGE(LOG_TAG "failed to create client, return");
-    GnssReportCbs reportcbs = {};
-    reportcbs.gnssLocationCallback = GnssLocationCb(onGnssLocationCb);
-    pLcaClient->startPositionSession(100, reportcbs, onLocationResponseCb);
-#endif
-
     //read Euler angles from file
     init_sensor_rotation_matrix(rot);
     if ( !read_sensor_rotation_matrix(&roll, &pitch, &yaw) ) {
@@ -1736,6 +1726,19 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
 #endif
 
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
+void SensorApiService::EnableHeadingSensor() {
+    // create Location client API
+    pLcaClient = new LocationClientApi(onLocationCapabilitiesCb);
+    if (!pLcaClient)
+	    SENSOR_LOGE(LOG_TAG "failed to create client, return");
+    GnssReportCbs reportcbs = {};
+    reportcbs.gnssLocationCallback = GnssLocationCb(onGnssLocationCb);
+    pLcaClient->startPositionSession(100, reportcbs, onLocationResponseCb);
+}
+void SensorApiService::DisableHeadingSensor() {
+    pLcaClient->stopPositionSession();
+}
+
 /********************************************************************************
  * Callback functions
  * ******************************************************************************/
@@ -1748,7 +1751,9 @@ static void SensorApiService::onLocationResponseCb(location_client::LocationResp
 }
 
 void SensorApiService::onSensorHeadingDataReadCb(float heading, float accuracy, uint64_t ts) {
-   myService->onSensorHeadingDataReadCb(heading, accuracy, ts);
+   float heading_degree = heading * (180.0f/M_PI);
+   float accuracy_degree = accuracy * (180.0f/M_PI);
+   myService->onSensorHeadingDataReadCb(heading_degree, accuracy_degree, ts);
 }
 
 static void SensorApiService::onGnssLocationCb(const location_client::GnssLocation& location) {

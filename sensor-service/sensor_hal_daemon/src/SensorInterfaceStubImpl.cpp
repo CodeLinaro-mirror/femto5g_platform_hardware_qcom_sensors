@@ -249,7 +249,7 @@ void SensorInterfaceStubImpl::SensorConfig(const shared_ptr<CommonAPI::ClientId>
     SensorInterface::SensorResponse response = 0;
 
     if ( _sensorId != SENSOR_ID_HEADING) {
-	    SensorAPIStartBatchingReqMsg msg (mClientname.c_str(), _sensorId, _samplingRate, _batchCount, 0);
+	    SensorAPIStartBatchingReqMsg msg (mClientname.c_str(), _sensorId, _samplingRate, _batchCount, 1);
 	    resp = mService->startBatching(&msg);
 	    response  = parseSensorResponse(resp);
 	    _reply(response);
@@ -263,7 +263,7 @@ void SensorInterfaceStubImpl::SensorConfig(const shared_ptr<CommonAPI::ClientId>
 // This is the method that will be called on remote calls on the method SensorControl.
 void SensorInterfaceStubImpl::SensorControl(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, SensorInterface::SensorState _sensorState, SensorControlReply_t _reply)
 {
-    SENSOR_LOGI(LOG_TAG  "<<==== SensorControl ==== Client %s sensor_id: %d  state: %d \n", mClientname.c_str(), _sensorId, _sensorState);
+    SENSOR_LOGI(LOG_TAG  "<<==== SensorControl === Client %s sensor_id:%d state:%d\n",mClientname.c_str(), _sensorId, static_cast<int>(_sensorState));
     int resp = 0;
     SensorInterface::SensorResponse response = 0;
 
@@ -273,8 +273,15 @@ void SensorInterfaceStubImpl::SensorControl(const shared_ptr<CommonAPI::ClientId
 
 	    response = parseSensorResponse(resp);
 	    _reply(response);
-    } else if (_sensorState == 1){ 
-	    mHeadTracking = true;
+    } else {
+	    if (_sensorState == 1){ 
+		    mService->EnableHeadingSensor();
+		    mHeadTracking = true;
+	    }
+	    else { 
+		    mService->DisableHeadingSensor();
+		    mHeadTracking = false;
+	    }
     }
     _reply(response);
 }
