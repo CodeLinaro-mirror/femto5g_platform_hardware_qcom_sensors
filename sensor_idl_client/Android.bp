@@ -1,0 +1,89 @@
+prebuilt_etc {
+    name: "vsomeip-sensor_client.json",
+    vendor: true,
+    src: "./vsomeip-sensor_client.json",
+}
+gen_core_stub_srcs = [
+    "src-gen/core/v0/com/qualcomm/qti/sensor/*Stub*.cpp"
+]
+gen_core_proxy_srcs = [
+    "src-gen/core/v0/com/qualcomm/qti/sensor/*Proxy.cpp"
+]
+gen_someip_srcs = [
+    "src-gen/someip/v0/com/qualcomm/qti/sensor/*.cpp"
+]
+cc_defaults {
+    name: "sensorSomeip_defaults",
+    vendor: true,
+    cppflags: [
+        "-std=c++11",
+        "-fexceptions",
+        "-fpermissive",
+        "-Wno-attributes",
+        "-Wno-unused-variable",
+        "-Wno-unused-parameter",
+	"-Wno-overloaded-virtual"
+    ],
+    shared_libs: [
+        "libvsomeip3",
+        "libvsomeip3-cfg",
+        "libvsomeip3-e2e",
+        "libvsomeip3-sd",
+        "libCommonAPI-SomeIP",
+        "libCommonAPI",
+        "liblog",
+        "libdl",
+    ],
+
+    rtti: true,
+}
+cc_library_headers {
+    name: "libSensorInterface-proxy_headers",
+    export_include_dirs: [
+       "src-gen/someip",
+       "src-gen/core",
+    ],
+    vendor: true,
+}
+cc_library_shared {
+    name: "libSensorInterface-someip",
+    vendor: true,
+    srcs: gen_someip_srcs,
+    defaults: [
+        "sensorSomeip_defaults"
+    ],
+    local_include_dirs: [
+       "src-gen/someip",
+       "src-gen/core",
+    ]
+}
+cc_library_shared {
+    name: "libSensorInterface-proxy",
+    vendor: true,
+    srcs: gen_core_proxy_srcs,
+    defaults: [
+        "sensorSomeip_defaults"
+    ],
+    local_include_dirs: [
+       "src-gen/someip",
+       "src-gen/core",
+    ]
+}
+cc_binary {
+    name: "SensorInterfaceClient",
+    defaults: ["sensorSomeip_defaults"],
+    srcs: [
+        "src/SensorInterfaceClient.cpp",
+    ],
+    local_include_dirs: [
+       "src",
+    ],
+    shared_libs: [
+       "libSensorInterface-someip",
+       "libSensorInterface-proxy",
+    ],
+    header_libs: [
+       "libgptp_headers",
+       "libSensorInterface-proxy_headers",
+    ],
+}
