@@ -221,6 +221,7 @@ void SensorInterfaceStubImpl::DeRegisterSensorClient(const shared_ptr<CommonAPI:
 	    mService->deleteClient(&msg);
     }
 
+    mHeadTracking = false;
     SensorInterface::SensorResponse response = parseSensorResponse(resp);
     _reply(response);
 }
