@@ -31,6 +31,7 @@ using namespace std;
 #define ACCEL_UNCALIBRATED_SENSOR_ID 1
 #define GYRO_UNCALIBRATED_SENSOR_ID  16
 #define HEADING_SENSOR_ID   5
+#define GID_SENSORCLIENT (3011)
 
 struct SensorTrackingOption {
    int sensor_id;
@@ -257,6 +258,20 @@ int main() {
     char batchcount[10];
     int batch_count = 0, j = 0, i = 0;
     info.sender_ = 1234;
+
+    // check if this process started by root
+    if (0 == getuid()) { 
+        // started as root.
+        printf("!!! sensor idl client started as root change to sensors group\n");
+        // Set the group id first and then set the effective userid, to sensors.
+        if(-1 == setgid(GID_SENSORCLIENT)) {
+            printf("Error: setgid failed. %s\n", strerror(errno));
+        }
+        // Set user id
+        if(-1 == setuid(GID_SENSORCLIENT)) {
+            printf("Error: setuid failed. %s\n", strerror(errno));
+        }
+    }
 
     const char* envVarName = "COMMONAPI_CONFIG"; // Specify the environment variable name
     const char* envVarValue = std::getenv(envVarName); // Get the value
