@@ -49,8 +49,8 @@ using namespace std;
 /*ASM330 temperature*/
 #define ASM_TEMP_SEARCH         "asm330lhh_temp"
 #define ASMX_TEMP_SEARCH        "asm330lhhx_temp"
-#define ASM_ACCEL_FSR           0.000598   // 2G:0.000598, 4G:0.001196, 8G:0.002392, 16G:0.004785
-#define ASM_GYRO_FSR            0.000076   // 125:0.000076, 250:0.000153, 500:0.000305, 1000:0.000611, 2000:0
+#define ASM_ACCEL_FSR           0.001196   // 2G:0.000598, 4G:0.001196, 8G:0.002392, 16G:0.004785
+#define ASM_GYRO_FSR            0.000153   // 125:0.000076, 250:0.000153, 500:0.000305, 1000:0.000611, 2000:0
 #define ASM_ACC_SEARCH          "asm330lhh_accel"
 #define ASM_GYR_SEARCH          "asm330lhh_gyro"
 #define ASMX_ACC_SEARCH         "asm330lhhx_accel"
