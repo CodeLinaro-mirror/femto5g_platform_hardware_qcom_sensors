@@ -2215,8 +2215,16 @@ int32_t hwcntl_init(BoschSensor *boschsensor)
     {
         boschsensor->pfun_hw_deliver_sensordata = IMU_hw_deliver_sensordata;
         ret = ap_hwcntl_init_ACC();
+	if(ret){
+		PERR("Failed to init Accel ret %d\n", ret);
+		boschsensor->pfun_get_sensorlist = nullptr;
+	}
 #ifndef SMI230_DATA_SYNC
         ret = ap_hwcntl_init_GYRO();
+        if(ret){
+                PERR("Failed to init Gyro ret %d\n", ret);
+                boschsensor->pfun_get_sensorlist = nullptr;
+       }
 #endif
     }else
     {

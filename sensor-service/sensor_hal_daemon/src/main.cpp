@@ -200,5 +200,6 @@ int main(int argc, char *argv[])
 
     // should not reach here...
     SENSOR_LOGI(LOG_TAG "done\n");
+    SensorApiService::destroy();
     exit(0);
 }
