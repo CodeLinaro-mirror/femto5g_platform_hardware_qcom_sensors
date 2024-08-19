@@ -17,7 +17,7 @@
 #define GYRO_UNCALIBRATED_SENSOR_ID  16
 #define HEADING_SENSOR_ID   5
 
-#define DEBUG_LEVEL 3
+#define DEBUG_LEVEL 4
 #define SENSOR_TAG "SensorInterface_AIDL:"
 
 #define LOGCAT_ENABLED

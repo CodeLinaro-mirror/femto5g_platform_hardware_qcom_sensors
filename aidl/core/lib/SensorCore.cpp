@@ -527,6 +527,7 @@ uint64_t SensorCore::SensorCore_getBootTimeFromPtpTime(uint64_t ptp_time_ns)
 {
    uint64_t boot_time_ns;
    gPTPReqIf->gptpGetBootTimeFromPtpTimeIf(&boot_time_ns, ptp_time_ns);
+   SENSOR_LOGD(SENSOR_TAG "Sensor gptp ts %lld boot time %lld\n", ptp_time_ns, boot_time_ns);
    return boot_time_ns;
 }
 

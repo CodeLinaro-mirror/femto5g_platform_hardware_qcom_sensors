@@ -27,7 +27,7 @@
             }
         }
     ],
-    "routing" : "sensor-fidl-test-client",
+    "routing" : "location-fidl-client",
     "service-discovery" :
     {
         "enable" : "true",
