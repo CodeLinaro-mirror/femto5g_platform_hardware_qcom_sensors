@@ -23,7 +23,7 @@
             "reliable" : { "port" : "30510", "enable-magic-cookies" : "false" },
             "unreliable" : "31001",
             "someip-tp": {
-		"service-to-client": ["0x80E9", "0x80EA", "0x80EB"]
+		"service-to-client": ["0x80E9", "0x80EA", "0x80EB", "0x80EC"]
             }
         },
         {

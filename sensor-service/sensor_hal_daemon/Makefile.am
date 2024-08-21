@@ -1,13 +1,9 @@
 AM_CFLAGS = \
     -DDEBUG \
     -I $(srcdir)/src/ \
-    -I $(srcdir)/src-gen/core/ \
-    -I $(srcdir)/src-gen/someip/ \
     $(SENSORS_CFLAGS)\
     $(SENSORSOCKET_CFLAGS)\
     $(SENSORUTILLIB_CFLAGS) \
-    $(COMMONAPI_CFLAGS)\
-    $(COMMONAPI_SOMEIP_CFLAGS)\
     -std=c++11 \
     -fpermissive
 
@@ -16,10 +12,17 @@ AM_CPPFLAGS = -std=c++11
 
 requiredlibs = \
      $(SENSORSOCKET_LIBS) \
-     $(SENSORUTILLIB_LIBS) \
-     $(COMMONAPI_LIBS) \
-     $(COMMONAPI_SOMEIP_LIBS)
+     $(SENSORUTILLIB_LIBS)
 
+if SENSOR_IVSS_ENABLED
+AM_CFLAGS += $(COMMONAPI_SOMEIP_CFLAGS) $(COMMONAPI_CFLAGS) \
+	     -I $(srcdir)/src-gen/core/ \
+             -I $(srcdir)/src-gen/someip/ \
+	     -DSENSOR_IVSS_ENABLED
+requiredlibs += $(COMMONAPI_LIBS) $(COMMONAPI_SOMEIP_LIBS) -lCommonAPI -lc
+endif
+
+if SENSOR_IVSS_ENABLED
 ####################################################################################################
 # Build SOMEIP library
 #####################################################################################################
@@ -34,11 +37,13 @@ libSensorInterface_someip_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
 libSensorInterface_someip_la_LIBADD = $(requiredlibs) -lstdc++ -ldl -lCommonAPI -lCommonAPI-SomeIP
 libSensorInterface_someip_la_SOURCES = \
-    src-gen/someip/v0/com/qualcomm/qti/sensor/SensorInterfaceSomeIPDeployment.cpp \
-    src-gen/someip/v0/com/qualcomm/qti/sensor/SensorInterfaceSomeIPProxy.cpp \
-    src-gen/someip/v0/com/qualcomm/qti/sensor/SensorInterfaceSomeIPStubAdapter.cpp
+    src-gen/someip/v1/com/qualcomm/qti/sensor/SensorInterfaceSomeIPDeployment.cpp \
+    src-gen/someip/v1/com/qualcomm/qti/sensor/SensorInterfaceTypesSomeIPDeployment.cpp \
+    src-gen/someip/v1/com/qualcomm/qti/sensor/SensorInterfaceSomeIPProxy.cpp \
+    src-gen/someip/v1/com/qualcomm/qti/sensor/SensorInterfaceSomeIPStubAdapter.cpp
 
 lib_LTLIBRARIES = libSensorInterface-someip.la
+endif
 
 ##########################################################################
 # Build sensor_hal_daemon
@@ -97,8 +102,10 @@ sensor_hal_daemon_LDFLAGS = -Wl,-z,defs -lpthread -shared
 sensor_hal_daemon_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
 
-sensor_hal_daemon_LDADD = $(requiredlibs) -lcutils -ldl -llog -lCommonAPI -lSensorInterface-someip -lc
+sensor_hal_daemon_LDADD = $(requiredlibs) -lcutils -ldl -llog
+if SENSOR_IVSS_ENABLED
 sensor_hal_daemon_DEPENDENCIES = libSensorInterface-someip.la
+endif
 
 bin_PROGRAMS = sensor_hal_daemon
 
@@ -109,8 +116,10 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = sensor-hal-daemon.pc
 EXTRA_DIST = $(pkgconfig_DATA)
 
+#if SENSOR_IVSS_ENABLED
 #############################################################################################################
 # define the files to be installed in /usr/etc/vsomeip
 #############################################################################################################
 sysconfdir = $(prefix)/etc/vsomeip/SensorInterface
-sysconf_DATA = vsomeip-sensor_service.json vsomeip-sensor_local.json commonapi4someip.ini
+sysconf_DATA = vsomeip-sensor_service.json commonapi4someip.ini
+#endif

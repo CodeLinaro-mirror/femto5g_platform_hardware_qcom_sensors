@@ -76,23 +76,20 @@
 #ifdef POWERMANAGER_ENABLED
 #include <PowerEvtHandler.h>
 #endif
-#include <CommonAPI/CommonAPI.hpp>
-#include <SensorInterfaceStubImpl.hpp>
 
 #define ASMLIB "/usr/lib/libasm330sensors.so.1.0.0"
 #define IAMLIB "/usr/lib/libiam20680sensors.so.1"
 #define SMI130LIB "/usr/lib/libsmi130sensors.so.1"
 #define SMI230LIB "/usr/lib/libsmi230sensors.so.1"
 
-using namespace std;
-using namespace v0::com::qualcomm::qti::sensor;
-
 /******************************************************************************
 SensorApiService - static members
 ******************************************************************************/
 SensorApiService* SensorApiService::mInstance = nullptr;
 std::mutex SensorApiService::mMutex;
+#ifdef SENSOR_HEAD_TYPE_SUPPORT
 static LocationClientApi* pLcaClient = nullptr;
+#endif
 /******************************************************************************
 SensorApiService - constructors
 ******************************************************************************/
@@ -176,6 +173,7 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 
     mInstance = this;
 
+#ifdef SENSOR_IVSS_ENABLED
     CommonAPI::Runtime::setProperty("LogContext", "SensorInterface");
     CommonAPI::Runtime::setProperty("LogApplication", "SensorInterface");
     CommonAPI::Runtime::setProperty("LibraryBase", "SensorInterface");
@@ -185,7 +183,6 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     std::string domain = "local";
     std::string instance = "com.qualcomm.qti.sensor.SensorInterface";
     std::string connection = "sensor-fidl-service";
-
     myService = std::make_shared<SensorInterfaceStubImpl>(this);
     bool successfullyRegistered = runtime->registerService(domain, instance, myService, connection);
 
@@ -196,7 +193,7 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     }
 
     SENSOR_LOGI(LOG_TAG "Successfully Registered SOMEIP Service!\n");
-
+#endif
     // start receiver - never return
     SENSOR_LOGI(LOG_TAG "Ready, start Ipc Receiver\n");
     // blocking: set to false
@@ -744,7 +741,6 @@ int SensorApiService::newClient(SensorAPIClientRegisterReqMsg *pMsg) {
 	ret = SENSOR_ERROR_CLIENT_REGISTER_FAILED;
         return ret;
     }
-
     //Send Sensor List to client
     if(mSensorCount > 0)
 	    pClient->onSensorListCb(mSensorList, mSensorCount);
@@ -1738,16 +1734,19 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
 
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
 void SensorApiService::EnableHeadingSensor() {
+   SENSOR_LOGI(LOG_TAG "<<< Enable HEADING SENSOR \n");
     // create Location client API
-    pLcaClient = new LocationClientApi(onLocationCapabilitiesCb);
     if (!pLcaClient)
-	    SENSOR_LOGE(LOG_TAG "failed to create client, return");
+	    pLcaClient = new LocationClientApi(onLocationCapabilitiesCb);
+    if (!pLcaClient)
+	    SENSOR_LOGE(LOG_TAG "failed to create location client, return\n");
     GnssReportCbs reportcbs = {};
     reportcbs.gnssLocationCallback = GnssLocationCb(onGnssLocationCb);
     pLcaClient->startPositionSession(100, reportcbs, onLocationResponseCb);
 }
 void SensorApiService::DisableHeadingSensor() {
-    pLcaClient->stopPositionSession();
+   SENSOR_LOGI(LOG_TAG "<<< Disable HEADING SENSOR \n");
+   pLcaClient->stopPositionSession();
 }
 
 /********************************************************************************
@@ -1762,9 +1761,12 @@ static void SensorApiService::onLocationResponseCb(location_client::LocationResp
 }
 
 void SensorApiService::onSensorHeadingDataReadCb(float heading, float accuracy, uint64_t ts) {
+   std::lock_guard<std::mutex> lock(mMutex);
    float heading_degree = heading * (180.0f/M_PI);
    float accuracy_degree = accuracy * (180.0f/M_PI);
+#ifdef SENSOR_IVSS_ENABLED
    myService->onSensorHeadingDataReadCb(heading_degree, accuracy_degree, ts);
+#endif
 }
 
 static void SensorApiService::onGnssLocationCb(const location_client::GnssLocation& location) {

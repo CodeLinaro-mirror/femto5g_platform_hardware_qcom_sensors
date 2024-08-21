@@ -32,44 +32,45 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifdef SENSOR_IVSS_ENABLED
 #ifndef SENSORSTUBIMPL_HPP_
 #define SENSORSTUBIMPL_HPP_
 
 #include <CommonAPI/CommonAPI.hpp>
-#include <v0/com/qualcomm/qti/sensor/SensorInterface.hpp>
-#include <v0/com/qualcomm/qti/sensor/SensorInterfaceStub.hpp>
-#include <v0/com/qualcomm/qti/sensor/SensorInterfaceStubDefault.hpp>
+#include <v1/com/qualcomm/qti/sensor/SensorInterface.hpp>
+#include <v1/com/qualcomm/qti/sensor/SensorInterfaceStub.hpp>
+#include <v1/com/qualcomm/qti/sensor/SensorInterfaceStubDefault.hpp>
 #include <SensorApiMsg.h>
 #include <SensorApiService.h>
 #include <SensorList.h>
 
-using namespace v0::com::qualcomm::qti::sensor;
+using namespace v1::com::qualcomm::qti::sensor;
 using namespace std;
 
 // forward declaration
 class SensorApiService;
 
-class SensorInterfaceStubImpl: public v0::com::qualcomm::qti::sensor::SensorInterfaceStubDefault {
+class SensorInterfaceStubImpl: public v1::com::qualcomm::qti::sensor::SensorInterfaceStubDefault {
 
 public:
   SensorInterfaceStubImpl(SensorApiService* service);
   virtual ~SensorInterfaceStubImpl();
 
   /// This is the method that will be called on remote calls on the method RegisterSensorClient.
-  virtual void RegisterSensorClient(const shared_ptr<CommonAPI::ClientId> _client, RegisterSensorClientReply_t _reply);
+  virtual void RegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> _client, RegisterSensorClientReqReply_t _reply);
   /// This is the method that will be called on remote calls on the method DeRegisterSensorClient.
-  virtual void DeRegisterSensorClient(const shared_ptr<CommonAPI::ClientId> _client, DeRegisterSensorClientReply_t _reply);
-  /// This is the method that will be called on remote calls on the method GetSensorList.
-  virtual void GetSensorList(const shared_ptr<CommonAPI::ClientId> _client, GetSensorListReply_t _reply);
+  virtual void DeRegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> _client, DeRegisterSensorClientReqReply_t _reply);
+  /// This is the method that will be called on remote calls on the method GetSensorInfoT.
+  virtual void GetSensorListReq(const shared_ptr<CommonAPI::ClientId> _client, GetSensorListReqReply_t _reply);
   /// This is the method that will be called on remote calls on the method SensorConfig.
-  virtual void SensorConfig(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, float _samplingRate, int32_t _batchCount, SensorConfigReply_t _reply);
+  virtual void SensorConfigReq(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, float _samplingRate, int32_t _batchCount, SensorConfigReqReply_t _reply);
   /// This is the method that will be called on remote calls on the method SensorControl.
-  virtual void SensorControl(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, SensorInterface::SensorState _sensorState, SensorControlReply_t _reply);
+  virtual void SensorControlReq(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, SensorInterfaceTypes::SensorStateT _sensorState, SensorControlReqReply_t _reply);
 
-  SensorInterface::SensorCapabilitiesMask    parseSensorCapabilitiesMask(SensorCapabilitiesMask mask);
-  SensorInterface::SensorResponse            parseSensorResponse(int res);
-  vector<SensorInterface::SensorEvent >     parseSensorEvents(sensors_event_t *e, int count);
-  vector<SensorInterface::SensorList >       parseSensorList(struct sensor_list *s, int sensor_count);
+  SensorInterfaceTypes::SensorServiceStateMaskT  parseSensorServiceStateMaskT(SensorCapabilitiesMask mask);
+  SensorInterfaceTypes::SensorReturnT            parseSensorReturnT(int res);
+  vector<SensorInterfaceTypes::SensorImuEventT > parseSensorImuEventTs(sensors_event_t *e, int count);
+  vector<SensorInterfaceTypes::SensorInfoT >     parseSensorInfoT(struct sensor_list *s, int sensor_count);
 
   void onCapabilitiesCallback(SensorCapabilitiesMask mask);
   void onSensorDataReadCb(sensors_event_t *events, int count);
@@ -86,3 +87,4 @@ public:
 };
 
 #endif // SENSORSTUBIMPL_HPP_
+#endif

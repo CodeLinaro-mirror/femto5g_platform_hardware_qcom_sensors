@@ -64,9 +64,10 @@
 #include <SensorApiUtils.h>
 #include <SensorUtils.h>
 #include <SensorHalDaemonClientHandler.h>
+#ifdef SENSOR_IVSS_ENABLED
 #include <CommonAPI/CommonAPI.hpp>
 #include <SensorInterfaceStubImpl.hpp>
-
+#endif
 #define ASM330LHHX_ACC_SEARCH   "asm330lhhx_accel"
 #define ASM330LHHX_GYRO_SEARCH  "asm330lhhx_gyro"
 
@@ -98,7 +99,10 @@
 //MLC bin path
 #define PATH_MLC_BINARY  "/lib/firmware/st_asm330lhhx_mlc.bin"
 
-using namespace v0::com::qualcomm::qti::sensor;
+#ifdef SENSOR_IVSS_ENABLED
+using namespace std;
+using namespace v1::com::qualcomm::qti::sensor;
+#endif
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
 using namespace location_client;
 #endif
@@ -156,7 +160,9 @@ typedef struct {
 // forward declaration
 class SensorHalDaemonIPCReceiver;
 class SensorHalDaemonQsockReceiver;
+#ifdef SENSOR_IVSS_ENABLED
 class SensorInterfaceStubImpl;
+#endif
 class SensorHalDaemonClientHandler;
 
 /******************************************************************************
@@ -225,7 +231,9 @@ public:
     struct sensor_list *mSensorList;
     int mSensorCount;
     SensorConfig *mSensor;
+#ifdef SENSOR_IVSS_ENABLED
     std::shared_ptr<SensorInterfaceStubImpl> myService;
+#endif
     float rot[3][3];
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
     void EnableHeadingSensor();
