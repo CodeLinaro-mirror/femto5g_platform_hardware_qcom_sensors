@@ -2,32 +2,33 @@
    SPDX-License-Identifier: BSD-3-Clause-Clear */
  
 import "platform:/plugin/org.genivi.commonapi.someip/deployment/CommonAPI-4-SOMEIP_deployment_spec.fdepl"
+import "SensorInterfaceTypes.fidl"
 import "SensorInterface.fidl"
 
 define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.sensor.SensorInterface {
     SomeIpServiceID = 60929    /** 0xEE01*/
 
-    method RegisterSensorClient {
+    method RegisterSensorClientReq {
         SomeIpMethodID = 32001      /** 0x7D01 */
         SomeIpReliable = true
     }
 
-    method DeRegisterSensorClient {
+    method DeRegisterSensorClientReq {
         SomeIpMethodID = 32002      /** 0x7D02 */
         SomeIpReliable = true
     }
 
-    method GetSensorList {
+    method GetSensorListReq {
         SomeIpMethodID = 32003      /** 0x7D03 */
         SomeIpReliable = true
     }
 
-    method SensorConfig {
+    method SensorConfigReq {
         SomeIpMethodID = 32004      /** 0x7D04 */
         SomeIpReliable = true
     }
 
-    method SensorControl {
+    method SensorControlReq {
         SomeIpMethodID = 32005      /** 0x7D05 */
         SomeIpReliable = true
     }
@@ -46,30 +47,40 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.sen
         }
     }
 
-    broadcast SensorDataRead {
+    broadcast SensorImuDataRead {
         SomeIpEventID = 33003      /** 0x80EB */
         SomeIpEventGroups = { 33000 }
         out {
         }
     }
 
-    enumeration Sensortype {
+    broadcast SensorHeadingDataRead {
+        SomeIpEventID = 33004      /** 0x80EC */
+        SomeIpEventGroups = { 33000 }
+        out {
+        }
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for typeCollection com.qualcomm.qti.sensor.SensorInterfaceTypes {
+
+    enumeration SensorTypeT {
         SomeIpEnumWidth = 4
     }
 
-    enumeration SensorResponse {
+    enumeration SensorReturnT {
         SomeIpEnumWidth = 4
     }
   
-    enumeration SensorState {
+    enumeration SensorStateT {
         SomeIpEnumWidth = 4
     }
 
-    enumeration SensorCapabilitiesMask {
+    enumeration SensorServiceStateMaskT {
         SomeIpEnumWidth = 4
     }
 
-    struct SensorList {
+    struct SensorInfoT {
         sensorVersion    {}
         name             {}
         vendor           {}
@@ -79,35 +90,37 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.sen
         minBatchCount    {}
         maxBatchCount    {}
         odr              {}
-        range            {}
         resolution       {}
         maxRange         {}
     }
 
-    struct SensorHeadingEvent {
+    struct SensorHeadingEventT {
         heading          {}
         accuracy         {}
     }
 
-    struct SensorUncalibratedEvent {
-        x_uncalib        {}
-        y_uncalib        {}
-        z_uncalib        {}
-        x_bias           {}
-        y_bias           {}
-        z_bias           {}
+    struct SensorHeadEventT {
+        sensorId      {}
+        type          {}
+        timestamp     {}
+        gptpTimestamp {}
+        data          {}
     }
 
-    union SensorData {
-        imu_event        {}
-        heading_event    {}
+    struct SensorUncalibratedEventT {
+        xUncalib        {}
+        yUncalib        {}
+        zUncalib        {}
+        xBias           {}
+        yBias           {}
+        zBias           {}
     }
 
-    struct SensorEvent {
+    struct SensorImuEventT {
         sensorId         {}
         type             {}
         timestamp        {}
-        gptptimestamp    {}
+        gptpTimestamp    {}
         data             {}
     }
 }

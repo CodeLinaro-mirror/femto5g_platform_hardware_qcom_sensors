@@ -12,6 +12,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 
 #include "sensors-impl/Sensors.h"
@@ -134,15 +140,8 @@ void Sensors::onNewSensorsData(std::vector<SensorCoreData> &sensorData){
 
 ScopedAStatus Sensors::activate(int32_t in_sensorHandle, bool in_enabled) {
    SENSOR_LOGI(SENSOR_TAG "Sensor activate Call in_sensorHandle: %d, in_enabled: %d \n", in_sensorHandle, in_enabled);
-   static int TestCount = 0;
-   if (TestCount < 2) {
-    SENSOR_LOGI(SENSOR_TAG "EXIT ativate Call as sensor service not available in_sensorHandle: %d, in_enabled: %d \n", in_sensorHandle, in_enabled);
-    TestCount ++;
-    return ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
-   }
    SensorCore_acitvateSensor(in_sensorHandle, in_enabled);
    return ScopedAStatus::ok();
-
 }
 
 ScopedAStatus Sensors::batch(int32_t in_sensorHandle, int64_t in_samplingPeriodNs, int64_t  in_maxReportLatencyNs ) {

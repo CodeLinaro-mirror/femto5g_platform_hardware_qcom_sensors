@@ -7,8 +7,8 @@
  * If a copy of the MPL was not distributed with this file, You can obtain one at
  * http://mozilla.org/MPL/2.0/.
  */
-#include <v0/com/qualcomm/qti/sensor/SensorInterfaceSomeIPStubAdapter.hpp>
-#include <v0/com/qualcomm/qti/sensor/SensorInterface.hpp>
+#include <v1/com/qualcomm/qti/sensor/SensorInterfaceSomeIPStubAdapter.hpp>
+#include <v1/com/qualcomm/qti/sensor/SensorInterface.hpp>
 
 #if !defined (COMMONAPI_INTERNAL_COMPILATION)
 #define COMMONAPI_INTERNAL_COMPILATION
@@ -22,7 +22,7 @@
 #undef HAS_DEFINED_COMMONAPI_INTERNAL_COMPILATION_HERE
 #endif
 
-namespace v0 {
+namespace v1 {
 namespace com {
 namespace qualcomm {
 namespace qti {
@@ -32,15 +32,15 @@ std::shared_ptr<CommonAPI::SomeIP::StubAdapter> createSensorInterfaceSomeIPStubA
                    const CommonAPI::SomeIP::Address &_address,
                    const std::shared_ptr<CommonAPI::SomeIP::ProxyConnection> &_connection,
                    const std::shared_ptr<CommonAPI::StubBase> &_stub) {
-    return std::make_shared< SensorInterfaceSomeIPStubAdapter<::v0::com::qualcomm::qti::sensor::SensorInterfaceStub>>(_address, _connection, _stub);
+    return std::make_shared< SensorInterfaceSomeIPStubAdapter<::v1::com::qualcomm::qti::sensor::SensorInterfaceStub>>(_address, _connection, _stub);
 }
 
 void initializeSensorInterfaceSomeIPStubAdapter() {
     CommonAPI::SomeIP::AddressTranslator::get()->insert(
-        "local:com.qualcomm.qti.sensor.SensorInterface:v0_1:com.qualcomm.qti.sensor.SensorInterface",
-         0xee01, 0x1, 0, 1);
+        "local:com.qualcomm.qti.sensor.SensorInterface:v1_0:com.qualcomm.qti.sensor.SensorInterface",
+         0xee01, 0x1, 1, 0);
     CommonAPI::SomeIP::Factory::get()->registerStubAdapterCreateMethod(
-        "com.qualcomm.qti.sensor.SensorInterface:v0_1",
+        "com.qualcomm.qti.sensor.SensorInterface:v1_0",
         &createSensorInterfaceSomeIPStubAdapter);
 }
 
@@ -52,4 +52,4 @@ INITIALIZER(registerSensorInterfaceSomeIPStubAdapter) {
 } // namespace qti
 } // namespace qualcomm
 } // namespace com
-} // namespace v0
+} // namespace v1

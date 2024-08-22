@@ -1,0 +1,98 @@
+/** Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+    SPDX-License-Identifier: BSD-3-Clause-Clear **/
+
+syntax = "proto3";
+
+package sdv.connectivity.sensor;
+
+import "syntax/vsidl.proto";
+import "syntax/sdvsidl.proto";
+import "catalog/sdv/connectivity/sensor/common/sensor_types.proto";
+
+message SensorServiceState {
+  option (sdv.vsidl.topic) = {
+  unique: true
+  model: SINGLE_PUB
+  };
+    
+  option (sdv.sdvsidl.description) = "send sensor service state information";
+  option (sdv.sdvsidl.asil) = QM;
+  option (sdv.sdvsidl.on_value_change) = true;
+  option (sdv.sdvsidl.exclusion_time) = 100;
+  option (sdv.sdvsidl.topic_system_owner) = S21_MULTIMEDIA;
+
+  SensorServiceStateMaskT state = 1;
+}
+
+message SensorConfigUpdate {
+  option (sdv.vsidl.topic) = {
+  unique: true
+  model: SINGLE_PUB
+  };
+
+  option (sdv.sdvsidl.description) =
+    "SensorConfigUpdate is for notifying the client with updated sampling \n"
+    "rate and batch count with sensor identifier. \n"
+    " It contains : \n"
+    "The sensor identifier, the reported sampling rate \n"
+    "(nearest or equal to supported sampling rate (SensorInfoT->odr[]) \n"
+    "for requested sampling rate by SensorConfigReq api.) \n"
+    "and the reported batch \n"
+    "count (multiplication of minBatchCount and will be nearest to or \n"
+    "equal to requested batch count in SensorConfigReq).";
+  option (sdv.sdvsidl.asil) = QM;
+  option (sdv.sdvsidl.on_value_change) = true;
+  option (sdv.sdvsidl.exclusion_time) = 100;
+  option (sdv.sdvsidl.topic_system_owner) = S21_MULTIMEDIA;
+
+  /** Sensor identifier **/
+  int32 sensor_id = 1;
+  /** Configured sampling rate of sensor **/
+  float sampling_rate = 2;
+  /** Configured batch count of sensor  **/
+  int32 batch_count = 3;
+}
+
+message SensorImuData {
+  option (sdv.vsidl.topic) = {
+  unique: true
+  model: SINGLE_PUB
+  };
+
+  option (sdv.sdvsidl.description) =
+  "SensorImuData is for receiving sensor IMU data. \n"
+  "This callback is invoked for every sensor when batch count is \n"
+  "reached to the requested batch count by that sensor. It contains \n"
+  "the sensor events and the total number of events.";
+  option (sdv.sdvsidl.asil) = QM;
+  option (sdv.sdvsidl.on_value_change) = true;
+  option (sdv.sdvsidl.exclusion_time) = 10;
+  option (sdv.sdvsidl.topic_system_owner) = S21_MULTIMEDIA;
+
+  repeated SensorImuEventT events = 1 [
+    (sdv.vsidl.repeated_field_max_count) = 50];
+  /** Total number of sensor supported  **/
+  int32 count = 2;
+}
+
+message SensorHeadingData {
+  option (sdv.vsidl.topic) = {
+  unique: true
+  model: SINGLE_PUB
+  };
+
+  option (sdv.sdvsidl.description) =
+  "SensorHeadingData is for receiving sensor heading data. \n"
+  "This callback is invoked for every sensor when batch count is \n"
+  "reached to the requested batch count by that sensor. It contains \n"
+  "the sensor events and the total number of events.";
+  option (sdv.sdvsidl.asil) = QM;
+  option (sdv.sdvsidl.on_value_change) = true;
+  option (sdv.sdvsidl.exclusion_time) = 10;
+  option (sdv.sdvsidl.topic_system_owner) = S21_MULTIMEDIA;
+
+  repeated SensorHeadEventT events = 1 [
+    (sdv.vsidl.repeated_field_max_count) = 50];
+  /** Total number of sensor supported  **/
+  int32 count = 2;
+}

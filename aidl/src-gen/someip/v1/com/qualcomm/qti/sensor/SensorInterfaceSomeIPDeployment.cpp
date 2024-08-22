@@ -7,9 +7,9 @@
  * If a copy of the MPL was not distributed with this file, You can obtain one at
  * http://mozilla.org/MPL/2.0/.
  */
-#include <v0/com/qualcomm/qti/sensor/SensorInterfaceSomeIPDeployment.hpp>
+#include <v1/com/qualcomm/qti/sensor/SensorInterfaceSomeIPDeployment.hpp>
 
-namespace v0 {
+namespace v1 {
 namespace com {
 namespace qualcomm {
 namespace qti {
@@ -17,10 +17,6 @@ namespace sensor {
 namespace SensorInterface_ {
 
 // Type-specific deployments
-SensortypeDeployment_t SensortypeDeployment(32, false);
-SensorResponseDeployment_t SensorResponseDeployment(32, false);
-SensorStateDeployment_t SensorStateDeployment(32, false);
-SensorCapabilitiesMaskDeployment_t SensorCapabilitiesMaskDeployment(32, false);
 
 // Attribute-specific deployments
 
@@ -33,4 +29,4 @@ SensorCapabilitiesMaskDeployment_t SensorCapabilitiesMaskDeployment(32, false);
 } // namespace qti
 } // namespace qualcomm
 } // namespace com
-} // namespace v0
+} // namespace v1

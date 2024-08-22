@@ -26,21 +26,21 @@ package {
 prebuilt_etc {
     name: "vsomeip-sensor_client.json",
     vendor: true,
-    src: "./SensorInterfaceClient/vsomeip-sensor_client.json",
+    src: "./vsomeip-sensor_client.json",
 }
 prebuilt_etc {
     name: "vsomeip-sensor_test_client.json",
     vendor: true,
-    src: "./SensorInterfaceClient/vsomeip-sensor_test_client.json",
+    src: "./vsomeip-sensor_test_client.json",
 }
 gen_core_stub_srcs = [
-    "src-gen/core/v0/com/qualcomm/qti/sensor/*Stub*.cpp"
+    "src-gen/core/v1/com/qualcomm/qti/sensor/*Stub*.cpp"
 ]
 gen_core_proxy_srcs = [
-    "src-gen/core/v0/com/qualcomm/qti/sensor/*Proxy.cpp"
+    "src-gen/core/v1/com/qualcomm/qti/sensor/*Proxy.cpp"
 ]
 gen_someip_srcs = [
-    "src-gen/someip/v0/com/qualcomm/qti/sensor/*.cpp"
+    "src-gen/someip/v1/com/qualcomm/qti/sensor/*.cpp"
 ]
 cc_library_headers {
     name: "libSensorInterface-proxy_headers",

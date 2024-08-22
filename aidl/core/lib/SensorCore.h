@@ -17,7 +17,7 @@
 #define GYRO_UNCALIBRATED_SENSOR_ID  16
 #define HEADING_SENSOR_ID   5
 
-#define DEBUG_LEVEL 4
+#define DEBUG_LEVEL 3
 #define SENSOR_TAG "SensorInterface_AIDL:"
 
 #define LOGCAT_ENABLED
@@ -60,7 +60,6 @@ struct SensorCoreList {
     float maxRange;
     int32_t sensorId;
     int32_t type;
-    int32_t range;
     float maxSamplingRate;
     int32_t minBatchCount;
     int32_t maxBatchCount;
@@ -95,10 +94,10 @@ public:
 
     // Setter for SensorCoreList
     void setSensorCoreList(string name, string vendor, int32_t sensorVersion,
-		    float resolution, float maxRange, int32_t sensorId, int32_t type, int32_t range,
+		    float resolution, float maxRange, int32_t sensorId, int32_t type,
 		    float maxSamplingRate, int32_t minBatchCount, int32_t maxBatchCount,
 		    vector<float> odr) {
-       SensorCoreList list = { name, vendor, sensorVersion, resolution, maxRange, sensorId, type, range,
+       SensorCoreList list = { name, vendor, sensorVersion, resolution, maxRange, sensorId, type,
 	                       maxSamplingRate, minBatchCount, maxBatchCount, odr};
        sensorListVector.push_back(list);
     }

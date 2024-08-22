@@ -23,7 +23,7 @@
             "unreliable" : "30510",
             "someip-tp": 
             {
-		"client-to-service": ["0x80E9", "0x80EA", "0x80EB"]
+		"client-to-service": ["0x80E9", "0x80EA", "0x80EB", "0x80EC"]
             }
         }
     ],

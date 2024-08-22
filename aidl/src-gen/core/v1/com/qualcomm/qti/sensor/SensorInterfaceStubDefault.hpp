@@ -7,13 +7,13 @@
 * If a copy of the MPL was not distributed with this file, You can obtain one at
 * http://mozilla.org/MPL/2.0/.
 */
-#ifndef V0_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_STUB_DEFAULT_HPP_
-#define V0_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_STUB_DEFAULT_HPP_
+#ifndef V1_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_STUB_DEFAULT_HPP_
+#define V1_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_STUB_DEFAULT_HPP_
 
 
 #include <CommonAPI/Export.hpp>
 
-#include <v0/com/qualcomm/qti/sensor/SensorInterfaceStub.hpp>
+#include <v1/com/qualcomm/qti/sensor/SensorInterfaceStub.hpp>
 #include <cassert>
 #include <sstream>
 
@@ -29,7 +29,7 @@
 #  endif
 # endif
 
-namespace v0 {
+namespace v1 {
 namespace com {
 namespace qualcomm {
 namespace qti {
@@ -63,60 +63,63 @@ public:
         return &remoteEventHandler_;
     }
 
-    COMMONAPI_EXPORT virtual void fireSensorCapabilitiesEvent(const ::v0::com::qualcomm::qti::sensor::SensorInterface::SensorCapabilitiesMask &_capsMask) {
-        if (!_capsMask.validate()) {
+    COMMONAPI_EXPORT virtual void fireSensorCapabilitiesEvent(const ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorServiceStateMaskT &_SensorCapabilitiesMask) {
+        if (!_SensorCapabilitiesMask.validate()) {
             return;
         }
-        SensorInterfaceStub::fireSensorCapabilitiesEvent(_capsMask);
+        SensorInterfaceStub::fireSensorCapabilitiesEvent(_SensorCapabilitiesMask);
     }
     COMMONAPI_EXPORT virtual void fireSensorConfigUpdateEvent(const int32_t &_sensorId, const float &_samplingRate, const int32_t &_batchCount) {
         SensorInterfaceStub::fireSensorConfigUpdateEvent(_sensorId, _samplingRate, _batchCount);
     }
-    COMMONAPI_EXPORT virtual void fireSensorDataReadEvent(const std::vector< ::v0::com::qualcomm::qti::sensor::SensorInterface::SensorEvent > &_events, const int32_t &_count) {
-        SensorInterfaceStub::fireSensorDataReadEvent(_events, _count);
+    COMMONAPI_EXPORT virtual void fireSensorImuDataReadEvent(const std::vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorImuEventT > &_SensorImuEvent, const int32_t &_count) {
+        SensorInterfaceStub::fireSensorImuDataReadEvent(_SensorImuEvent, _count);
     }
-    COMMONAPI_EXPORT virtual void RegisterSensorClient(const std::shared_ptr<CommonAPI::ClientId> _client, RegisterSensorClientReply_t _reply) {
+    COMMONAPI_EXPORT virtual void fireSensorHeadingDataReadEvent(const std::vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorHeadEventT > &_sensorHeadEvent, const int32_t &_count) {
+        SensorInterfaceStub::fireSensorHeadingDataReadEvent(_sensorHeadEvent, _count);
+    }
+    COMMONAPI_EXPORT virtual void RegisterSensorClientReq(const std::shared_ptr<CommonAPI::ClientId> _client, RegisterSensorClientReqReply_t _reply) {
         (void)_client;
-        SensorInterface::SensorResponse response = SensorInterface::SensorResponse::SENSOR_RESPONSE_SUCCESS;
-        if (!response.validate()) {
+        ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT SensorResponse = ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_UNKNOWN;
+        if (!SensorResponse.validate()) {
             return;
         }
-        _reply(response);
+        _reply(SensorResponse);
     }
-    COMMONAPI_EXPORT virtual void DeRegisterSensorClient(const std::shared_ptr<CommonAPI::ClientId> _client, DeRegisterSensorClientReply_t _reply) {
+    COMMONAPI_EXPORT virtual void DeRegisterSensorClientReq(const std::shared_ptr<CommonAPI::ClientId> _client, DeRegisterSensorClientReqReply_t _reply) {
         (void)_client;
-        SensorInterface::SensorResponse response = SensorInterface::SensorResponse::SENSOR_RESPONSE_SUCCESS;
-        if (!response.validate()) {
+        ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT SensorResponse = ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_UNKNOWN;
+        if (!SensorResponse.validate()) {
             return;
         }
-        _reply(response);
+        _reply(SensorResponse);
     }
-    COMMONAPI_EXPORT virtual void GetSensorList(const std::shared_ptr<CommonAPI::ClientId> _client, GetSensorListReply_t _reply) {
+    COMMONAPI_EXPORT virtual void GetSensorListReq(const std::shared_ptr<CommonAPI::ClientId> _client, GetSensorListReqReply_t _reply) {
         (void)_client;
-        std::vector< SensorInterface::SensorList > sensor = {};
+        std::vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorInfoT > SensorList = {};
         int32_t count = 0;
-        _reply(sensor, count);
+        _reply(SensorList, count);
     }
-    COMMONAPI_EXPORT virtual void SensorConfig(const std::shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, float _samplingRate, int32_t _batchCount, SensorConfigReply_t _reply) {
+    COMMONAPI_EXPORT virtual void SensorConfigReq(const std::shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, float _samplingRate, int32_t _batchCount, SensorConfigReqReply_t _reply) {
         (void)_client;
         (void)_sensorId;
         (void)_samplingRate;
         (void)_batchCount;
-        SensorInterface::SensorResponse response = SensorInterface::SensorResponse::SENSOR_RESPONSE_SUCCESS;
-        if (!response.validate()) {
+        ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT SensorResponse = ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_UNKNOWN;
+        if (!SensorResponse.validate()) {
             return;
         }
-        _reply(response);
+        _reply(SensorResponse);
     }
-    COMMONAPI_EXPORT virtual void SensorControl(const std::shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, SensorInterface::SensorState _sensorState, SensorControlReply_t _reply) {
+    COMMONAPI_EXPORT virtual void SensorControlReq(const std::shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorStateT _sensorState, SensorControlReqReply_t _reply) {
         (void)_client;
         (void)_sensorId;
         (void)_sensorState;
-        SensorInterface::SensorResponse response = SensorInterface::SensorResponse::SENSOR_RESPONSE_SUCCESS;
-        if (!response.validate()) {
+        ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT SensorResponse = ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_UNKNOWN;
+        if (!SensorResponse.validate()) {
             return;
         }
-        _reply(response);
+        _reply(SensorResponse);
     }
 
 
@@ -145,10 +148,10 @@ private:
 } // namespace qti
 } // namespace qualcomm
 } // namespace com
-} // namespace v0
+} // namespace v1
 
 
 // Compatibility
-namespace v0_1 = v0;
+namespace v1_0 = v1;
 
-#endif // V0_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_STUB_DEFAULT
+#endif // V1_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_STUB_DEFAULT

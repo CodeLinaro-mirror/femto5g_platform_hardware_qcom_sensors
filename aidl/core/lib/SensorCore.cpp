@@ -12,7 +12,7 @@
 #include <variant>
 #include <future>
 #include <CommonAPI/CommonAPI.hpp>
-#include <v0/com/qualcomm/qti/sensor/SensorInterfaceProxy.hpp>
+#include <v1/com/qualcomm/qti/sensor/SensorInterfaceProxy.hpp>
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,12 +27,12 @@
 #define NSEC_IN_ONE_SEC       (1000000000ULL)   /* nanosec in a sec */
 #define GPTP_IF_LIB_NAME      "libgptp.so"
 
-using namespace v0::com::qualcomm::qti::sensor;
+using namespace v1::com::qualcomm::qti::sensor;
 using namespace std;
 
 struct SensorTrackingOption {
    int sensor_id;
-   SensorInterface::SensorState state;
+   SensorInterfaceTypes::SensorStateT state;
 };
 
 void gptpUpdateNotification(struct gptp_update update);
@@ -42,50 +42,51 @@ const static gPTPLibInterfaceReq  *gPTPReqIf = nullptr;
 
 shared_ptr<SensorInterfaceProxy<>> myProxy;
 CommonAPI::CallInfo info(1000);
-SensorInterface::SensorState state = SensorInterface::SensorState::SENSOR_DISABLE;
-SensorInterface::SensorResponse resp;
+SensorInterfaceTypes::SensorStateT state = SensorInterfaceTypes::SensorStateT::SENSOR_STATE_DISABLE;
+SensorInterfaceTypes::SensorReturnT resp;
 CommonAPI::CallStatus callStatus;
-vector<SensorInterface::SensorList> mSensorList;
+vector<SensorInterfaceTypes::SensorInfoT> mSensorList;
 int32_t mSensorCount = 0;
 uint32_t capSubscription;
 uint32_t batchSubscription;
-uint32_t dataSubscription;
+uint32_t imuDataSubscription;
+uint32_t headingDataSubscription;
 struct SensorTrackingOption mSensorTrackingOption [] = {{ACCEL_UNCALIBRATED_SENSOR_ID,state},
 	                                                {GYRO_UNCALIBRATED_SENSOR_ID,state},
 							{HEADING_SENSOR_ID,state}
 						       };
 
-void parseSensorResponse(SensorInterface::SensorResponse resp) {
+void parseSensorReturnT(SensorInterfaceTypes::SensorReturnT resp) {
    switch(resp) {
-	   case SensorInterface::SensorResponse::SENSOR_RESPONSE_SUCCESS:
-		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RESPONSE_SUCCESS\n"); 
+	   case SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_SUCCESS:
+		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RETURN_SUCCESS\n"); 
 		   break;
-	   case SensorInterface::SensorResponse::SENSOR_ERROR_CLIENT_REGISTER_FAILED:
-		   SENSOR_LOGI(SENSOR_TAG "SENSOR_ERROR_CLIENT_REGISTER_FAILED\n"); 
+	   case SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_CLIENT_REGISTER_FAILED:
+		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RETURN_ERROR_CLIENT_REGISTER_FAILED\n"); 
 		   break;
-	   case SensorInterface::SensorResponse::SENSOR_ERROR_INVALID_CLIENT:
-		   SENSOR_LOGI(SENSOR_TAG "SENSOR_ERROR_INVALID_CLIENT\n"); 
+	   case SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_INVALID_CLIENT:
+		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RETURN_ERROR_INVALID_CLIENT\n"); 
 		   break;
-	   case SensorInterface::SensorResponse::SENSOR_ERROR_INVALID_INPUT_PARAMETER:
-		   SENSOR_LOGI(SENSOR_TAG "SENSOR_ERROR_INVALID_INPUT_PARAMETER\n"); 
+	   case SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_INVALID_INPUT_PARAMETER:
+		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RETURN_ERROR_INVALID_INPUT_PARAMETER\n"); 
 		   break;
-	   case SensorInterface::SensorResponse::SENSOR_ERROR_CONTROL_FAILED:
-		   SENSOR_LOGI(SENSOR_TAG "SENSOR_ERROR_CONTROL_FAILED\n");
+	   case SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_CONTROL_FAILED:
+		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RETURN_ERROR_CONTROL_FAILED\n");
 		   break;
-	   case SensorInterface::SensorResponse::SENSOR_ERROR_CONFIG_FAILED:
-		   SENSOR_LOGI(SENSOR_TAG "SENSOR_ERROR_CONFIG_FAILED\n");
+	   case SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_CONFIG_FAILED:
+		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RETURN_ERROR_CONFIG_FAILED\n");
 		   break;
-	   case SensorInterface::SensorResponse::SENSOR_ERROR_NO_SENSORS_FOUND:
-		   SENSOR_LOGI(SENSOR_TAG "SENSOR_ERROR_NO_SENSORS_FOUND\n");
+	   case SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_NO_SENSORS_FOUND:
+		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RETURN_ERROR_NO_SENSORS_FOUND\n");
 		   break;
-	   case SensorInterface::SensorResponse::SENSOR_ERROR_TRACKING_FAILED:
-		   SENSOR_LOGI(SENSOR_TAG "SENSOR_ERROR_TRACKING_FAILED\n");
+	   case SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_TRACKING_FAILED:
+		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RETURN_ERROR_TRACKING_FAILED\n");
 		   break;
-	   case SensorInterface::SensorResponse::SENSOR_ERROR_UNKNOWN:
-		   SENSOR_LOGI(SENSOR_TAG "SENSOR_ERROR_UNKNOWN\n");
+	   case SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_UNKNOWN:
+		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RETURN_ERROR_UNKNOWN\n");
 		   break;
 	   default: 
-		   SENSOR_LOGI(SENSOR_TAG "SENSOR_ERROR_UNKNOWN\n");
+		   SENSOR_LOGI(SENSOR_TAG "SENSOR_RETURN_ERROR_UNKNOWN\n");
 		   break;
    }
    return;
@@ -94,19 +95,20 @@ void parseSensorResponse(SensorInterface::SensorResponse resp) {
 void DeInitHandles()
 {
    CommonAPI::CallStatus callStatus;
-   SensorInterface::SensorResponse resp;
+   SensorInterfaceTypes::SensorReturnT resp;
 
    myProxy->getSensorCapabilitiesEvent().unsubscribe(capSubscription);
    myProxy->getSensorConfigUpdateEvent().unsubscribe(batchSubscription);
-   myProxy->getSensorDataReadEvent().unsubscribe(dataSubscription);
+   myProxy->getSensorImuDataReadEvent().unsubscribe(imuDataSubscription);
+   myProxy->getSensorHeadingDataReadEvent().unsubscribe(headingDataSubscription);
 
    SENSOR_LOGI(SENSOR_TAG "==== DeRegister client ====>>\n");
-   myProxy->DeRegisterSensorClient(callStatus, resp, &info);
+   myProxy->DeRegisterSensorClientReq(callStatus, resp, &info);
    if (callStatus != CommonAPI::CallStatus::SUCCESS) {
-	   SENSOR_LOGE(SENSOR_TAG "DeRegisterSensorClient() Remote call failed! callStatus %d\n", (int)callStatus);
+	   SENSOR_LOGE(SENSOR_TAG "DeRegisterSensorClientReqReq() Remote call failed! callStatus %d\n", (int)callStatus);
    }
    else
-	   parseSensorResponse(resp);
+	   parseSensorReturnT(resp);
 
    usleep(5000);
    if ((nullptr != gPTPReqIf) && (nullptr != gPTPReqIf->gptpDeinitIf)) {
@@ -179,74 +181,63 @@ void loadGptpLibFile(void)
    return;
 }
 
-static void onCapabilitiesCb(SensorInterface::SensorCapabilitiesMask mask) {
+static void onCapabilitiesCb(SensorInterfaceTypes::SensorServiceStateMaskT mask) {
    switch (mask) {
-    case SensorInterface::SensorCapabilitiesMask::SHD_READY:
+    case SensorInterfaceTypes::SensorServiceStateMaskT::SENSOR_SERVICE_STATE_MASK_READY:
 	  SENSOR_LOGI(SENSOR_TAG "Sensor Hal daemon is Ready to commnunicate\n");
 	  break;
    }
    return;
 }
 
-static void dump_live_event(SensorInterface::SensorEvent *e)
+static void dump_live_event(SensorInterfaceTypes::SensorImuEventT *e)
 {
   static int64_t acc_ts = 0;
   static int64_t gyro_ts = 0;
   static int64_t head_ts = 0;
-  static int AccCount = 0, GyroCount = 0, HeadCount = 0;
+  static int AccCount = 0, GyroCount = 0;
   uint64_t currPTPtime = 0;
 
   bool retPtp = false;
   if ((nullptr != gPTPReqIf) && (nullptr != gPTPReqIf->gptpGetCurPtpTimeIf)) {
 	  retPtp = gPTPReqIf->gptpGetCurPtpTimeIf(&currPTPtime);
   }
-
-  if((e->getType() == SensorInterface::Sensortype::SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED ) || 
-		  (e->getType() == SensorInterface::Sensortype::SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED ) ) {
-	  const SensorInterface::SensorUncalibratedEvent & data = e->getData().get<SensorInterface::SensorUncalibratedEvent>();
-	  SENSOR_LOGD(SENSOR_TAG "Accel Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
-			      AccCount++,
-			      data.getX_uncalib(), data.getY_uncalib(), data.getZ_uncalib(),
-			      data.getX_bias(), data.getY_bias(), data.getZ_bias(),
-			      e->getTimestamp(), e->getGptptimestamp(),
-			      (currPTPtime - e->getGptptimestamp())/1000000,
-			      (e->getGptptimestamp()- acc_ts)/1000000);
-	  acc_ts = e->getGptptimestamp();
+  if((e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED ) ||
+		  (e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED ) ) {
+     const SensorInterfaceTypes::SensorUncalibratedEventT & data = e->getData();
+     SENSOR_LOGD(SENSOR_TAG "Accel Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
+			  AccCount++,
+			  data.getXUncalib(), data.getYUncalib(), data.getZUncalib(),
+			  data.getXBias(), data.getYBias(), data.getZBias(),
+			  e->getTimestamp(), e->getGptpTimestamp(),
+			  (currPTPtime - e->getGptpTimestamp())/1000000,
+			  (e->getGptpTimestamp()- acc_ts)/1000000);
+     acc_ts = e->getGptpTimestamp();
   }
-  else if((e->getType() == SensorInterface::Sensortype::SENSOR_TYPE_GYROSCOPE_UNCALIBRATED ) || 
-		  (e->getType() == SensorInterface::Sensortype::SENSOR_TYPE_GYROSCOPE ) ) {
-	  const SensorInterface::SensorUncalibratedEvent & data = e->getData().get<SensorInterface::SensorUncalibratedEvent>();
-	  SENSOR_LOGD(SENSOR_TAG "Gyro Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
-			      GyroCount++,
-			      data.getX_uncalib(), data.getY_uncalib(), data.getZ_uncalib(),
-			      data.getX_bias(), data.getY_bias(), data.getZ_bias(),
-			      e->getTimestamp(),
-			      e->getGptptimestamp(),
-			      (currPTPtime - e->getGptptimestamp())/1000000,
-			      (e->getGptptimestamp()-gyro_ts)/1000000);
-	  gyro_ts = e->getGptptimestamp();
-  }
-  else if((e->getType() == SensorInterface::Sensortype::SENSOR_TYPE_HEADING ) ) {
-	  const SensorInterface::SensorHeadingEvent & head = e->getData().get<SensorInterface::SensorHeadingEvent>();
-	  SENSOR_LOGD(SENSOR_TAG "Head Live event:%d heading and accuracy<%f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
-		 HeadCount++,
-		 head.getHeading(), head.getAccuracy(),
-		 e->getTimestamp(), e->getGptptimestamp(),
-		 (currPTPtime - e->getGptptimestamp())/1000000,
-		 (e->getGptptimestamp()- head_ts)/1000000);
-	  head_ts = e->getGptptimestamp();
+  else if((e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_GYROSCOPE_UNCALIBRATED ) ||
+		  (e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_GYROSCOPE ) ) {
+      const SensorInterfaceTypes::SensorUncalibratedEventT & data = e->getData();
+      SENSOR_LOGD(SENSOR_TAG "Gyro Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
+			  GyroCount++,
+			  data.getXUncalib(), data.getYUncalib(), data.getZUncalib(),
+			  data.getXBias(), data.getYBias(), data.getZBias(),
+			  e->getTimestamp(),
+			  e->getGptpTimestamp(),
+			  (currPTPtime - e->getGptpTimestamp())/1000000,
+			  (e->getGptpTimestamp()-gyro_ts)/1000000);
+      gyro_ts = e->getGptpTimestamp();
   }
   else {
-	  SENSOR_LOGD(SENSOR_TAG "Sensor Live unknown sensor_id events %d\n", e->getType());
+	  printf( "Sensor Live unknown sensor_id events %d\n", e->getType());
   }
   return;
 }
 
-static void  onSensorDataReadCb(vector<SensorInterface::SensorEvent> events, uint32_t count)
+static void  onSensorImuDataReadCb(vector<SensorInterfaceTypes::SensorImuEventT> events, uint32_t count)
 {
   int i =0;
-  static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_prv_head = 0, ts_cur = 0;
-  static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0, head_sensor_ts = 0;
+  static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_cur = 0;
+  static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0;
   bool retPtp = false;
 
   int sensor_id = events[0].getSensorId();
@@ -255,22 +246,16 @@ static void  onSensorDataReadCb(vector<SensorInterface::SensorEvent> events, uin
 	  retPtp = gPTPReqIf->gptpGetCurPtpTimeIf(&ts_cur);
   }
   if (sensor_id == ACCEL_UNCALIBRATED_SENSOR_ID) {
-	  acc_sensor_ts = events[count-1].getGptptimestamp();
+	  acc_sensor_ts = events[count-1].getGptpTimestamp();
 	  SENSOR_LOGD(SENSOR_TAG "Sensor ACC Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			  sensor_id, count, (ts_cur - ts_prv_acc)/1000000, ts_cur, (ts_cur - acc_sensor_ts)/1000000);
 	  ts_prv_acc = ts_cur;
   }
   if (sensor_id == GYRO_UNCALIBRATED_SENSOR_ID ) {
-	  gyro_sensor_ts = events[count-1].getGptptimestamp();
+	  gyro_sensor_ts = events[count-1].getGptpTimestamp();
 	  SENSOR_LOGD(SENSOR_TAG "Sensor GYRO Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			  sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, ts_cur, (ts_cur - gyro_sensor_ts)/1000000);
 	  ts_prv_gyro = ts_cur;
-  }
-  if (sensor_id == HEADING_SENSOR_ID ) {
-	  head_sensor_ts = events[count-1].getGptptimestamp();
-	  SENSOR_LOGD(SENSOR_TAG "Sensor HEAD Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
-			  sensor_id, count, (ts_cur - ts_prv_head)/1000000, ts_cur, (ts_cur - head_sensor_ts)/1000000);
-	  ts_prv_head = ts_cur;
   }
   for ( i = 0; i < count ; i++){
 	  dump_live_event(&events[i]);
@@ -278,7 +263,41 @@ static void  onSensorDataReadCb(vector<SensorInterface::SensorEvent> events, uin
   return;
 }
 
-static void PrintSensorList(vector<SensorInterface::SensorList> sensor, int32_t sensor_count)
+static void  onSensorHeadingDataReadCb(vector<SensorInterfaceTypes::SensorHeadEventT> events, uint32_t count)
+{
+  int i =0;
+  static uint64_t ts_prv_head = 0, ts_cur = 0;
+  static uint64_t head_sensor_ts = 0;
+  static int64_t head_ts = 0;
+  static int HeadCount = 0;
+  bool retPtp = false;
+  if ((nullptr != gPTPReqIf) && (nullptr != gPTPReqIf->gptpGetCurPtpTimeIf)) {
+	  retPtp = gPTPReqIf->gptpGetCurPtpTimeIf(&ts_cur);
+  }
+
+  int sensor_id = events[0].getSensorId();
+
+  if (sensor_id == HEADING_SENSOR_ID) {
+	  head_sensor_ts = events[count-1].getGptpTimestamp();
+	  SENSOR_LOGD(SENSOR_TAG "Sensor HEAD Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
+			  sensor_id, count, (ts_cur - ts_prv_head)/1000000, ts_cur, (ts_cur - head_sensor_ts)/1000000);
+	  ts_prv_head = ts_cur;
+  }
+  for ( i = 0; i < count ; i++) {
+	  if(events[i].getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_HEADING ) {
+	     const SensorInterfaceTypes::SensorHeadingEventT & head = events[i].getData();
+	     SENSOR_LOGD(SENSOR_TAG "Head Live event:%d heading and accuracy<%f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
+				  HeadCount++,
+				  head.getHeading(), head.getAccuracy(),
+				  events[i].getTimestamp(), events[i].getGptpTimestamp(),
+				  (ts_cur - events[i].getGptpTimestamp())/1000000,
+				  (events[i].getGptpTimestamp()- head_ts)/1000000);
+	     head_ts = events[i].getGptpTimestamp();
+	  }
+  }
+}
+
+static void PrintSensorList(vector<SensorInterfaceTypes::SensorInfoT> sensor, int32_t sensor_count)
 {
   for (int i=0 ; i< sensor_count ; i++) {
      vector<float>odr = sensor[i].getOdr();
@@ -290,7 +309,6 @@ static void PrintSensorList(vector<SensorInterface::SensorList> sensor, int32_t 
      SENSOR_LOGI(SENSOR_TAG "\tmaxRange %f\n",sensor[i].getMaxRange());
      SENSOR_LOGI(SENSOR_TAG "\tsensor_id: %d\n",sensor[i].getSensorId());
      SENSOR_LOGI(SENSOR_TAG "\ttype: %d\n",sensor[i].getType());
-     SENSOR_LOGI(SENSOR_TAG "\trange: %d\n",sensor[i].getRange());
      SENSOR_LOGI(SENSOR_TAG "\tmaxSamplingRate: %f\n",sensor[i].getMaxSamplingRate());
      SENSOR_LOGI(SENSOR_TAG "\tminBatchCount: %d\n",sensor[i].getMinBatchCount());
      SENSOR_LOGI(SENSOR_TAG "\tmaxBatchCount: %d\n",sensor[i].getMaxBatchCount());
@@ -341,16 +359,16 @@ void SensorCore::SensorCore_Init() {
 
 		SENSOR_LOGI(SENSOR_TAG "==== Register new client ====>>\n");
 		usleep(10*1000);
-		myProxy->RegisterSensorClient(callStatus, resp, &info);
+		myProxy->RegisterSensorClientReq(callStatus, resp, &info);
 		if (callStatus != CommonAPI::CallStatus::SUCCESS) {
-		  SENSOR_LOGE(SENSOR_TAG "RegisterSensorClient() Remote call failed! callStatus %d\n", (int)callStatus);
+		  SENSOR_LOGE(SENSOR_TAG "RegisterSensorClientReq() Remote call failed! callStatus %d\n", (int)callStatus);
 		  return;
 		}
-		parseSensorResponse(resp);
+		parseSensorReturnT(resp);
 
 		SENSOR_LOGI(SENSOR_TAG "==== Get Sensor List supported ====>>\n");
 		usleep(10*1000);
-		myProxy->GetSensorList(callStatus, mSensorList, mSensorCount, &info);
+		myProxy->GetSensorListReq(callStatus, mSensorList, mSensorCount, &info);
 		if (callStatus != CommonAPI::CallStatus::SUCCESS) {
 			SENSOR_LOGE(SENSOR_TAG "sensor get list failed ret %d \n", (int)callStatus);
 			return;
@@ -359,12 +377,12 @@ void SensorCore::SensorCore_Init() {
 
 		usleep(10*1000);
 		for (int i=0; i < mSensorCount; i++) {
-			if (mSensorTrackingOption[i].state == SensorInterface::SensorState::SENSOR_ENABLE &&
+			if (mSensorTrackingOption[i].state == SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE &&
 					 mSensorTrackingOption[i].sensor_id == mSensorList[i].getSensorId()) {
 				SENSOR_LOGI(SENSOR_TAG "Reconfiguring Enabled Sensor %d on sensor service restart\n", mSensorList[i].getSensorId());
-				myProxy->SensorConfig(mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(),
+				myProxy->SensorConfigReq(mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(),
 						mSensorList[i].getMinBatchCount(), callStatus, resp, &info);
-				myProxy->SensorControl(mSensorList[i].getSensorId(), state, callStatus, resp, &info);
+				myProxy->SensorControlReq(mSensorList[i].getSensorId(), state, callStatus, resp, &info);
 			}
 		}
 		break;
@@ -372,7 +390,7 @@ void SensorCore::SensorCore_Init() {
     });
 
     capSubscription = myProxy->getSensorCapabilitiesEvent().subscribe(
-       [&](const ::v0::com::qualcomm::qti::sensor::SensorInterface::SensorCapabilitiesMask &mask) {
+       [&](const ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorServiceStateMaskT &mask) {
        SENSOR_LOGI(SENSOR_TAG "<<--Received SensorCapabilitiesMask mask %d\n", static_cast<int>(mask));
        onCapabilitiesCb(mask);
     });
@@ -382,45 +400,52 @@ void SensorCore::SensorCore_Init() {
        SENSOR_LOGI(SENSOR_TAG "<<--Received SensorConfigUpdateCb id: %d SamplingRate : %f BatchCount: %d\n", sensor_id, SamplingRate, BatchCount);
     });
 
-    dataSubscription = myProxy->getSensorDataReadEvent().subscribe(
-       [&](vector< ::v0::com::qualcomm::qti::sensor::SensorInterface::SensorEvent > events, uint32_t count) {
-       //onSensorDataReadCb(events, count);
+    imuDataSubscription = myProxy->getSensorImuDataReadEvent().subscribe(
+       [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorImuEventT > events, uint32_t count) {
+       //onSensorImuDataReadCb(events, count);
        vector<SensorCoreData> idlSensorEventsData;
        SensorCoreData idlSensorEvents = {};
        for (int i=0 ;i <count; i++){
-         if(events[i].getType() == SensorInterface::Sensortype::SENSOR_TYPE_HEADING ) {
             memset(&idlSensorEvents, 0, sizeof(idlSensorEvents));
-	    const SensorInterface::SensorHeadingEvent & data = events[i].getData().get<SensorInterface::SensorHeadingEvent>();
+	    const SensorInterfaceTypes::SensorUncalibratedEventT & data = events[i].getData();
 	    idlSensorEvents.sensorId = events[i].getSensorId();
 	    idlSensorEvents.Type = events[i].getType();
 	    idlSensorEvents.timestamp = events[i].getTimestamp();
-	    idlSensorEvents.gptptimestamp = events[i].getGptptimestamp();
-	    idlSensorEvents.xyz = {data.getHeading(), data.getAccuracy()};
+	    idlSensorEvents.gptptimestamp = events[i].getGptpTimestamp();
+	    idlSensorEvents.xyz = {data.getXUncalib(), data.getYUncalib(), data.getZUncalib(),
+		    data.getXBias(), data.getYBias(), data.getZBias()};
 	    idlSensorEventsData.push_back(idlSensorEvents);
 	 }
-	 else {
+       onNewSensorsData(idlSensorEventsData);
+    });
+
+    headingDataSubscription = myProxy->getSensorHeadingDataReadEvent().subscribe(
+       [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorHeadEventT > events, uint32_t count) {
+       //onSensorHeadingDataReadCb(events, count);
+       vector<SensorCoreData> idlSensorEventsData;
+       SensorCoreData idlSensorEvents = {};
+       for (int i=0 ;i <count; i++){
+         if(events[i].getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_HEADING ) {
             memset(&idlSensorEvents, 0, sizeof(idlSensorEvents));
-	    const SensorInterface::SensorUncalibratedEvent & data = events[i].getData().get<SensorInterface::SensorUncalibratedEvent>();
+	    const SensorInterfaceTypes::SensorHeadingEventT & data = events[i].getData();
 	    idlSensorEvents.sensorId = events[i].getSensorId();
 	    idlSensorEvents.Type = events[i].getType();
 	    idlSensorEvents.timestamp = events[i].getTimestamp();
-	    idlSensorEvents.gptptimestamp = events[i].getGptptimestamp();
-	    idlSensorEvents.xyz = {data.getX_uncalib(), data.getY_uncalib(), data.getZ_uncalib(),
-		    data.getX_bias(), data.getY_bias(), data.getZ_bias()};
+	    idlSensorEvents.gptptimestamp = events[i].getGptpTimestamp();
+	    idlSensorEvents.xyz = {data.getHeading(), data.getAccuracy()};
 	    idlSensorEventsData.push_back(idlSensorEvents);
 	 }
        }
        onNewSensorsData(idlSensorEventsData);
     });
-
     return;
 }
 
 void SensorCore::SensorCore_getSensorList(std::vector<SensorCoreList> &sensorVector, int32_t *sensorcount) {
     static bool sensorlistready = false;
-    SENSOR_LOGI(SENSOR_TAG "==== Calling GetSensorList ====>> sensorlistready %d \n", sensorlistready);
+    SENSOR_LOGI(SENSOR_TAG "==== Calling GetSensorListReq ====>> sensorlistready %d \n", sensorlistready);
     if(sensorlistready == false) {
-       myProxy->GetSensorList(callStatus, mSensorList, mSensorCount, &info);
+       myProxy->GetSensorListReq(callStatus, mSensorList, mSensorCount, &info);
        if (callStatus != CommonAPI::CallStatus::SUCCESS) {
 	       SENSOR_LOGE(SENSOR_TAG "sensor get list failed ret %d \n", (int)callStatus);
 	       return;
@@ -436,7 +461,6 @@ void SensorCore::SensorCore_getSensorList(std::vector<SensorCoreList> &sensorVec
 				 mSensorList[i].getMaxRange(),
 				 mSensorList[i].getSensorId(),
 				 mSensorList[i].getType(),
-			         mSensorList[i].getRange(),
 				 mSensorList[i].getMaxSamplingRate(),
 				 mSensorList[i].getMinBatchCount(),
 			         mSensorList[i].getMaxBatchCount(),
@@ -450,7 +474,7 @@ void SensorCore::SensorCore_getSensorList(std::vector<SensorCoreList> &sensorVec
 }
 
 void SensorCore::SensorCore_acitvateSensor(int32_t in_sensorHandle, bool in_enabled) {
-    SENSOR_LOGI(SENSOR_TAG "==== Calling SensorControl ====>> sensor_id: %d in_enabled: %d \n", in_sensorHandle, in_enabled);
+    SENSOR_LOGI(SENSOR_TAG "==== Calling SensorControlReq ====>> sensor_id: %d in_enabled: %d \n", in_sensorHandle, in_enabled);
 
     //Enable uncalibrated sensor when calibrated request received
     if (in_sensorHandle == ACCEL_CALIBRATED_SENSOR_ID)
@@ -459,22 +483,22 @@ void SensorCore::SensorCore_acitvateSensor(int32_t in_sensorHandle, bool in_enab
 	    in_sensorHandle = GYRO_UNCALIBRATED_SENSOR_ID;
 
     if (in_enabled == true)
-        state = SensorInterface::SensorState::SENSOR_ENABLE;
+        state = SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE;
     else 
-	state = SensorInterface::SensorState::SENSOR_DISABLE;
+	state = SensorInterfaceTypes::SensorStateT::SENSOR_STATE_DISABLE;
  
     if (mSensorCount != 0) {
        for (int i=0; i < mSensorCount; i++) {
 	  if (mSensorList[i].getSensorId() == in_sensorHandle) {
 		  SENSOR_LOGI(SENSOR_TAG "Sensor %d activate set to %d\n", in_sensorHandle, in_enabled);
-		  myProxy->SensorControl(mSensorList[i].getSensorId(), state, callStatus, resp, &info);
+		  myProxy->SensorControlReq(mSensorList[i].getSensorId(), state, callStatus, resp, &info);
 		  if (callStatus != CommonAPI::CallStatus::SUCCESS) {
 			  SENSOR_LOGE(SENSOR_TAG "sensor control failed sensor[i].sensor_id %d ret %d \n", in_sensorHandle, (int)callStatus);
 			  return;
 		  }
-		  parseSensorResponse(resp);
+		  parseSensorReturnT(resp);
 		  //store state of enabled sensors to reconfigure on SHD restart.
-		  if(resp == 0) {
+		  if(resp == SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_SUCCESS) {
 			  mSensorTrackingOption[i].sensor_id = mSensorList[i].getSensorId();
 			  mSensorTrackingOption[i].state = state;
 		  }
@@ -495,7 +519,7 @@ void SensorCore::SensorCore_acitvateSensor(int32_t in_sensorHandle, bool in_enab
 }
 
 void SensorCore::SensorCore_configSensor(int32_t in_sensorHandle, int64_t in_samplingPeriodNs,int64_t in_maxReportLatencyNs) {
-    SENSOR_LOGI(SENSOR_TAG  "==== Calling SensorConfig ====>> sensor_id: %d in_samplingPeriodNs %lld in_maxReportLatencyNs %lld\n", in_sensorHandle, in_samplingPeriodNs, in_maxReportLatencyNs);
+    SENSOR_LOGI(SENSOR_TAG  "==== Calling SensorConfigReq ====>> sensor_id: %d in_samplingPeriodNs %lld in_maxReportLatencyNs %lld\n", in_sensorHandle, in_samplingPeriodNs, in_maxReportLatencyNs);
 
     //Configure uncalibrated sensor when calibrated request received
     if (in_sensorHandle == ACCEL_CALIBRATED_SENSOR_ID)
@@ -507,13 +531,13 @@ void SensorCore::SensorCore_configSensor(int32_t in_sensorHandle, int64_t in_sam
        for (int i=0; i < mSensorCount; i++) {
 	  if (mSensorList[i].getSensorId() == in_sensorHandle) {
 		  SENSOR_LOGI(SENSOR_TAG "Sensor %d configure for sampling rate %f and batch count %d\n", mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(), mSensorList[i].getMinBatchCount());
-		  myProxy->SensorConfig(mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(),
+		  myProxy->SensorConfigReq(mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(),
 				  mSensorList[i].getMinBatchCount(), callStatus, resp, &info);
 		  if (callStatus != CommonAPI::CallStatus::SUCCESS) {
 			  SENSOR_LOGE(SENSOR_TAG "sensor config  failed sensor_id %d ret %d \n", in_sensorHandle, (int)callStatus);
 			  return;
 		  }
-		  parseSensorResponse(resp);
+		  parseSensorReturnT(resp);
 	  }
        }
     }

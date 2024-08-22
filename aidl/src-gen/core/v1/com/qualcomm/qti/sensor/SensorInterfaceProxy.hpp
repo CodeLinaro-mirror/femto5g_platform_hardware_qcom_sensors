@@ -7,10 +7,10 @@
 * If a copy of the MPL was not distributed with this file, You can obtain one at
 * http://mozilla.org/MPL/2.0/.
 */
-#ifndef V0_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_PROXY_HPP_
-#define V0_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_PROXY_HPP_
+#ifndef V1_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_PROXY_HPP_
+#define V1_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_PROXY_HPP_
 
-#include <v0/com/qualcomm/qti/sensor/SensorInterfaceProxyBase.hpp>
+#include <v1/com/qualcomm/qti/sensor/SensorInterfaceProxyBase.hpp>
 
 
 #if !defined (COMMONAPI_INTERNAL_COMPILATION)
@@ -24,7 +24,7 @@
 #undef HAS_DEFINED_COMMONAPI_INTERNAL_COMPILATION_HERE
 #endif
 
-namespace v0 {
+namespace v1 {
 namespace com {
 namespace qualcomm {
 namespace qti {
@@ -84,22 +84,28 @@ public:
         return delegate_->getSensorConfigUpdateEvent();
     }
     /**
-     * Returns the wrapper class that provides access to the broadcast SensorDataRead.
+     * Returns the wrapper class that provides access to the broadcast SensorImuDataRead.
      */
-    virtual SensorDataReadEvent& getSensorDataReadEvent() {
-        return delegate_->getSensorDataReadEvent();
+    virtual SensorImuDataReadEvent& getSensorImuDataReadEvent() {
+        return delegate_->getSensorImuDataReadEvent();
     }
     /**
-     * Calls RegisterSensorClient with synchronous semantics.
+     * Returns the wrapper class that provides access to the broadcast SensorHeadingDataRead.
+     */
+    virtual SensorHeadingDataReadEvent& getSensorHeadingDataReadEvent() {
+        return delegate_->getSensorHeadingDataReadEvent();
+    }
+    /**
+     * Calls RegisterSensorClientReq with synchronous semantics.
      *
      * All non-const parameters will be filled with the returned values.
      * The CallStatus will be filled when the method returns and indicate either
      * "SUCCESS" or which type of error has occurred. In case of an error, ONLY the CallStatus
      * will be set.
      */
-    virtual void RegisterSensorClient(CommonAPI::CallStatus &_internalCallStatus, SensorInterface::SensorResponse &_response, const CommonAPI::CallInfo *_info = nullptr);
+    virtual void RegisterSensorClientReq(CommonAPI::CallStatus &_internalCallStatus, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT &_SensorResponse, const CommonAPI::CallInfo *_info = nullptr);
     /**
-     * Calls RegisterSensorClient with asynchronous semantics.
+     * Calls RegisterSensorClientReq with asynchronous semantics.
      *
      * The provided callback will be called when the reply to this call arrives or
      * an error occurs during the call. The CallStatus will indicate either "SUCCESS"
@@ -108,18 +114,18 @@ public:
      * The std::future returned by this method will be fulfilled at arrival of the reply.
      * It will provide the same value for CallStatus as will be handed to the callback.
      */
-    virtual std::future<CommonAPI::CallStatus> RegisterSensorClientAsync(RegisterSensorClientAsyncCallback _callback = nullptr, const CommonAPI::CallInfo *_info = nullptr);
+    virtual std::future<CommonAPI::CallStatus> RegisterSensorClientReqAsync(RegisterSensorClientReqAsyncCallback _callback = nullptr, const CommonAPI::CallInfo *_info = nullptr);
     /**
-     * Calls DeRegisterSensorClient with synchronous semantics.
+     * Calls DeRegisterSensorClientReq with synchronous semantics.
      *
      * All non-const parameters will be filled with the returned values.
      * The CallStatus will be filled when the method returns and indicate either
      * "SUCCESS" or which type of error has occurred. In case of an error, ONLY the CallStatus
      * will be set.
      */
-    virtual void DeRegisterSensorClient(CommonAPI::CallStatus &_internalCallStatus, SensorInterface::SensorResponse &_response, const CommonAPI::CallInfo *_info = nullptr);
+    virtual void DeRegisterSensorClientReq(CommonAPI::CallStatus &_internalCallStatus, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT &_SensorResponse, const CommonAPI::CallInfo *_info = nullptr);
     /**
-     * Calls DeRegisterSensorClient with asynchronous semantics.
+     * Calls DeRegisterSensorClientReq with asynchronous semantics.
      *
      * The provided callback will be called when the reply to this call arrives or
      * an error occurs during the call. The CallStatus will indicate either "SUCCESS"
@@ -128,18 +134,18 @@ public:
      * The std::future returned by this method will be fulfilled at arrival of the reply.
      * It will provide the same value for CallStatus as will be handed to the callback.
      */
-    virtual std::future<CommonAPI::CallStatus> DeRegisterSensorClientAsync(DeRegisterSensorClientAsyncCallback _callback = nullptr, const CommonAPI::CallInfo *_info = nullptr);
+    virtual std::future<CommonAPI::CallStatus> DeRegisterSensorClientReqAsync(DeRegisterSensorClientReqAsyncCallback _callback = nullptr, const CommonAPI::CallInfo *_info = nullptr);
     /**
-     * Calls GetSensorList with synchronous semantics.
+     * Calls GetSensorListReq with synchronous semantics.
      *
      * All non-const parameters will be filled with the returned values.
      * The CallStatus will be filled when the method returns and indicate either
      * "SUCCESS" or which type of error has occurred. In case of an error, ONLY the CallStatus
      * will be set.
      */
-    virtual void GetSensorList(CommonAPI::CallStatus &_internalCallStatus, std::vector< SensorInterface::SensorList > &_sensor, int32_t &_count, const CommonAPI::CallInfo *_info = nullptr);
+    virtual void GetSensorListReq(CommonAPI::CallStatus &_internalCallStatus, std::vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorInfoT > &_SensorList, int32_t &_count, const CommonAPI::CallInfo *_info = nullptr);
     /**
-     * Calls GetSensorList with asynchronous semantics.
+     * Calls GetSensorListReq with asynchronous semantics.
      *
      * The provided callback will be called when the reply to this call arrives or
      * an error occurs during the call. The CallStatus will indicate either "SUCCESS"
@@ -148,9 +154,9 @@ public:
      * The std::future returned by this method will be fulfilled at arrival of the reply.
      * It will provide the same value for CallStatus as will be handed to the callback.
      */
-    virtual std::future<CommonAPI::CallStatus> GetSensorListAsync(GetSensorListAsyncCallback _callback = nullptr, const CommonAPI::CallInfo *_info = nullptr);
+    virtual std::future<CommonAPI::CallStatus> GetSensorListReqAsync(GetSensorListReqAsyncCallback _callback = nullptr, const CommonAPI::CallInfo *_info = nullptr);
     /**
-     * Calls SensorConfig with synchronous semantics.
+     * Calls SensorConfigReq with synchronous semantics.
      *
      * All const parameters are input parameters to this method.
      * All non-const parameters will be filled with the returned values.
@@ -158,9 +164,9 @@ public:
      * "SUCCESS" or which type of error has occurred. In case of an error, ONLY the CallStatus
      * will be set.
      */
-    virtual void SensorConfig(int32_t _sensorId, float _samplingRate, int32_t _batchCount, CommonAPI::CallStatus &_internalCallStatus, SensorInterface::SensorResponse &_response, const CommonAPI::CallInfo *_info = nullptr);
+    virtual void SensorConfigReq(int32_t _sensorId, float _samplingRate, int32_t _batchCount, CommonAPI::CallStatus &_internalCallStatus, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT &_SensorResponse, const CommonAPI::CallInfo *_info = nullptr);
     /**
-     * Calls SensorConfig with asynchronous semantics.
+     * Calls SensorConfigReq with asynchronous semantics.
      *
      * The provided callback will be called when the reply to this call arrives or
      * an error occurs during the call. The CallStatus will indicate either "SUCCESS"
@@ -169,9 +175,9 @@ public:
      * The std::future returned by this method will be fulfilled at arrival of the reply.
      * It will provide the same value for CallStatus as will be handed to the callback.
      */
-    virtual std::future<CommonAPI::CallStatus> SensorConfigAsync(const int32_t &_sensorId, const float &_samplingRate, const int32_t &_batchCount, SensorConfigAsyncCallback _callback = nullptr, const CommonAPI::CallInfo *_info = nullptr);
+    virtual std::future<CommonAPI::CallStatus> SensorConfigReqAsync(const int32_t &_sensorId, const float &_samplingRate, const int32_t &_batchCount, SensorConfigReqAsyncCallback _callback = nullptr, const CommonAPI::CallInfo *_info = nullptr);
     /**
-     * Calls SensorControl with synchronous semantics.
+     * Calls SensorControlReq with synchronous semantics.
      *
      * All const parameters are input parameters to this method.
      * All non-const parameters will be filled with the returned values.
@@ -179,9 +185,9 @@ public:
      * "SUCCESS" or which type of error has occurred. In case of an error, ONLY the CallStatus
      * will be set.
      */
-    virtual void SensorControl(int32_t _sensorId, SensorInterface::SensorState _sensorState, CommonAPI::CallStatus &_internalCallStatus, SensorInterface::SensorResponse &_response, const CommonAPI::CallInfo *_info = nullptr);
+    virtual void SensorControlReq(int32_t _sensorId, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorStateT _sensorState, CommonAPI::CallStatus &_internalCallStatus, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT &_SensorResponse, const CommonAPI::CallInfo *_info = nullptr);
     /**
-     * Calls SensorControl with asynchronous semantics.
+     * Calls SensorControlReq with asynchronous semantics.
      *
      * The provided callback will be called when the reply to this call arrives or
      * an error occurs during the call. The CallStatus will indicate either "SUCCESS"
@@ -190,7 +196,7 @@ public:
      * The std::future returned by this method will be fulfilled at arrival of the reply.
      * It will provide the same value for CallStatus as will be handed to the callback.
      */
-    virtual std::future<CommonAPI::CallStatus> SensorControlAsync(const int32_t &_sensorId, const SensorInterface::SensorState &_sensorState, SensorControlAsyncCallback _callback = nullptr, const CommonAPI::CallInfo *_info = nullptr);
+    virtual std::future<CommonAPI::CallStatus> SensorControlReqAsync(const int32_t &_sensorId, const ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorStateT &_sensorState, SensorControlReqAsyncCallback _callback = nullptr, const CommonAPI::CallInfo *_info = nullptr);
 
 
 
@@ -215,60 +221,60 @@ SensorInterfaceProxy<_AttributeExtensions...>::~SensorInterfaceProxy() {
 }
 
 template <typename ... _AttributeExtensions>
-void SensorInterfaceProxy<_AttributeExtensions...>::RegisterSensorClient(CommonAPI::CallStatus &_internalCallStatus, SensorInterface::SensorResponse &_response, const CommonAPI::CallInfo *_info) {
-    delegate_->RegisterSensorClient(_internalCallStatus, _response, _info);
+void SensorInterfaceProxy<_AttributeExtensions...>::RegisterSensorClientReq(CommonAPI::CallStatus &_internalCallStatus, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT &_SensorResponse, const CommonAPI::CallInfo *_info) {
+    delegate_->RegisterSensorClientReq(_internalCallStatus, _SensorResponse, _info);
 }
 
 template <typename ... _AttributeExtensions>
-std::future<CommonAPI::CallStatus> SensorInterfaceProxy<_AttributeExtensions...>::RegisterSensorClientAsync(RegisterSensorClientAsyncCallback _callback, const CommonAPI::CallInfo *_info) {
-    return delegate_->RegisterSensorClientAsync(_callback, _info);
+std::future<CommonAPI::CallStatus> SensorInterfaceProxy<_AttributeExtensions...>::RegisterSensorClientReqAsync(RegisterSensorClientReqAsyncCallback _callback, const CommonAPI::CallInfo *_info) {
+    return delegate_->RegisterSensorClientReqAsync(_callback, _info);
 }
 template <typename ... _AttributeExtensions>
-void SensorInterfaceProxy<_AttributeExtensions...>::DeRegisterSensorClient(CommonAPI::CallStatus &_internalCallStatus, SensorInterface::SensorResponse &_response, const CommonAPI::CallInfo *_info) {
-    delegate_->DeRegisterSensorClient(_internalCallStatus, _response, _info);
-}
-
-template <typename ... _AttributeExtensions>
-std::future<CommonAPI::CallStatus> SensorInterfaceProxy<_AttributeExtensions...>::DeRegisterSensorClientAsync(DeRegisterSensorClientAsyncCallback _callback, const CommonAPI::CallInfo *_info) {
-    return delegate_->DeRegisterSensorClientAsync(_callback, _info);
-}
-template <typename ... _AttributeExtensions>
-void SensorInterfaceProxy<_AttributeExtensions...>::GetSensorList(CommonAPI::CallStatus &_internalCallStatus, std::vector< SensorInterface::SensorList > &_sensor, int32_t &_count, const CommonAPI::CallInfo *_info) {
-    delegate_->GetSensorList(_internalCallStatus, _sensor, _count, _info);
+void SensorInterfaceProxy<_AttributeExtensions...>::DeRegisterSensorClientReq(CommonAPI::CallStatus &_internalCallStatus, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT &_SensorResponse, const CommonAPI::CallInfo *_info) {
+    delegate_->DeRegisterSensorClientReq(_internalCallStatus, _SensorResponse, _info);
 }
 
 template <typename ... _AttributeExtensions>
-std::future<CommonAPI::CallStatus> SensorInterfaceProxy<_AttributeExtensions...>::GetSensorListAsync(GetSensorListAsyncCallback _callback, const CommonAPI::CallInfo *_info) {
-    return delegate_->GetSensorListAsync(_callback, _info);
+std::future<CommonAPI::CallStatus> SensorInterfaceProxy<_AttributeExtensions...>::DeRegisterSensorClientReqAsync(DeRegisterSensorClientReqAsyncCallback _callback, const CommonAPI::CallInfo *_info) {
+    return delegate_->DeRegisterSensorClientReqAsync(_callback, _info);
 }
 template <typename ... _AttributeExtensions>
-void SensorInterfaceProxy<_AttributeExtensions...>::SensorConfig(int32_t _sensorId, float _samplingRate, int32_t _batchCount, CommonAPI::CallStatus &_internalCallStatus, SensorInterface::SensorResponse &_response, const CommonAPI::CallInfo *_info) {
-    delegate_->SensorConfig(_sensorId, _samplingRate, _batchCount, _internalCallStatus, _response, _info);
+void SensorInterfaceProxy<_AttributeExtensions...>::GetSensorListReq(CommonAPI::CallStatus &_internalCallStatus, std::vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorInfoT > &_SensorList, int32_t &_count, const CommonAPI::CallInfo *_info) {
+    delegate_->GetSensorListReq(_internalCallStatus, _SensorList, _count, _info);
 }
 
 template <typename ... _AttributeExtensions>
-std::future<CommonAPI::CallStatus> SensorInterfaceProxy<_AttributeExtensions...>::SensorConfigAsync(const int32_t &_sensorId, const float &_samplingRate, const int32_t &_batchCount, SensorConfigAsyncCallback _callback, const CommonAPI::CallInfo *_info) {
-    return delegate_->SensorConfigAsync(_sensorId, _samplingRate, _batchCount, _callback, _info);
+std::future<CommonAPI::CallStatus> SensorInterfaceProxy<_AttributeExtensions...>::GetSensorListReqAsync(GetSensorListReqAsyncCallback _callback, const CommonAPI::CallInfo *_info) {
+    return delegate_->GetSensorListReqAsync(_callback, _info);
 }
 template <typename ... _AttributeExtensions>
-void SensorInterfaceProxy<_AttributeExtensions...>::SensorControl(int32_t _sensorId, SensorInterface::SensorState _sensorState, CommonAPI::CallStatus &_internalCallStatus, SensorInterface::SensorResponse &_response, const CommonAPI::CallInfo *_info) {
+void SensorInterfaceProxy<_AttributeExtensions...>::SensorConfigReq(int32_t _sensorId, float _samplingRate, int32_t _batchCount, CommonAPI::CallStatus &_internalCallStatus, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT &_SensorResponse, const CommonAPI::CallInfo *_info) {
+    delegate_->SensorConfigReq(_sensorId, _samplingRate, _batchCount, _internalCallStatus, _SensorResponse, _info);
+}
+
+template <typename ... _AttributeExtensions>
+std::future<CommonAPI::CallStatus> SensorInterfaceProxy<_AttributeExtensions...>::SensorConfigReqAsync(const int32_t &_sensorId, const float &_samplingRate, const int32_t &_batchCount, SensorConfigReqAsyncCallback _callback, const CommonAPI::CallInfo *_info) {
+    return delegate_->SensorConfigReqAsync(_sensorId, _samplingRate, _batchCount, _callback, _info);
+}
+template <typename ... _AttributeExtensions>
+void SensorInterfaceProxy<_AttributeExtensions...>::SensorControlReq(int32_t _sensorId, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorStateT _sensorState, CommonAPI::CallStatus &_internalCallStatus, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT &_SensorResponse, const CommonAPI::CallInfo *_info) {
     if (!_sensorState.validate()) {
         _internalCallStatus = CommonAPI::CallStatus::INVALID_VALUE;
         return;
     }
-    delegate_->SensorControl(_sensorId, _sensorState, _internalCallStatus, _response, _info);
+    delegate_->SensorControlReq(_sensorId, _sensorState, _internalCallStatus, _SensorResponse, _info);
 }
 
 template <typename ... _AttributeExtensions>
-std::future<CommonAPI::CallStatus> SensorInterfaceProxy<_AttributeExtensions...>::SensorControlAsync(const int32_t &_sensorId, const SensorInterface::SensorState &_sensorState, SensorControlAsyncCallback _callback, const CommonAPI::CallInfo *_info) {
+std::future<CommonAPI::CallStatus> SensorInterfaceProxy<_AttributeExtensions...>::SensorControlReqAsync(const int32_t &_sensorId, const ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorStateT &_sensorState, SensorControlReqAsyncCallback _callback, const CommonAPI::CallInfo *_info) {
     if (!_sensorState.validate()) {
-        SensorInterface::SensorResponse response = SensorInterface::SensorResponse::SENSOR_RESPONSE_SUCCESS;
-        _callback(CommonAPI::CallStatus::INVALID_VALUE, response);
+        ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT SensorResponse = ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_UNKNOWN;
+        _callback(CommonAPI::CallStatus::INVALID_VALUE, SensorResponse);
         std::promise<CommonAPI::CallStatus> promise;
         promise.set_value(CommonAPI::CallStatus::INVALID_VALUE);
         return promise.get_future();
     }
-    return delegate_->SensorControlAsync(_sensorId, _sensorState, _callback, _info);
+    return delegate_->SensorControlReqAsync(_sensorId, _sensorState, _callback, _info);
 }
 
 template <typename ... _AttributeExtensions>
@@ -306,11 +312,11 @@ std::future<void> SensorInterfaceProxy<_AttributeExtensions...>::getCompletionFu
 } // namespace qti
 } // namespace qualcomm
 } // namespace com
-} // namespace v0
+} // namespace v1
 
 
 
 // Compatibility
-namespace v0_1 = v0;
+namespace v1_0 = v1;
 
-#endif // V0_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_PROXY_HPP_
+#endif // V1_COM_QUALCOMM_QTI_SENSOR_Sensor_Interface_PROXY_HPP_
