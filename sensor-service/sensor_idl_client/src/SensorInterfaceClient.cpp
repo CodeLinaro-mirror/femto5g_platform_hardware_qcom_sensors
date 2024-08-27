@@ -343,7 +343,7 @@ int main() {
 
     batchSubscription = myProxy->getSensorConfigUpdateEvent().subscribe(
        [&](int32_t sensor_id, float SamplingRate, int32_t BatchCount) {
-       cout << "<<--Received SensorConfigReqReqReqUpdate id: " << sensor_id << " SamplingRate : " << SamplingRate << " BatchCount : " << BatchCount << endl;
+       cout << "<<--Received SensorConfigUpdate id: " << sensor_id << " SamplingRate : " << SamplingRate << " BatchCount : " << BatchCount << endl;
        cout << "<<-------" << endl;
     });
 
@@ -398,7 +398,7 @@ int main() {
 	    PrintSensorInfoT(sensor,sensor_count);
 	    break;
 	  case 'c':
-	    cout << "==== Calling SensorConfigReqReqReq ====>> " << endl;
+	    cout << "==== Calling SensorConfigReq ====>> " << endl;
 	    for(int i=0; i < sensor_count; i++) {
 		vector<float>mODR = sensor[i].getOdr();
 	        printf("Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n", mODR[0],mODR[1],mODR[2],mODR[3],mODR[4],mODR[5]);

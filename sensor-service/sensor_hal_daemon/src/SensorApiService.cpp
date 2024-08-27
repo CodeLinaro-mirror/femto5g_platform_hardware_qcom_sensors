@@ -1746,7 +1746,8 @@ void SensorApiService::EnableHeadingSensor() {
 }
 void SensorApiService::DisableHeadingSensor() {
    SENSOR_LOGI(LOG_TAG "<<< Disable HEADING SENSOR \n");
-   pLcaClient->stopPositionSession();
+   if (!pLcaClient)
+	   pLcaClient->stopPositionSession();
 }
 
 /********************************************************************************

@@ -107,6 +107,7 @@ bool SensorHalDaemonClientHandler::onCapabilitiesCallback(SensorCapabilitiesMask
    // please do not attempt to hold the lock, as the caller of this function
    // already holds the lock
    SENSOR_LOGI(LOG_TAG "--< onCapabilitiesCallback=0x%x", mask);
+   bool rc = false;
 #ifdef SENSOR_IVSS_ENABLED
    if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
      myService->onCapabilitiesCallback(mask);

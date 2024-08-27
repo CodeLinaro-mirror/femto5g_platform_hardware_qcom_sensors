@@ -259,6 +259,7 @@ void SensorInterfaceStubImpl::SensorConfigReq(const shared_ptr<CommonAPI::Client
     }
     else {
            fireSensorConfigUpdateEvent(SENSOR_ID_HEADING, 100, 1);
+	    response  = parseSensorReturnT(resp);
 	   _reply(response);
     }
 }
@@ -290,8 +291,8 @@ void SensorInterfaceStubImpl::SensorControlReq(const shared_ptr<CommonAPI::Clien
 		    mService->DisableHeadingSensor();
 		    mHeadTracking = false;
 	    }
+	    response = parseSensorReturnT(resp);
+	    _reply(response);
     }
-    response = parseSensorReturnT(resp);
-    _reply(response);
 }
 #endif
