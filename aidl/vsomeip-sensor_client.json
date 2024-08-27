@@ -12,7 +12,11 @@
     [
         {
             "name" : "sensor-fidl-client",
-            "id" : "0x2"
+            "id" : "0x30C"
+        },
+        {
+            "name" : "sensor-fidl-test-client",
+            "id" : "0x30C"
         }
     ],
     "services" :

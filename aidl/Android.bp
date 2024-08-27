@@ -28,11 +28,6 @@ prebuilt_etc {
     vendor: true,
     src: "./vsomeip-sensor_client.json",
 }
-prebuilt_etc {
-    name: "vsomeip-sensor_test_client.json",
-    vendor: true,
-    src: "./vsomeip-sensor_test_client.json",
-}
 gen_core_stub_srcs = [
     "src-gen/core/v1/com/qualcomm/qti/sensor/*Stub*.cpp"
 ]

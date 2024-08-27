@@ -309,7 +309,6 @@ static void printHelp() {
 
 int main() {
 
-    bool SHD_RESTARTED = false;
     int32_t sensor_count = 0;
     struct timespec ts;
     SensorInterfaceTypes::SensorStateT state = SensorInterfaceTypes::SensorStateT::SENSOR_STATE_DISABLE;
@@ -361,15 +360,12 @@ int main() {
 	switch (status) {
 	case CommonAPI::AvailabilityStatus::UNKNOWN:
 	cout << "Sensor Service Unkown" << endl;
-	SHD_RESTARTED = true;
 	break;
 	case CommonAPI::AvailabilityStatus::NOT_AVAILABLE:
 	cout << "Sensor Service NOT_AVAILABLE" << endl;
-	SHD_RESTARTED = true;
 	break;
 	case CommonAPI::AvailabilityStatus::AVAILABLE:
 	cout << "Sensor Service AVAILABLE" << endl;
-	SHD_RESTARTED = false;
 	cout << "<<-----" << endl;
 	}
 	});

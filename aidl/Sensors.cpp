@@ -140,8 +140,14 @@ void Sensors::onNewSensorsData(std::vector<SensorCoreData> &sensorData){
 
 ScopedAStatus Sensors::activate(int32_t in_sensorHandle, bool in_enabled) {
    SENSOR_LOGI(SENSOR_TAG "Sensor activate Call in_sensorHandle: %d, in_enabled: %d \n", in_sensorHandle, in_enabled);
-   SensorCore_acitvateSensor(in_sensorHandle, in_enabled);
-   return ScopedAStatus::ok();
+   if(SensorServiceAvailable) {
+	   SensorCore_acitvateSensor(in_sensorHandle, in_enabled);
+           return ScopedAStatus::ok();
+   }
+   else {
+	   SENSOR_LOGE(SENSOR_TAG "Sensor service not available to activate %d\n", in_sensorHandle);
+	   return ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+   }
 }
 
 ScopedAStatus Sensors::batch(int32_t in_sensorHandle, int64_t in_samplingPeriodNs, int64_t  in_maxReportLatencyNs ) {

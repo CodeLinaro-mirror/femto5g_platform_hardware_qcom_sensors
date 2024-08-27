@@ -212,7 +212,7 @@ AccelSensor::AccelSensor(int32_t sensorHandle, ISensorsEventCallback* callback) 
     mSensorInfo.resolution = 0.002393;
     mSensorInfo.power = 0.001f;          // mA
     mSensorInfo.minDelayUs = (1.0f/100) * 1000000L;  // microseconds
-    mSensorInfo.maxDelayUs = (1.0f/12)  * 1000000L;
+    mSensorInfo.maxDelayUs = (1.0f/100) * 1000000L;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
@@ -240,7 +240,7 @@ AccelUncalSensor::AccelUncalSensor(int32_t sensorHandle, ISensorsEventCallback* 
     mSensorInfo.resolution = 0.002393;
     mSensorInfo.power = 0.001f;          // mA
     mSensorInfo.minDelayUs = (1.0f/100) * 1000000L;  // microseconds
-    mSensorInfo.maxDelayUs = (1.0f/12)  * 1000000L;
+    mSensorInfo.maxDelayUs = (1.0f/100)  * 1000000L;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";

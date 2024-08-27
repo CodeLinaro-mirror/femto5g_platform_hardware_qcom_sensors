@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <gptp_helper.h>
 #include <SensorCore.h>
+#include <utils/SystemClock.h>
 
 #define NSEC_IN_ONE_SEC       (1000000000ULL)   /* nanosec in a sec */
 #define GPTP_IF_LIB_NAME      "libgptp.so"
@@ -319,7 +320,6 @@ static void PrintSensorList(vector<SensorInterfaceTypes::SensorInfoT> sensor, in
 }
 
 void SensorCore::SensorCore_Init() {
-    bool SHD_RESTARTED = false;
 
     regSigHandler();
 
@@ -347,15 +347,15 @@ void SensorCore::SensorCore_Init() {
        switch (status) {
        case CommonAPI::AvailabilityStatus::UNKNOWN:
        		SENSOR_LOGI(SENSOR_TAG "Sensor Service Unkown\n");
-	        SHD_RESTARTED = true;
+		SensorServiceAvailable = false;
        break;
        case CommonAPI::AvailabilityStatus::NOT_AVAILABLE:
        		SENSOR_LOGI(SENSOR_TAG "Sensor Service NOT_AVAILABLE\n");
-	        SHD_RESTARTED = true;
+		SensorServiceAvailable = false;
        break;
        case CommonAPI::AvailabilityStatus::AVAILABLE:
        		SENSOR_LOGI(SENSOR_TAG "Sensor Service AVAILABLE\n");
-	        SHD_RESTARTED = false;
+		SensorServiceAvailable = true;
 
 		SENSOR_LOGI(SENSOR_TAG "==== Register new client ====>>\n");
 		usleep(10*1000);
@@ -402,7 +402,7 @@ void SensorCore::SensorCore_Init() {
 
     imuDataSubscription = myProxy->getSensorImuDataReadEvent().subscribe(
        [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorImuEventT > events, uint32_t count) {
-       //onSensorImuDataReadCb(events, count);
+       onSensorImuDataReadCb(events, count);
        vector<SensorCoreData> idlSensorEventsData;
        SensorCoreData idlSensorEvents = {};
        for (int i=0 ;i <count; i++){
@@ -421,7 +421,7 @@ void SensorCore::SensorCore_Init() {
 
     headingDataSubscription = myProxy->getSensorHeadingDataReadEvent().subscribe(
        [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorHeadEventT > events, uint32_t count) {
-       //onSensorHeadingDataReadCb(events, count);
+       onSensorHeadingDataReadCb(events, count);
        vector<SensorCoreData> idlSensorEventsData;
        SensorCoreData idlSensorEvents = {};
        for (int i=0 ;i <count; i++){
@@ -551,7 +551,7 @@ uint64_t SensorCore::SensorCore_getBootTimeFromPtpTime(uint64_t ptp_time_ns)
 {
    uint64_t boot_time_ns;
    gPTPReqIf->gptpGetBootTimeFromPtpTimeIf(&boot_time_ns, ptp_time_ns);
-   SENSOR_LOGD(SENSOR_TAG "Sensor gptp ts %lld boot time %lld\n", ptp_time_ns, boot_time_ns);
+   SENSOR_LOGD(SENSOR_TAG "gptpGetBootTimeFromPtpTimeIf Sensor gptp ts %lld boot time %lld now_ns %lld\n", ptp_time_ns, boot_time_ns, android::elapsedRealtimeNano());
    return boot_time_ns;
 }
 

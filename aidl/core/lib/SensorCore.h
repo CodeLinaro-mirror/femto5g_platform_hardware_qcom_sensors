@@ -106,6 +106,7 @@ public:
     std::vector<SensorCoreList> getSensorCoreList() {
         return sensorListVector;
     }
+    bool SensorServiceAvailable;
 };
 
 #endif /* ANDROID_SENSOR_CORE_LIB */
