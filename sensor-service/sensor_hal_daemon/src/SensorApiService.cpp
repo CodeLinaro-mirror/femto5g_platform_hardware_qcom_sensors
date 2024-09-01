@@ -1717,10 +1717,21 @@ SensorApiService - power event handlers
 #ifdef POWERMANAGER_ENABLED
 void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitiesMask mask) {
     std::lock_guard<std::mutex> lock(mMutex);
+    bool rc = false;
     SENSOR_LOGI(LOG_TAG "--< onPowerEvent %d", powerState);
     mPowerState = powerState;
-    for (auto it = mClients.begin(); it != mClients.end(); it++) {
-	it->second->onCapabilitiesCallback(mask);
+    for (auto it = mClients.begin(); it != mClients.end();) {
+        if (it->second != nullptr) {
+            rc = it->second->onCapabilitiesCallback(mask);
+            if(!rc) {
+                SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+                it = deleteClientbyName(it->first.c_str());
+            }
+            else
+                ++it;
+        }
+        else
+            ++it;
     }
 }
 #endif
