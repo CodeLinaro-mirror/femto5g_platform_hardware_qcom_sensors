@@ -107,6 +107,7 @@ public:
         return sensorListVector;
     }
     bool SensorServiceAvailable;
+    bool GptpInitialized;
 };
 
 #endif /* ANDROID_SENSOR_CORE_LIB */

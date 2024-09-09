@@ -1,6 +1,6 @@
 on boot
 service vendor.sensors-default /vendor/bin/hw/android.hardware.sensors@aidl-service-qc
     class hal
-    user root
-    group root system gps
+    user system
+    group system gps vendor_ptp
     rlimit rtprio 10 10

@@ -325,9 +325,14 @@ void SensorCore::SensorCore_Init() {
 
     /* GPTP */
     loadGptpLibFile();
+    GptpInitialized = false;
     if ((nullptr != gPTPReqIf) && (nullptr != gPTPReqIf->gptpInitIf)) {
 	    SENSOR_LOGI(SENSOR_TAG "GPTP init\n");
-	    gPTPReqIf->gptpInitIf();
+	    bool ret = false;
+	    ret = gPTPReqIf->gptpInitIf();
+	    SENSOR_LOGI(SENSOR_TAG "GPTP init ret %d\n", ret);
+	    if(ret)
+		    GptpInitialized = true;
     }
 
     CommonAPI::Runtime::setProperty("LogContext", "SensorInterface");
@@ -550,6 +555,10 @@ void SensorCore::SensorCore_configSensor(int32_t in_sensorHandle, int64_t in_sam
 uint64_t SensorCore::SensorCore_getBootTimeFromPtpTime(uint64_t ptp_time_ns)
 {
    uint64_t boot_time_ns;
+   if (!GptpInitialized && gPTPReqIf->gptpInitIf()) {
+	   SENSOR_LOGI(SENSOR_TAG "GPTP init success \n");
+	   GptpInitialized = true;
+   }
    gPTPReqIf->gptpGetBootTimeFromPtpTimeIf(&boot_time_ns, ptp_time_ns);
    SENSOR_LOGD(SENSOR_TAG "gptpGetBootTimeFromPtpTimeIf Sensor gptp ts %lld boot time %lld now_ns %lld\n", ptp_time_ns, boot_time_ns, android::elapsedRealtimeNano());
    return boot_time_ns;
