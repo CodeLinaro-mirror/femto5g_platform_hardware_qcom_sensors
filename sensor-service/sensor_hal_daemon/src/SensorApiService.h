@@ -231,6 +231,7 @@ public:
     struct sensor_list *mSensorList;
     int mSensorCount;
     SensorConfig *mSensor;
+    bool GptpInitialized;
 #ifdef SENSOR_IVSS_ENABLED
     std::shared_ptr<SensorInterfaceStubImpl> myService;
 #endif

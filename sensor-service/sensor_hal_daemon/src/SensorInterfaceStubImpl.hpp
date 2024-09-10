@@ -74,6 +74,7 @@ public:
 
   void onCapabilitiesCallback(SensorCapabilitiesMask mask);
   void onSensorDataReadCb(sensors_event_t *events, int count);
+  uint64_t getGptpTimeFromBootTime(uint64_t boot_time_ns);
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
   void onSensorHeadingDataReadCb(float heading, float accuracy, uint64_t ts);
 #endif

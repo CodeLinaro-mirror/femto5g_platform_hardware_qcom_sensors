@@ -51,6 +51,16 @@ SensorInterfaceStubImpl::SensorInterfaceStubImpl(SensorApiService* service):
 SensorInterfaceStubImpl::~SensorInterfaceStubImpl() {
 }
 
+uint64_t SensorInterfaceStubImpl::getGptpTimeFromBootTime(uint64_t boot_time_ns) {
+   uint64_t gptpTimestamp;
+   if (!mService->GptpInitialized && gptpInit()) {
+	   SENSOR_LOGI(LOG_TAG "GPTP init success \n");
+	   mService->GptpInitialized = true;
+   }
+   gptpGetPtpTimeFromMonoTime(&gptpTimestamp, boot_time_ns);
+   return gptpTimestamp;
+}
+
 SensorInterfaceTypes::SensorServiceStateMaskT SensorInterfaceStubImpl::parseSensorServiceStateMaskT(SensorCapabilitiesMask mask) {
     switch (mask) {
         case SHD_READY:
@@ -104,7 +114,7 @@ vector<SensorInterfaceTypes::SensorImuEventT> SensorInterfaceStubImpl::parseSens
   for (i=0 ;i <count; i++){
 	  //dump_sensor_event(&e[i]);
 	  memset(&idlSensorImuEventTs, 0, sizeof(idlSensorImuEventTs));
-	  gptpGetPtpTimeFromMonoTime(&gptpTimestamp, e[i].timestamp);
+	  gptpTimestamp = getGptpTimeFromBootTime(e[i].timestamp);
 	  idlSensorImuEventTs.setSensorId(e[i].sensor);
 	  idlSensorImuEventTs.setType(e[i].type);
 	  idlSensorImuEventTs.setTimestamp(e[i].timestamp);
@@ -174,7 +184,7 @@ void SensorInterfaceStubImpl::onSensorHeadingDataReadCb(float heading, float acc
    SensorInterfaceTypes::SensorHeadEventT idlSensorHeadEventTs = {};
    if(mHeadTracking) {
     memset(&idlSensorHeadEventTs, 0, sizeof(idlSensorHeadEventTs));
-    gptpGetPtpTimeFromMonoTime(&gptpTimestamp, ts);
+    gptpTimestamp = getGptpTimeFromBootTime(ts);
     idlSensorHeadEventTs.setSensorId(SENSOR_ID_HEADING);
     idlSensorHeadEventTs.setType(SENSOR_TYPE_HEADING);
     idlSensorHeadEventTs.setTimestamp(ts);

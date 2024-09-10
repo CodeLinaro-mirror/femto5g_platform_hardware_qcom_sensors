@@ -115,7 +115,8 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mBufferSupported(false),
     mTempSupported(false),
     mBufferDeleted(false),
-    mMlcSupported(false)
+    mMlcSupported(false),
+    GptpInitialized(false)
 #ifdef POWERMANAGER_ENABLED
     ,mPowerEventObserver(nullptr)
 #endif
@@ -140,9 +141,11 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 #ifdef PTP_SUPPORTED
     if (gptpInit()) {
 	    SENSOR_LOGI(LOG_TAG "gptpinit success\n");
+	    GptpInitialized = true;
     }
     else {
 	    SENSOR_LOGE(LOG_TAG "gptpinit failed\n");
+	    GptpInitialized = false;
     }
 #endif
 
