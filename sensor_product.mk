@@ -19,16 +19,3 @@ PRODUCT_PACKAGES += android.hardware.sensors@1.0-service
 PRODUCT_PACKAGES += android.hardware.sensors@1.0-impl
 endif # ENABLE_AIDL_SENSOR
 endif #USE_SENSOR_HAL_VER
-
-# Copy sensor configuration files if ENABLE_SENSOR_CONFIGS is true
-ifeq ($(ENABLE_SENSOR_CONFIGS),true)
-    PRODUCT_COPY_FILES += \
-        frameworks/native/data/etc/android.hardware.sensor.accelerometer.xml:vendor/etc/permissions/android.hardware.sensor.accelerometer.xml \
-        frameworks/native/data/etc/android.hardware.sensor.ambient_temperature.xml:vendor/etc/permissions/android.hardware.sensor.ambient_temperature.xml \
-        frameworks/native/data/etc/android.hardware.sensor.compass.xml:vendor/etc/permissions/android.hardware.sensor.compass.xml \
-        frameworks/native/data/etc/android.hardware.sensor.gyroscope.xml:vendor/etc/permissions/android.hardware.sensor.gyroscope.xml \
-        frameworks/native/data/etc/android.hardware.sensor.hifi_sensors.xml:vendor/etc/permissions/android.hardware.sensor.hifi_sensors.xml \
-        frameworks/native/data/etc/android.hardware.sensor.relative_humidity.xml:vendor/etc/permissions/android.hardware.sensor.relative_humidity.xml \
-        frameworks/native/data/etc/android.hardware.sensor.stepcounter.xml:vendor/etc/permissions/android.hardware.sensor.stepcounter.xml \
-        frameworks/native/data/etc/android.hardware.sensor.stepdetector.xml:vendor/etc/permissions/android.hardware.sensor.stepdetector.xml
-endif
