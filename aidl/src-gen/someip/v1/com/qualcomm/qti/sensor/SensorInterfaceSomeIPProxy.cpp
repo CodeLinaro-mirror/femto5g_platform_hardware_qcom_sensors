@@ -50,10 +50,10 @@ SensorInterfaceSomeIPProxy::SensorInterfaceSomeIPProxy(
     const CommonAPI::SomeIP::Address &_address,
     const std::shared_ptr<CommonAPI::SomeIP::ProxyConnection> &_connection)
         : CommonAPI::SomeIP::Proxy(_address, _connection),
-          sensorCapabilities_(*this, 0x80e8, CommonAPI::SomeIP::event_id_t(0x80e9), CommonAPI::SomeIP::event_type_e::ET_EVENT , CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE, false, std::make_tuple(&::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes_::SensorServiceStateMaskTDeployment)),
-          sensorConfigUpdate_(*this, 0x80e8, CommonAPI::SomeIP::event_id_t(0x80ea), CommonAPI::SomeIP::event_type_e::ET_EVENT , CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE, false, std::make_tuple(static_cast< CommonAPI::SomeIP::IntegerDeployment<int32_t>* >(nullptr), static_cast< CommonAPI::EmptyDeployment* >(nullptr), static_cast< CommonAPI::SomeIP::IntegerDeployment<int32_t>* >(nullptr))),
-          sensorImuDataRead_(*this, 0x80e8, CommonAPI::SomeIP::event_id_t(0x80eb), CommonAPI::SomeIP::event_type_e::ET_EVENT , CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE, false, std::make_tuple(static_cast< CommonAPI::SomeIP::ArrayDeployment< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes_::SensorImuEventTDeployment_t >* >(nullptr), static_cast< CommonAPI::SomeIP::IntegerDeployment<int32_t>* >(nullptr))),
-          sensorHeadingDataRead_(*this, 0x80e8, CommonAPI::SomeIP::event_id_t(0x80ec), CommonAPI::SomeIP::event_type_e::ET_EVENT , CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE, false, std::make_tuple(static_cast< CommonAPI::SomeIP::ArrayDeployment< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes_::SensorHeadEventTDeployment_t >* >(nullptr), static_cast< CommonAPI::SomeIP::IntegerDeployment<int32_t>* >(nullptr)))
+          sensorCapabilities_(*this, 0x2065, CommonAPI::SomeIP::event_id_t(0x8065), CommonAPI::SomeIP::event_type_e::ET_EVENT , CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE, false, std::make_tuple(&::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes_::SensorServiceStateMaskTDeployment)),
+          sensorConfigUpdate_(*this, 0x2065, CommonAPI::SomeIP::event_id_t(0x8066), CommonAPI::SomeIP::event_type_e::ET_EVENT , CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE, false, std::make_tuple(static_cast< CommonAPI::SomeIP::IntegerDeployment<int32_t>* >(nullptr), static_cast< CommonAPI::EmptyDeployment* >(nullptr), static_cast< CommonAPI::SomeIP::IntegerDeployment<int32_t>* >(nullptr))),
+          sensorImuDataRead_(*this, 0x2065, CommonAPI::SomeIP::event_id_t(0x8067), CommonAPI::SomeIP::event_type_e::ET_EVENT , CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE, false, std::make_tuple(static_cast< CommonAPI::SomeIP::ArrayDeployment< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes_::SensorImuEventTDeployment_t >* >(nullptr), static_cast< CommonAPI::SomeIP::IntegerDeployment<int32_t>* >(nullptr))),
+          sensorHeadingDataRead_(*this, 0x2065, CommonAPI::SomeIP::event_id_t(0x8068), CommonAPI::SomeIP::event_type_e::ET_EVENT , CommonAPI::SomeIP::reliability_type_e::RT_UNRELIABLE, false, std::make_tuple(static_cast< CommonAPI::SomeIP::ArrayDeployment< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes_::SensorHeadEventTDeployment_t >* >(nullptr), static_cast< CommonAPI::SomeIP::IntegerDeployment<int32_t>* >(nullptr)))
 {
 }
 
@@ -88,8 +88,8 @@ void SensorInterfaceSomeIPProxy::RegisterSensorClientReq(CommonAPI::CallStatus &
         >
     >::callMethodWithReply(
         *this,
-        CommonAPI::SomeIP::method_id_t(0x7d01),
-        true,
+        CommonAPI::SomeIP::method_id_t(0x65),
+        false,
         false,
         (_info ? _info : &CommonAPI::SomeIP::defaultCallInfo),
         _internalCallStatus,
@@ -110,8 +110,8 @@ std::future<CommonAPI::CallStatus> SensorInterfaceSomeIPProxy::RegisterSensorCli
         >
     >::callMethodAsync(
         *this,
-        CommonAPI::SomeIP::method_id_t(0x7d01),
-        true,
+        CommonAPI::SomeIP::method_id_t(0x65),
+        false,
         false,
         (_info ? _info : &CommonAPI::SomeIP::defaultCallInfo),
         [_callback] (CommonAPI::CallStatus _internalCallStatus, CommonAPI::Deployable< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes_::SensorReturnTDeployment_t > _SensorResponse) {
@@ -134,8 +134,8 @@ void SensorInterfaceSomeIPProxy::DeRegisterSensorClientReq(CommonAPI::CallStatus
         >
     >::callMethodWithReply(
         *this,
-        CommonAPI::SomeIP::method_id_t(0x7d02),
-        true,
+        CommonAPI::SomeIP::method_id_t(0x66),
+        false,
         false,
         (_info ? _info : &CommonAPI::SomeIP::defaultCallInfo),
         _internalCallStatus,
@@ -156,8 +156,8 @@ std::future<CommonAPI::CallStatus> SensorInterfaceSomeIPProxy::DeRegisterSensorC
         >
     >::callMethodAsync(
         *this,
-        CommonAPI::SomeIP::method_id_t(0x7d02),
-        true,
+        CommonAPI::SomeIP::method_id_t(0x66),
+        false,
         false,
         (_info ? _info : &CommonAPI::SomeIP::defaultCallInfo),
         [_callback] (CommonAPI::CallStatus _internalCallStatus, CommonAPI::Deployable< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorReturnT, ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes_::SensorReturnTDeployment_t > _SensorResponse) {
@@ -185,8 +185,8 @@ void SensorInterfaceSomeIPProxy::GetSensorListReq(CommonAPI::CallStatus &_intern
         >
     >::callMethodWithReply(
         *this,
-        CommonAPI::SomeIP::method_id_t(0x7d03),
-        true,
+        CommonAPI::SomeIP::method_id_t(0x67),
+        false,
         false,
         (_info ? _info : &CommonAPI::SomeIP::defaultCallInfo),
         _internalCallStatus,
@@ -213,8 +213,8 @@ std::future<CommonAPI::CallStatus> SensorInterfaceSomeIPProxy::GetSensorListReqA
         >
     >::callMethodAsync(
         *this,
-        CommonAPI::SomeIP::method_id_t(0x7d03),
-        true,
+        CommonAPI::SomeIP::method_id_t(0x67),
+        false,
         false,
         (_info ? _info : &CommonAPI::SomeIP::defaultCallInfo),
         [_callback] (CommonAPI::CallStatus _internalCallStatus, CommonAPI::Deployable< std::vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorInfoT >, CommonAPI::SomeIP::ArrayDeployment< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes_::SensorInfoTDeployment_t > > _SensorList, CommonAPI::Deployable< int32_t, CommonAPI::SomeIP::IntegerDeployment<int32_t> > _count) {
@@ -252,8 +252,8 @@ void SensorInterfaceSomeIPProxy::SensorConfigReq(int32_t _sensorId, float _sampl
         >
     >::callMethodWithReply(
         *this,
-        CommonAPI::SomeIP::method_id_t(0x7d04),
-        true,
+        CommonAPI::SomeIP::method_id_t(0x68),
+        false,
         false,
         (_info ? _info : &CommonAPI::SomeIP::defaultCallInfo),
         deploy_sensorId, deploy_samplingRate, deploy_batchCount,
@@ -290,8 +290,8 @@ std::future<CommonAPI::CallStatus> SensorInterfaceSomeIPProxy::SensorConfigReqAs
         >
     >::callMethodAsync(
         *this,
-        CommonAPI::SomeIP::method_id_t(0x7d04),
-        true,
+        CommonAPI::SomeIP::method_id_t(0x68),
+        false,
         false,
         (_info ? _info : &CommonAPI::SomeIP::defaultCallInfo),
         deploy_sensorId, deploy_samplingRate, deploy_batchCount,
@@ -325,8 +325,8 @@ void SensorInterfaceSomeIPProxy::SensorControlReq(int32_t _sensorId, ::v1::com::
         >
     >::callMethodWithReply(
         *this,
-        CommonAPI::SomeIP::method_id_t(0x7d05),
-        true,
+        CommonAPI::SomeIP::method_id_t(0x69),
+        false,
         false,
         (_info ? _info : &CommonAPI::SomeIP::defaultCallInfo),
         deploy_sensorId, deploy_sensorState,
@@ -358,8 +358,8 @@ std::future<CommonAPI::CallStatus> SensorInterfaceSomeIPProxy::SensorControlReqA
         >
     >::callMethodAsync(
         *this,
-        CommonAPI::SomeIP::method_id_t(0x7d05),
-        true,
+        CommonAPI::SomeIP::method_id_t(0x69),
+        false,
         false,
         (_info ? _info : &CommonAPI::SomeIP::defaultCallInfo),
         deploy_sensorId, deploy_sensorState,
