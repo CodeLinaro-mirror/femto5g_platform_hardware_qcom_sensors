@@ -2,6 +2,7 @@ AM_CFLAGS = \
     -DDEBUG \
     -I \
     $(QMIFW_CFLAGS) \
+	 $(SENSORS_CFLAGS)\
     -fpermissive
 
 if USE_QSOCKET
@@ -18,13 +19,15 @@ h_sources = \
 	    ./SensorIpc.h \
 	    ./SensorQsocket.h \
 	    ./SensorThread.h \
-	    ./SensorLog.h
+	    ./SensorLog.h \
+	    ./SensorDiagLog.h
 
 c_sources = \
 	    ./SensorIpc.cpp \
 	    ./SensorQsocket.cpp\
 	    ./SensorThread.cpp \
-	    ./SensorLog.cpp
+	    ./SensorLog.cpp \
+	    ./SensorDiagLog.cpp
 
 libsensor_socket_la_SOURCES = \
 	$(c_sources) $(h_sources)
@@ -43,7 +46,7 @@ libsensor_socket_la_LDFLAGS = -lstdc++ -Wl,-z,defs -lpthread -shared -version-in
 libsensor_socket_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
 
-libsensor_socket_la_LIBADD = $(requiredlibs) -lstdc++ -ldl -llog
+libsensor_socket_la_LIBADD = $(requiredlibs) -lstdc++ -ldl -llog -ldiag
 
 #Create and Install libraries
 library_include_HEADERS = $(h_sources)

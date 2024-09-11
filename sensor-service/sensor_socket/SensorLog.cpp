@@ -25,14 +25,19 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include <ctype.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 #include <SensorLog.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <vector>
+#include <SensorDiagLog.h>
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -193,4 +198,26 @@ int GetFIRCoefficient(std::vector<float> &coef, char *suffix)
     coef.reserve(MAX_FIR_COEF_ORDER);
     order = to_float_array(conf_coef, coef, MAX_FIR_COEF_ORDER);
     return order == 0 ? -1 : order;
+}
+
+int CheckDiagEnabled(const char *client_name)
+{
+    char diag_clients[MAX_DIAG_CLIENTS * MAX_CLIENT_NAME_LEN + 1];//+1 for /0
+    int ret = Sensor_Read_Sensor_Config(SENSOR_CONF_PATH, "DIAG_CLIENTS=", "%s", (void*)&diag_clients[0]);
+    if(ret != 0)
+    {
+        SENSOR_LOGE(LOG_TAG "invalid config\n");
+        return 0;
+    }
+    char client[MAX_DIAG_CLIENTS * MAX_CLIENT_NAME_LEN + 1];
+    int skip = 0;
+    while((skip = strtok_safe(diag_clients, MAX_DIAG_CLIENTS * MAX_CLIENT_NAME_LEN + 1, skip, ",", client)) != -1)
+    {
+        if(strncmp(client, client_name, MAX_CLIENT_NAME_LEN) == 0)
+        {
+            return 1;
+        }
+        skip = skip + strlen(client) + 1; //+1 for delimeter ","
+    }
+    return 0;
 }

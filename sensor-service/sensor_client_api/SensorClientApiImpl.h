@@ -24,6 +24,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #ifndef SENSORCLIENTAPIIMPL_H
 #define SENSORCLIENTAPIIMPL_H
@@ -38,6 +42,7 @@
 #include <SensorLog.h>
 #include <SensorClientApi.h>
 #include <SensorApiMsg.h>
+#include <SensorDiagLog.h>
 
 #ifdef NO_UNORDERED_SET_OR_MAP
     #include <set>
@@ -171,6 +176,9 @@ private:
     pthread_mutex_t    mSensorLibMutex;
     pthread_cond_t     mSensorLibCond;
     pthread_condattr_t mSensorLibattr;
+
+    //Diag
+    SensorDiagLog mDiagLogger;
 };
 
 } // namespace sensor_client

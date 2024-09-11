@@ -124,6 +124,17 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 {
     SENSOR_LOGI(LOG_TAG "SensorApiService constructor is called\n");
 
+    //Enable Diag if enabled
+    if(CheckDiagEnabled(DIAG_CLIENT_SHD))
+    {
+        SENSOR_LOGI(LOG_TAG "diag is enabled\n");
+        mDiagLogger.EnableDiag();
+    }
+    else
+    {
+        SENSOR_LOGI(LOG_TAG "diag is disabled\n");
+    }
+
     //Check Sensor Availability
     if(!open_sensor(configParamRead)) {
 	SENSOR_LOGE(LOG_TAG "no sensor supported \n");
@@ -202,6 +213,8 @@ SensorApiService::~SensorApiService() {
         delete mSesnorMlcCaseList;
         mSesnorMlcCaseList = nullptr;
     }
+
+    mDiagLogger.DisableDiag();
 
     SENSOR_LOGI(LOG_TAG "SensorApiService destructor has executed\n");
 }
@@ -534,6 +547,27 @@ void* SensorApiService::send_sensor_data_to_clients(void *arg) {
             }
             else {
                 ++it;
+            }
+        }
+
+        /* Send Data to Diag */
+        if(mSensorService->mDiagLogger.IsEnabled())
+        {
+            uint64_t accCountLocal = 0;
+            uint64_t gyroCountLocal = 0;
+            for(uint64_t i=0; i<count; i++)
+            {
+                switch(events[i].type)
+                {
+                    case SENSOR_TYPE_ACCELEROMETER:
+                    case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
+                        mSensorService->mDiagLogger.SendSensorLiveAccelEvent(&events[i], ++accCountLocal);
+                        break;
+                    case SENSOR_TYPE_GYROSCOPE:
+                    case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
+                        mSensorService->mDiagLogger.SendSensorLiveGyroEvent(&events[i], ++gyroCountLocal);
+                        break;
+                }
             }
         }
     }

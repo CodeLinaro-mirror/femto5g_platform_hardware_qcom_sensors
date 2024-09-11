@@ -63,6 +63,7 @@
 #include <SensorApiMsg.h>
 #include <SensorApiUtils.h>
 #include <SensorHalDaemonClientHandler.h>
+#include <SensorDiagLog.h>
 
 #define ASM330LHHX_ACC_SEARCH   "asm330lhhx_accel"
 #define ASM330LHHX_GYRO_SEARCH  "asm330lhhx_gyro"
@@ -320,6 +321,8 @@ private:
     int   mBatchConst;
     int   mDynamicConfigEnabled;
     int   mVariableCountBatching;
+    SensorDiagLog mDiagLogger;
+
 
     //Temperature file pointers
     struct asmFilePtr
