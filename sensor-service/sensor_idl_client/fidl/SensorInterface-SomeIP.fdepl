@@ -9,54 +9,49 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.sen
     SomeIpServiceID = 60929    /** 0xEE01*/
 
     method RegisterSensorClientReq {
-        SomeIpMethodID = 32001      /** 0x7D01 */
-        SomeIpReliable = true
+        SomeIpMethodID = 101      /** 0x65 */
     }
 
     method DeRegisterSensorClientReq {
-        SomeIpMethodID = 32002      /** 0x7D02 */
-        SomeIpReliable = true
+        SomeIpMethodID = 102      /** 0x66 */
     }
 
     method GetSensorListReq {
-        SomeIpMethodID = 32003      /** 0x7D03 */
-        SomeIpReliable = true
+        SomeIpMethodID = 103      /** 0x67 */
     }
 
     method SensorConfigReq {
-        SomeIpMethodID = 32004      /** 0x7D04 */
-        SomeIpReliable = true
+        SomeIpMethodID = 104      /** 0x68 */
     }
 
     method SensorControlReq {
-        SomeIpMethodID = 32005      /** 0x7D05 */
-        SomeIpReliable = true
+        SomeIpMethodID = 105      /** 0x69 */
     }
 
     broadcast SensorCapabilities {
-        SomeIpEventID = 33001      /** 0x80E9 */
-        SomeIpEventGroups = { 33000 }
+        SomeIpEventID = 32869      /** 0x8065 */
+        SomeIpEventGroups = { 8293 }
         out {
         }
     }
 
     broadcast SensorConfigUpdate {
-        SomeIpEventID = 33002      /** 0x80EA */
-        SomeIpEventGroups = { 33000 }
+        SomeIpEventID = 32870      /** 0x8066 */
+        SomeIpEventGroups = { 8293 }
         out {
         }
     }
 
     broadcast SensorImuDataRead {
-        SomeIpEventID = 33003      /** 0x80EB */
-        SomeIpEventGroups = { 33000 }
+        SomeIpEventID = 32871      /** 0x8067 */
+        SomeIpEventGroups = { 8293 }
         out {
         }
     }
 
     broadcast SensorHeadingDataRead {
-        SomeIpEventID = 33004      /** 0x80EC */
-        SomeIpEventGroups = { 33000 }
+        SomeIpEventID = 32872      /** 0x8068 */
+        SomeIpEventGroups = { 8293 }
         out {
         }
     }

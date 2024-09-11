@@ -32,6 +32,7 @@ using namespace std;
 #define GYRO_UNCALIBRATED_SENSOR_ID  16
 #define HEADING_SENSOR_ID   5
 #define GID_SENSORCLIENT (3011)
+#define GID_TELAFCLIENT (5003)
 
 struct SensorTrackingOption {
    int sensor_id;
@@ -280,7 +281,10 @@ int main() {
         printf("!!! sensor idl client started as root change to sensors group\n");
         // Set the group id first and then set the effective userid, to sensors.
         if(-1 == setgid(GID_SENSORCLIENT)) {
-            printf("Error: setgid failed. %s\n", strerror(errno));
+            printf("Error: setgid to sensor failed. %s\n", strerror(errno));
+        }
+        if(-1 == setgid(GID_TELAFCLIENT)) {
+            printf("Error: setgid to telaf failed. %s\n", strerror(errno));
         }
     }
 

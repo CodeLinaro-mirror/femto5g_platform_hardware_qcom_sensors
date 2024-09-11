@@ -110,7 +110,7 @@ bool SensorHalDaemonClientHandler::onCapabilitiesCallback(SensorCapabilitiesMask
    bool rc = false;
 #ifdef SENSOR_IVSS_ENABLED
    if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
-     myService->onCapabilitiesCallback(mask);
+     mService->myService->onCapabilitiesCallback(mask);
      return;
    }
 #endif
@@ -201,7 +201,7 @@ bool SensorHalDaemonClientHandler::SendDataToClient(sensors_event_t *e, int coun
   // already holds the lock
 #ifdef SENSOR_IVSS_ENABLED
   if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
-     myService->onSensorDataReadCb(e, count);
+     mService->myService->onSensorDataReadCb(e, count);
      memset(e, 0, sizeof(sensors_event_t) * count);
      return true;
   }
@@ -364,7 +364,7 @@ void SensorHalDaemonClientHandler::onSensorBatchingCb(int sensor_id, float Sampl
    SENSOR_LOGI(LOG_TAG "--< onSensorBatchingCb\n");
 #ifdef SENSOR_IVSS_ENABLED
    if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
-           myService->fireSensorConfigUpdateEvent(sensor_id, SamplingRate, BatchCount);
+           mService->myService->fireSensorConfigUpdateEvent(sensor_id, SamplingRate, BatchCount);
 	   return;
    }
 #endif 

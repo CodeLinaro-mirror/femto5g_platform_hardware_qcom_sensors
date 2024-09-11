@@ -738,7 +738,7 @@ int SensorApiService::newClient(SensorAPIClientRegisterReqMsg *pMsg) {
 
     // store it in client property database
     SensorHalDaemonClientHandler *pClient =
-            new SensorHalDaemonClientHandler(this, myService, clientname, pMsg->mClientType, mSensorCount);
+            new SensorHalDaemonClientHandler(this, clientname, pMsg->mClientType, mSensorCount);
     if (!pClient) {
         SENSOR_LOGE(LOG_TAG "failed to register client=%s\n", clientname.c_str());
 	ret = SENSOR_ERROR_CLIENT_REGISTER_FAILED;
