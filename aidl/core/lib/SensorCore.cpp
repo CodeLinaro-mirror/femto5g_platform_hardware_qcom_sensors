@@ -25,11 +25,23 @@
 #include <SensorCore.h>
 #include <utils/SystemClock.h>
 
+#define HAL_CONFIGURATION_FILE "hal_config"
+#define HAL_CONFIGURATION_PATH "/vendor/etc"
+
+#define RM_MIN 0
+#define RM_MAX 3600
+
 #define NSEC_IN_ONE_SEC       (1000000000ULL)   /* nanosec in a sec */
 #define GPTP_IF_LIB_NAME      "libgptp.so"
 
 using namespace v1::com::qualcomm::qti::sensor;
 using namespace std;
+
+int DEBUG_LEVEL = 0;
+static float rot[3][3];
+static uint16_t roll;
+static uint16_t pitch;
+static uint16_t yaw;
 
 struct SensorTrackingOption {
    int sensor_id;
@@ -91,6 +103,49 @@ void parseSensorReturnT(SensorInterfaceTypes::SensorReturnT resp) {
 		   break;
    }
    return;
+}
+
+int getSensorDebugLevel() {
+   char *file_path_name = NULL;
+   FILE *fd_config = NULL;
+   int fsize = 0;
+   int size;
+   char buffer[BUFSIZ];
+   char *line = NULL;
+   int err = 0;
+
+   file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+   if (!file_path_name) {
+             err = -errno;
+             return -ENOMEM;
+   }
+
+   fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
+   snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+   fd_config = fopen(file_path_name, "r");
+   if (fd_config == NULL) {
+            err = -errno;
+            goto fail;
+   }
+   while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {
+       for(int i = 0; i < strlen(buffer); i++) {
+           if(strstr(buffer, "DEBUG_LEVEL=")) {
+               line = strstr(buffer, "=");
+               if(line != NULL){
+                   sscanf(&line[1], "%d", &DEBUG_LEVEL);
+                   SENSOR_LOGI(SENSOR_TAG "Info Sensor Debug Level is %d\n", DEBUG_LEVEL);
+               }
+               break;
+           }
+       }
+   }
+
+fail:
+     fclose(fd_config);
+     free(file_path_name);
+     file_path_name = NULL;
+
+     return err;
 }
 
 void DeInitHandles()
@@ -319,9 +374,114 @@ static void PrintSensorList(vector<SensorInterfaceTypes::SensorInfoT> sensor, in
     return;
 }
 
+// This API is called to initialise rotational matrix
+int init_sensor_rotation_matrix(float (*rot) [3])
+{
+  rot[0][0] = 1;
+  rot[0][1] = 0;
+  rot[0][2] = 0;
+
+  rot[1][0] = 0;
+  rot[1][1] = 1;
+  rot[1][2] = 0;
+
+  rot[2][0] = 0;
+  rot[2][1] = 0;
+  rot[2][2] = 1;
+
+  return 0;
+}
+
+// This API is called to calculate rotational matrix
+int calculate_sensor_rotation_matrix(uint16_t rolld, uint16_t pitchd, uint16_t yawd, float (*rot) [3])
+{
+  float roll = (rolld / 10.0f) * M_PI / 180.0f;
+  float pitch = (pitchd / 10.0f) * M_PI / 180.0f;
+  float yaw = (yawd / 10.0f) * M_PI / 180.0f;
+
+  rot[0][0] = cos(yaw) * cos(roll) + sin(yaw) * sin(pitch) * sin(roll);
+  rot[0][1] = -sin(yaw) * cos(roll) + cos(yaw) * sin(pitch) * sin(roll);
+  rot[0][2] = cos(pitch) * sin(roll);
+
+  rot[1][0] = sin(yaw) * cos(pitch);
+  rot[1][1] = cos(yaw) * cos(pitch);
+  rot[1][2] = -sin(pitch);
+
+  rot[2][0] = -cos(yaw) * sin(roll) + sin(yaw) * sin(pitch) * cos(roll);
+  rot[2][1] = sin(yaw) * sin(roll) + cos(yaw) * sin(pitch) * cos(roll);
+  rot[2][2] = cos(pitch) * cos(roll);
+
+  return 0;
+}
+
+// This API is called to read rotational matrix
+int read_sensor_rotation_matrix(uint16_t *roll, uint16_t *pitch, uint16_t *yaw)
+{
+  char *file_path_name = NULL;
+  FILE *fd_config = NULL;
+  int fsize = 0;
+  int size;
+  char buffer[BUFSIZ];
+  char *line = NULL;
+  int err = 0;
+
+  file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+  if (!file_path_name) {
+            err = -errno;
+            SENSOR_LOGE(SENSOR_TAG "Unable to allocate memory (errno %d)\n", err);
+            return -ENOMEM;
+  }
+
+  fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
+  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  SENSOR_LOGI(SENSOR_TAG "Hal Config file_path_name %s\n", file_path_name);
+  fd_config = fopen(file_path_name, "r");
+  if (fd_config == NULL) {
+      err = -errno;
+      SENSOR_LOGE(SENSOR_TAG "Sensor Filed to open %s (errno %d)\n",
+                      file_path_name, err);
+      goto fail;
+  }
+
+  while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {
+      if(strstr(buffer, "imu_sensor_euler_angles = ")) {
+          line = strstr(buffer, "[");
+          if(line != NULL){
+              size = sscanf(&line[1], "%d,%d,%d", roll, pitch, yaw);
+              SENSOR_LOGI(SENSOR_TAG "Read hal config file successful, roll %d, pitch %d, yaw %d\n", roll, pitch, yaw);
+          }
+          break;
+      }
+  }
+
+fail:
+  fclose(fd_config);
+  free(file_path_name);
+  file_path_name = NULL;
+
+  return err;
+}
+
 void SensorCore::SensorCore_Init() {
+    float temp_data[3];
+    float x_uncalib, y_uncalib, z_uncalib;
 
     regSigHandler();
+
+    init_sensor_rotation_matrix(rot);
+    if ( !read_sensor_rotation_matrix(&roll, &pitch, &yaw) ) {
+        if(yaw < RM_MIN || pitch < RM_MIN || roll < RM_MIN || yaw > RM_MAX || pitch > RM_MAX || roll > RM_MAX){
+            SENSOR_LOGE(SENSOR_TAG "Error: Euler Angles Invalid Range\n");
+        }
+        else {
+            SENSOR_LOGI(SENSOR_TAG "Sensor Euler angles <roll %d, pitch %d, yaw %d>\n", roll, pitch, yaw);
+            calculate_sensor_rotation_matrix(roll, pitch, yaw, rot);
+            SENSOR_LOGI(SENSOR_TAG "Sensor rotation matrix: \t%5.2f %5.2f %5.2f\t%5.2f %5.2f %5.2f\t%5.2f %5.2f %5.2f\n",
+                            rot[0][0], rot[0][1], rot[0][2],
+                            rot[1][0], rot[1][1], rot[1][2],
+                            rot[2][0], rot[2][1], rot[2][2]);
+        }
+    }
 
     /* GPTP */
     loadGptpLibFile();
@@ -413,11 +573,18 @@ void SensorCore::SensorCore_Init() {
        for (int i=0 ;i <count; i++){
             memset(&idlSensorEvents, 0, sizeof(idlSensorEvents));
 	    const SensorInterfaceTypes::SensorUncalibratedEventT & data = events[i].getData();
+            memcpy(&temp_data, &data, 3 * sizeof(float));
+            x_uncalib = data.getXUncalib();
+            y_uncalib = data.getYUncalib();
+            z_uncalib = data.getZUncalib();
+            x_uncalib = rot[0][0] * temp_data[0] + rot[1][0] * temp_data[1] + rot[2][0] * temp_data[2];
+            y_uncalib = rot[0][1] * temp_data[0] + rot[1][1] * temp_data[1] + rot[2][1] * temp_data[2];
+            z_uncalib = rot[0][2] * temp_data[0] + rot[1][2] * temp_data[1] + rot[2][2] * temp_data[2];
 	    idlSensorEvents.sensorId = events[i].getSensorId();
 	    idlSensorEvents.Type = events[i].getType();
 	    idlSensorEvents.timestamp = events[i].getTimestamp();
 	    idlSensorEvents.gptptimestamp = events[i].getGptpTimestamp();
-	    idlSensorEvents.xyz = {data.getXUncalib(), data.getYUncalib(), data.getZUncalib(),
+            idlSensorEvents.xyz = {x_uncalib, y_uncalib, z_uncalib,
 		    data.getXBias(), data.getYBias(), data.getZBias()};
 	    idlSensorEventsData.push_back(idlSensorEvents);
 	 }

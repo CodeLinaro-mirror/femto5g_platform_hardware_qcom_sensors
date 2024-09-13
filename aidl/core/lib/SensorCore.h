@@ -17,9 +17,9 @@
 #define GYRO_UNCALIBRATED_SENSOR_ID  16
 #define HEADING_SENSOR_ID   5
 
-#define DEBUG_LEVEL 3
 #define SENSOR_TAG "SensorInterface_AIDL:"
 
+extern int DEBUG_LEVEL;
 #define LOGCAT_ENABLED
 
 #define IF_SENSOR_LOGE if(( DEBUG_LEVEL >= 1) && ( DEBUG_LEVEL <= 5))
@@ -41,6 +41,8 @@
 
 using std::vector;
 using std::string;
+
+int getSensorDebugLevel();
 
 // Define the SensorCoreData struct
 struct SensorCoreData {

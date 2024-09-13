@@ -1,0 +1,16 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+################################################
+# The Euler angles should be entered as four-digit
+# numbers and multiplied by 10 as the resolution
+# is 0.1 degree/bit.
+#
+# For example, if we set roll, pitch, and yaw
+# to 180, 0, and 90 respectively, multiplying by
+# 10 will result in 1800, 0000, and 0900.
+imu_sensor_euler_angles = [1800,0000,0900]
+################################################
+# DEBUG LEVELS: 0 - none, 1 - Error, 2 - Warning, 3 - Info
+#               4 - Debug
+DEBUG_LEVEL=3
