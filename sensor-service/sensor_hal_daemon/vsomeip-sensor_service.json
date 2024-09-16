@@ -28,18 +28,10 @@
             "someip-tp": {
 		"service-to-client": ["0x8065", "0x8066", "0x8067", "0x8068"]
             }
-        },
-        {
-            "service" : "0xEE00",
-            "instance" : "0x01",
-            "unreliable" : "30501",
-            "someip-tp": {
-                "service-to-client": ["0x8001", "0x8002", "0x8003", "0x8004", "0x8005", "0x8006", "0x8007", "0x8008"]
-            }
         }
     ],
-    "routing" : "sensor-fidl-service",
-    "network" : "vlan_ivss",
+    "routing" : "tafSomeipGWSvc",
+    "network" : "tafSomeipGWSvc",
     "service-discovery" :
     {
         "enable" : "true",

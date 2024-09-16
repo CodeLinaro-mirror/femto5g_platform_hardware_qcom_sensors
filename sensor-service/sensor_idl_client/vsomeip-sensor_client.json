@@ -28,8 +28,8 @@
         }
     ],
     "max-payload-size-unreliable" : "15000",
-    "routing" : "sensor-fidl-client",
-    "network" : "vlan_ivss",
+    "routing" : "tafSomeipGWSvc",
+    "network" : "tafSomeipGWSvc",
     "service-discovery" :
     {
         "enable" : "true",
