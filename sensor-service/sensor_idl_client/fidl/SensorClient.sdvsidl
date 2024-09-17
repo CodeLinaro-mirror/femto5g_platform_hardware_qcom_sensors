@@ -1,0 +1,108 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+#    SPDX-License-Identifier: BSD-3-Clause-Clear */
+#
+# proto-file: //system/software_defined_vehicle/core_services/vsidl/syntax/sdvsidl.proto
+# proto-message: VsidlEntry
+
+package: "com.qualcomm.qti.sensor"
+
+sdv_service_bundle {
+  name: "SensorClient"
+  asil: QM
+  exec_env: {os: AAOS_IVI, env: CDC_MAIN_BIGCORE_FEATURE}
+
+  consumed_interface {
+    interface_name: "SensorInterface"
+    interface_version: "1.0"
+    interface_instance_name: "IVCSensor"
+    interface_instance_id: 1
+
+    rpc_definition {
+      rpc_service_name: "sdv.connectivity.sensor.SensorInterface"
+      method_definition {
+        method_vsidl_name: "RegisterSensorClientReq"
+        method_someip_name: "RegisterSensorClient"
+        method_id: 32001
+        output_attribute {key: "return", value: "SensorResponse"}
+      }
+
+      method_definition {
+        method_vsidl_name: "DeRegisterSensorClientReq"
+        method_someip_name: "DeRegisterSensorClient"
+        method_id: 32002
+        output_attribute {key: "return", value: "SensorResponse"}
+      }
+
+      method_definition {
+        method_vsidl_name: "GetSensorListReq"
+        method_someip_name: "GetSensorList"
+        method_id: 32003
+        output_attribute {key: "sensors", value: "SensorList"}
+        output_attribute {key: "count", value: "count"}
+      }
+
+      method_definition {
+        method_vsidl_name: "SensorConfigReq"
+        method_someip_name: "SensorConfig"
+        method_id: 32004
+        input_attribute: {key: "sensor_id", value: "sensorId"}
+        input_attribute: {key: "sampling_rate", value: "samplingRate"}
+        input_attribute: {key: "batch_count", value: "batchCount"}
+        output_attribute {key: "return", value: "SensorResponse"}
+      }
+
+      method_definition {
+        method_vsidl_name: "SensorControlReq"
+        method_someip_name: "SensorControl"
+        method_id: 32005
+        input_attribute {key: "sensor_id", value: "sensorId"}
+        input_attribute {key: "sensor_state", value: "sensorState"}
+        output_attribute {key: "return", value: "SensorResponse"}
+      }
+    }
+
+    event {
+      event_name: "SensorCapabilities"
+      event_id: 33001
+      event_group: 33000
+      topic {
+        topic_name: "sdv.connectivity.sensor.SensorServiceState"
+        attribute_mapping: {key: "state", value: "SensorCapabilitiesMask"}
+      }
+    }
+
+    event {
+      event_name: "SensorConfigUpdate"
+      event_id: 33002
+      event_group: 33000
+      topic {
+        topic_name: "sdv.connectivity.sensor.SensorConfigUpdate"
+        attribute_mapping: {key: "sensor_id", value: "sensorId"}
+        attribute_mapping: {key: "sampling_rate", value: "samplingRate"}
+        attribute_mapping: {key: "batch_count", value: "batchCount"}
+      }
+    }
+
+    event {
+      event_name: "SensorImuDataRead"
+      event_id: 33003
+      event_group: 33000
+      topic {
+        topic_name: "sdv.connectivity.sensor.SensorImuData"
+        attribute_mapping: {key: "events", value: "SensorImuEvent"}
+        attribute_mapping: {key: "count", value: "count"}
+      }
+    }
+
+    event {
+      event_name: "SensorHeadingDataRead"
+      event_id: 33004
+      event_group: 33000
+      topic {
+        topic_name: "sdv.connectivity.sensor.SensorHeadingData"
+        attribute_mapping: {key: "events", value: "sensorHeadEvent"}
+        attribute_mapping: {key: "count", value: "count"}
+      }
+    }
+  }
+}

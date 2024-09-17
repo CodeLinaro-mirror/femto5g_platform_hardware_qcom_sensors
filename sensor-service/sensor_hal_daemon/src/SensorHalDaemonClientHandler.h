@@ -47,8 +47,9 @@
 #include <SensorIpc.h>
 #include <SensorApiMsg.h>
 #include <SensorHalDaemonIPCSender.h>
+#ifdef SENSOR_IVSS_ENABLED
 #include <SensorInterfaceStubImpl.hpp>
-
+#endif
 #undef LOG_TAG
 #define LOG_TAG "SensorSvc_HalDaemon:"
 
@@ -71,9 +72,8 @@ class SensorHalDaemonClientHandler
 {
 public:
     //Constructor of SensorHalDaemonClientHandler class
-    inline SensorHalDaemonClientHandler(SensorApiService* service, std::shared_ptr<SensorInterfaceStubImpl> mservice, const std::string& clientname, ClientType clientType, int SensorCount) :
+    inline SensorHalDaemonClientHandler(SensorApiService* service, const std::string& clientname, ClientType clientType, int SensorCount) :
             mService(service),
-            myService(mservice),
 	    mName(clientname),
 	    mSensorCount(SensorCount),
 	    mClientType(clientType),
@@ -239,8 +239,6 @@ private:
     void StoreMlcCaseListStatus(struct sensor_mlc_case_list *s, int count);
     // pointer to parent service
     SensorApiService* mService;
-    std::shared_ptr<SensorInterfaceStubImpl> myService;
-
     //The total number of sensor supported
     int mSensorCount;
 

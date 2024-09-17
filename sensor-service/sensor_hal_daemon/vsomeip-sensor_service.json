@@ -12,7 +12,11 @@
     [
         {
             "name" : "sensor-fidl-service",
-            "id" : "0x1"
+            "id" : "0x30A"
+        },
+        {
+            "name" : "sensor-fidl-client",
+            "id" : "0x30B"
         }
     ],
     "services" :
@@ -20,19 +24,17 @@
         {
             "service" : "0xEE01",
             "instance" : "0x1",
-            "reliable" : { "port" : "30510", "enable-magic-cookies" : "false" },
-            "unreliable" : "31001",
+            "unreliable" : "30501",
             "someip-tp": {
-		"service-to-client": ["0x80E9", "0x80EA", "0x80EB"]
+		"service-to-client": ["0x8065", "0x8066", "0x8067", "0x8068"]
             }
         },
         {
             "service" : "0xEE00",
             "instance" : "0x01",
-            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
-            "unreliable" : "31000",
+            "unreliable" : "30501",
             "someip-tp": {
-                "service-to-client": ["0x80E9", "0x80EA", "0x80EB", "0x80EC", "0x80ED", "0x80EE", "0x80EF", "0x80F0"]
+                "service-to-client": ["0x8001", "0x8002", "0x8003", "0x8004", "0x8005", "0x8006", "0x8007", "0x8008"]
             }
         }
     ],

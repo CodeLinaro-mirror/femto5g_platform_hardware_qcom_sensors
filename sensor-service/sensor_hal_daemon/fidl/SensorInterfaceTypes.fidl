@@ -1,0 +1,354 @@
+/** Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+    SPDX-License-Identifier: BSD-3-Clause-Clear **/
+
+package com.qualcomm.qti.sensor
+
+/**
+    @description :
+        
+            
+**/
+typeCollection SensorInterfaceTypes {
+    version { major 1 minor 0 }
+    
+    /**
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration SensorReturnT {
+        /** Unknown  **/
+        SENSOR_RETURN_UNKNOWN = 0
+        
+        /** On Success  **/
+        SENSOR_RETURN_SUCCESS = 1
+        
+        /** On Client is not registered to Sensor HAL Daemon  **/
+        SENSOR_RETURN_ERROR_CLIENT_REGISTER_FAILED = 2
+        
+        /** On Client is not generated while registering the client  **/
+        SENSOR_RETURN_ERROR_INVALID_CLIENT = 3
+        
+        /** On Invalid input parameteres from respective API  **/
+        SENSOR_RETURN_ERROR_INVALID_INPUT_PARAMETER = 4
+        
+        /** On Physical Sensor Enable/Disable failed  **/
+        SENSOR_RETURN_ERROR_CONTROL_FAILED = 5
+        
+        /** On Physical Sensor Config failed  **/
+        SENSOR_RETURN_ERROR_CONFIG_FAILED = 6
+        
+        /** On No sensors supported in h/w  **/
+        SENSOR_RETURN_ERROR_NO_SENSORS_FOUND = 7
+        
+        /** On sensor is activated and configured  **/
+        SENSOR_RETURN_ERROR_TRACKING_FAILED = 8
+        
+        /** On Unknown error  **/
+        SENSOR_RETURN_ERROR_UNKNOWN = 9
+            
+    }
+    
+    /**
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration SensorTypeT {
+        SENSOR_TYPE_META_UNKNOWN = 0
+        
+        SENSOR_TYPE_META_DATA = 1
+        
+        SENSOR_TYPE_ACCELEROMETER = 2
+        
+        SENSOR_TYPE_GYROSCOPE = 4
+        
+        SENSOR_TYPE_GYROSCOPE_UNCALIBRATED = 16
+        
+        SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED = 35
+        
+        SENSOR_TYPE_HEADING = 42
+            
+    }
+    
+    /**
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration SensorStateT {
+        SENSOR_STATE_UNKNOWN = 0
+        
+        SENSOR_STATE_DISABLE = 1
+        
+        SENSOR_STATE_ENABLE = 2
+            
+    }
+    
+    /**
+        @description :
+            
+        @experimental: type : uint8
+    **/
+    enumeration SensorServiceStateMaskT {
+        SENSOR_SERVICE_STATE_MASK_UNKNOWN = 0
+        
+        SENSOR_SERVICE_STATE_MASK_READY = 1
+            
+    }
+    
+        
+    
+    /**
+        @description :
+
+    **/
+    struct SensorResponseT {
+        /**
+            @description : None 
+        **/
+        SensorReturnT SensorResponse
+          
+    }
+    
+    /**
+        @description :
+
+    **/
+    struct SensorInfoT {
+        /**
+            @description : None 
+        **/
+        Int32 sensorVersion
+        
+        /**
+            @description : None 
+            @experimental : variable_type_max_size: 255
+        **/
+        String name
+        
+        /**
+            @description : None 
+            @experimental : variable_type_max_size: 255
+        **/
+        String vendor
+        
+        /**
+            @description : None 
+        **/
+        Int32 sensorId
+        
+        /**
+            @description : None 
+        **/
+        Int32 type
+        
+        /**
+            @description : None 
+        **/
+        Float maxSamplingRate
+        
+        /**
+            @description : None 
+        **/
+        Int32 minBatchCount
+        
+        /**
+            @description : None 
+        **/
+        Int32 maxBatchCount
+        
+        /**
+            @description : None 
+            @experimental : repeated_field_max_count: 6
+        **/
+        Float [] odr
+        
+        /**
+            @description : None 
+        **/
+        Float resolution
+        
+        /**
+            @description : None 
+        **/
+        Float maxRange
+          
+    }
+    
+    /**
+        @description :
+
+    **/
+    struct GetSensorListResponseT {
+        /**
+            @description : None 
+            @experimental : repeated_field_max_count: 10
+        **/
+        SensorInfoT [] SensorList
+        
+        /**
+            @description : None 
+        **/
+        Int32 count
+          
+    }
+    
+    /**
+        @description :
+
+    **/
+    struct SensorConfigRequestT {
+        /**
+            @description : None 
+        **/
+        Int32 sensorId
+        
+        /**
+            @description : None 
+        **/
+        Float samplingRate
+        
+        /**
+            @description : None 
+        **/
+        Int32 batchCount
+          
+    }
+    
+    /**
+        @description :
+
+    **/
+    struct SensorControlRequestT {
+        /**
+            @description : None 
+        **/
+        Int32 sensorId
+        
+        /**
+            @description : None 
+        **/
+        SensorStateT sensorState
+          
+    }
+    
+    /**
+        @description :
+
+    **/
+    struct SensorUncalibratedEventT {
+        /**
+            @description : None 
+        **/
+        Float xUncalib
+        
+        /**
+            @description : None 
+        **/
+        Float yUncalib
+        
+        /**
+            @description : None 
+        **/
+        Float zUncalib
+        
+        /**
+            @description : None 
+        **/
+        Float xBias
+        
+        /**
+            @description : None 
+        **/
+        Float yBias
+        
+        /**
+            @description : None 
+        **/
+        Float zBias
+          
+    }
+    
+    /**
+        @description :
+
+    **/
+    struct SensorImuEventT {
+        /**
+            @description : None 
+        **/
+        Int32 sensorId
+        
+        /**
+            @description : None 
+        **/
+        Int32 type
+        
+        /**
+            @description : None 
+        **/
+        UInt64 timestamp
+        
+        /**
+            @description : None 
+        **/
+        UInt64 gptpTimestamp
+        
+        /**
+            @description : None 
+        **/
+        SensorUncalibratedEventT data
+          
+    }
+    
+    /**
+        @description :
+
+    **/
+    struct SensorHeadingEventT {
+        /**
+            @description : None 
+        **/
+        Float heading
+        
+        /**
+            @description : None 
+        **/
+        Float accuracy
+          
+    }
+    
+    /**
+        @description :
+
+    **/
+    struct SensorHeadEventT {
+        /**
+            @description : None 
+        **/
+        Int32 sensorId
+        
+        /**
+            @description : None 
+        **/
+        Int32 type
+        
+        /**
+            @description : None 
+        **/
+        UInt64 timestamp
+        
+        /**
+            @description : None 
+        **/
+        UInt64 gptpTimestamp
+        
+        /**
+            @description : None 
+        **/
+        SensorHeadingEventT data
+          
+    }
+    
+}

@@ -41,14 +41,6 @@ PKG_CHECK_MODULES([SENSORUTILLIB], [sensor-util-lib])
 AC_SUBST([SENSORUTILLIB_CFLAGS])
 AC_SUBST([SENSORUTILLIB_LIBS])
 
-PKG_CHECK_MODULES([COMMONAPI], [CommonAPI])
-AC_SUBST([COMMONAPI_CFLAGS])
-AC_SUBST([COMMONAPI_LIBS])
-
-PKG_CHECK_MODULES([COMMONAPI_SOMEIP], [CommonAPI-SomeIP])
-AC_SUBST([COMMONAPI_SOMEIP_CFLAGS])
-AC_SUBST([COMMONAPI_SOMEIP_LIBS])
-
 AC_ARG_WITH([pwrmgrlib],
     AC_HELP_STRING([--with-pwrmgrlib], [with power manager library]))
 
@@ -75,6 +67,21 @@ AC_ARG_WITH([gptp],
     AC_HELP_STRING([--with-gptp], [with gptp support library]))
 
 AM_CONDITIONAL(PTP_SUPPORTED, test "x$with_gptp" = "xyes")
+
+AC_ARG_WITH([sensor_ivss],
+    AC_HELP_STRING([--with-sensor_ivss], [with common api support library]))
+
+AM_CONDITIONAL(SENSOR_IVSS_ENABLED, test "x$with_sensor_ivss" = "xyes")
+
+AM_COND_IF(SENSOR_IVSS_ENABLED, [
+   PKG_CHECK_MODULES([COMMONAPI], [CommonAPI])
+   AC_SUBST([COMMONAPI_CFLAGS])
+   AC_SUBST([COMMONAPI_LIBS])
+
+   PKG_CHECK_MODULES([COMMONAPI_SOMEIP], [CommonAPI-SomeIP])
+   AC_SUBST([COMMONAPI_SOMEIP_CFLAGS])
+   AC_SUBST([COMMONAPI_SOMEIP_LIBS])
+])
 
 AC_ARG_WITH([glib],
       AC_HELP_STRING([--with-glib],

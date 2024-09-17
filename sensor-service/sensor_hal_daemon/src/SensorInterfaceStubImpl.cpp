@@ -32,6 +32,7 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifdef SENSOR_IVSS_ENABLED
 #include "SensorInterfaceStubImpl.hpp"
 #include <time.h>
 
@@ -50,62 +51,75 @@ SensorInterfaceStubImpl::SensorInterfaceStubImpl(SensorApiService* service):
 SensorInterfaceStubImpl::~SensorInterfaceStubImpl() {
 }
 
-SensorInterface::SensorCapabilitiesMask SensorInterfaceStubImpl::parseSensorCapabilitiesMask(SensorCapabilitiesMask mask) {
+uint64_t SensorInterfaceStubImpl::getGptpTimeFromBootTime(uint64_t boot_time_ns) {
+   uint64_t gptpTimestamp;
+   if (!mService->GptpInitialized && gptpInit()) {
+	   SENSOR_LOGI(LOG_TAG "GPTP init success \n");
+	   mService->GptpInitialized = true;
+   }
+   gptpGetPtpTimeFromMonoTime(&gptpTimestamp, boot_time_ns);
+   return gptpTimestamp;
+}
+
+SensorInterfaceTypes::SensorServiceStateMaskT SensorInterfaceStubImpl::parseSensorServiceStateMaskT(SensorCapabilitiesMask mask) {
     switch (mask) {
         case SHD_READY:
-	      return SensorInterface::SensorCapabilitiesMask::SHD_READY;
+	      return SensorInterfaceTypes::SensorServiceStateMaskT::SENSOR_SERVICE_STATE_MASK_READY;
+              break;
+	default:
+	      return SensorInterfaceTypes::SensorServiceStateMaskT::SENSOR_SERVICE_STATE_MASK_UNKNOWN;
               break;
     }
 }
 
-SensorInterface::SensorResponse SensorInterfaceStubImpl::parseSensorResponse(int res) {
-   SensorInterface::SensorResponse resp = SensorInterface::SensorResponse::SENSOR_ERROR_UNKNOWN;
+SensorInterfaceTypes::SensorReturnT SensorInterfaceStubImpl::parseSensorReturnT(int res) {
+   SensorInterfaceTypes::SensorReturnT resp = SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_UNKNOWN;
    switch(res) {
       case SENSOR_RESPONSE_SUCCESS:
-	      resp = SensorInterface::SensorResponse::SENSOR_RESPONSE_SUCCESS;
+	      resp = SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_SUCCESS;
 	      break;
       case SENSOR_ERROR_CLIENT_REGISTER_FAILED:
-	      resp = SensorInterface::SensorResponse::SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+	      resp = SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_CLIENT_REGISTER_FAILED;
               break;
       case SENSOR_ERROR_INVALID_CLIENT:
-	      resp = SensorInterface::SensorResponse::SENSOR_ERROR_INVALID_CLIENT;
+	      resp = SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_INVALID_CLIENT;
               break;
       case SENSOR_ERROR_INVALID_INPUT_PARAMETER:
-	      resp = SensorInterface::SensorResponse::SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+	      resp = SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_INVALID_INPUT_PARAMETER;
               break;
       case SENSOR_ERROR_CONTROL_FAILED:
-	      resp = SensorInterface::SensorResponse::SENSOR_ERROR_CONTROL_FAILED;
+	      resp = SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_CONTROL_FAILED;
               break;
       case SENSOR_ERROR_CONFIG_FAILED:
-	      resp = SensorInterface::SensorResponse::SENSOR_ERROR_CONFIG_FAILED;
+	      resp = SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_CONFIG_FAILED;
               break;
       case SENSOR_ERROR_NO_SENSORS_FOUND:
-	      resp = SensorInterface::SensorResponse::SENSOR_ERROR_NO_SENSORS_FOUND;
+	      resp = SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_NO_SENSORS_FOUND;
               break;
       case SENSOR_ERROR_TRACKING_FAILED:
-	      resp = SensorInterface::SensorResponse::SENSOR_ERROR_TRACKING_FAILED;
+	      resp = SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_TRACKING_FAILED;
               break;
       default: 
-	      resp = SensorInterface::SensorResponse::SENSOR_ERROR_UNKNOWN;
+	      resp = SensorInterfaceTypes::SensorReturnT::SENSOR_RETURN_ERROR_UNKNOWN;
               break;
    }
    return resp;
 }
 
-vector<SensorInterface::SensorEvent> SensorInterfaceStubImpl::parseSensorEvents(sensors_event_t *e, int count) {
+vector<SensorInterfaceTypes::SensorImuEventT> SensorInterfaceStubImpl::parseSensorImuEventTs(sensors_event_t *e, int count) {
   int i=0;
   uint64_t gptpTimestamp = 0;
-  vector<SensorInterface::SensorEvent > idlSensorEventsData;
-  SensorInterface::SensorEvent idlSensorEvents = {};
+  vector<SensorInterfaceTypes::SensorImuEventT > idlSensorImuEventTsData;
+  SensorInterfaceTypes::SensorImuEventT idlSensorImuEventTs = {};
   for (i=0 ;i <count; i++){
 	  //dump_sensor_event(&e[i]);
-	  memset(&idlSensorEvents, 0, sizeof(idlSensorEvents));
-	  gptpGetPtpTimeFromMonoTime(&gptpTimestamp, e[i].timestamp);
-	  idlSensorEvents.setSensorId(e[i].sensor);
-	  idlSensorEvents.setType(e[i].type);
-	  idlSensorEvents.setTimestamp(e[i].timestamp);
-	  idlSensorEvents.setGptptimestamp(gptpTimestamp);
-	  idlSensorEvents.setData(SensorInterface::SensorUncalibratedEvent{
+	  memset(&idlSensorImuEventTs, 0, sizeof(idlSensorImuEventTs));
+	  gptpTimestamp = getGptpTimeFromBootTime(e[i].timestamp);
+	  idlSensorImuEventTs.setSensorId(e[i].sensor);
+	  idlSensorImuEventTs.setType(e[i].type);
+	  idlSensorImuEventTs.setTimestamp(e[i].timestamp);
+	  idlSensorImuEventTs.setGptpTimestamp(gptpTimestamp);
+	  idlSensorImuEventTs.setData(SensorInterfaceTypes::SensorUncalibratedEventT{
 				  e[i].uncalibrated_accelerometer.x_uncalib,
 				  e[i].uncalibrated_accelerometer.y_uncalib,
 				  e[i].uncalibrated_accelerometer.z_uncalib,
@@ -113,54 +127,52 @@ vector<SensorInterface::SensorEvent> SensorInterfaceStubImpl::parseSensorEvents(
 				  e[i].uncalibrated_accelerometer.y_bias,
 				  e[i].uncalibrated_accelerometer.z_bias
 				  });
-	  idlSensorEventsData.push_back(idlSensorEvents);
+	  idlSensorImuEventTsData.push_back(idlSensorImuEventTs);
 	  
   }
-  return idlSensorEventsData;
+  return idlSensorImuEventTsData;
 }
 
-vector<SensorInterface::SensorList> SensorInterfaceStubImpl::parseSensorList(struct sensor_list *s, int sensor_count) {
+vector<SensorInterfaceTypes::SensorInfoT> SensorInterfaceStubImpl::parseSensorInfoT(struct sensor_list *s, int sensor_count) {
   int i=0;
-  vector<SensorInterface::SensorList> idlSensorListData;
-  SensorInterface::SensorList idlSensorList = {};
+  vector<SensorInterfaceTypes::SensorInfoT> idlSensorInfoTData;
+  SensorInterfaceTypes::SensorInfoT idlSensorInfoT = {};
   for (i=0 ;i < sensor_count; i++){
-	  memset(&idlSensorList, 0, sizeof(idlSensorList));
-	  idlSensorList.setName(s[i].name);
-	  idlSensorList.setVendor(s[i].vendor);
-	  idlSensorList.setSensorVersion(s[i].version);
-	  idlSensorList.setSensorId(s[i].sensor_id);
-	  idlSensorList.setType(s[i].type);
-	  idlSensorList.setMaxSamplingRate(s[i].maxSamplingRate);
-	  idlSensorList.setMinBatchCount(s[i].minBatchCount);
-	  idlSensorList.setMaxBatchCount(s[i].maxBatchCount);
-	  idlSensorList.setRange(s[i].range);
-	  idlSensorList.setResolution(s[i].resolution);
-	  idlSensorList.setMaxRange(s[i].maxRange);
-	  idlSensorList.setOdr({s[i].odr[0],s[i].odr[1],s[i].odr[2],s[i].odr[3],s[i].odr[4],s[i].odr[5]});
-	  idlSensorListData.push_back(idlSensorList);
+	  memset(&idlSensorInfoT, 0, sizeof(idlSensorInfoT));
+	  idlSensorInfoT.setName(s[i].name);
+	  idlSensorInfoT.setVendor(s[i].vendor);
+	  idlSensorInfoT.setSensorVersion(s[i].version);
+	  idlSensorInfoT.setSensorId(s[i].sensor_id);
+	  idlSensorInfoT.setType(s[i].type);
+	  idlSensorInfoT.setMaxSamplingRate(s[i].maxSamplingRate);
+	  idlSensorInfoT.setMinBatchCount(s[i].minBatchCount);
+	  idlSensorInfoT.setMaxBatchCount(s[i].maxBatchCount);
+	  idlSensorInfoT.setResolution(s[i].resolution);
+	  idlSensorInfoT.setMaxRange(s[i].maxRange);
+	  idlSensorInfoT.setOdr({s[i].odr[0],s[i].odr[1],s[i].odr[2],s[i].odr[3],s[i].odr[4],s[i].odr[5]});
+	  idlSensorInfoTData.push_back(idlSensorInfoT);
   }
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
-	  memset(&idlSensorList, 0, sizeof(idlSensorList));
-	  idlSensorList.setName("Heading");
-	  idlSensorList.setVendor("Qcom");
-	  idlSensorList.setSensorVersion(1);
-	  idlSensorList.setSensorId(SENSOR_ID_HEADING);
-	  idlSensorList.setType(SENSOR_TYPE_HEADING);
-	  idlSensorList.setMaxSamplingRate(100);
-	  idlSensorList.setMinBatchCount(1);
-	  idlSensorList.setMaxBatchCount(1);
-	  idlSensorList.setRange(0);
-	  idlSensorList.setResolution(0);
-	  idlSensorList.setMaxRange(0);
-	  idlSensorList.setOdr({100});
-	  idlSensorListData.push_back(idlSensorList);
+	  memset(&idlSensorInfoT, 0, sizeof(idlSensorInfoT));
+	  idlSensorInfoT.setName("Heading");
+	  idlSensorInfoT.setVendor("Qcom");
+	  idlSensorInfoT.setSensorVersion(1);
+	  idlSensorInfoT.setSensorId(SENSOR_ID_HEADING);
+	  idlSensorInfoT.setType(SENSOR_TYPE_HEADING);
+	  idlSensorInfoT.setMaxSamplingRate(100);
+	  idlSensorInfoT.setMinBatchCount(1);
+	  idlSensorInfoT.setMaxBatchCount(1);
+	  idlSensorInfoT.setResolution(0);
+	  idlSensorInfoT.setMaxRange(0);
+	  idlSensorInfoT.setOdr({100});
+	  idlSensorInfoTData.push_back(idlSensorInfoT);
 #endif
-  return idlSensorListData;
+  return idlSensorInfoTData;
 }
 
 
 void SensorInterfaceStubImpl::onCapabilitiesCallback(SensorCapabilitiesMask mask) {
-    SensorInterface::SensorCapabilitiesMask capsMask = parseSensorCapabilitiesMask(mask);
+    SensorInterfaceTypes::SensorServiceStateMaskT capsMask = parseSensorServiceStateMaskT(mask);
     fireSensorCapabilitiesEvent(capsMask);
 }
 
@@ -168,30 +180,30 @@ void SensorInterfaceStubImpl::onCapabilitiesCallback(SensorCapabilitiesMask mask
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
 void SensorInterfaceStubImpl::onSensorHeadingDataReadCb(float heading, float accuracy, uint64_t ts) {
    uint64_t gptpTimestamp = 0;
-   vector<SensorInterface::SensorEvent > idlSensorEventsData;
-   SensorInterface::SensorEvent idlSensorEvents = {};
+   vector<SensorInterfaceTypes::SensorHeadEventT > idlSensorHeadEventTsData;
+   SensorInterfaceTypes::SensorHeadEventT idlSensorHeadEventTs = {};
    if(mHeadTracking) {
-    memset(&idlSensorEvents, 0, sizeof(idlSensorEvents));
-    gptpGetPtpTimeFromMonoTime(&gptpTimestamp, ts);
-    idlSensorEvents.setSensorId(SENSOR_ID_HEADING);
-    idlSensorEvents.setType(SENSOR_TYPE_HEADING);
-    idlSensorEvents.setTimestamp(ts);
-    idlSensorEvents.setGptptimestamp(gptpTimestamp);
-    idlSensorEvents.setData(SensorInterface::SensorHeadingEvent{heading, accuracy});
-    idlSensorEventsData.push_back(idlSensorEvents);
-    fireSensorDataReadEvent(idlSensorEventsData, 1);
+    memset(&idlSensorHeadEventTs, 0, sizeof(idlSensorHeadEventTs));
+    gptpTimestamp = getGptpTimeFromBootTime(ts);
+    idlSensorHeadEventTs.setSensorId(SENSOR_ID_HEADING);
+    idlSensorHeadEventTs.setType(SENSOR_TYPE_HEADING);
+    idlSensorHeadEventTs.setTimestamp(ts);
+    idlSensorHeadEventTs.setGptpTimestamp(gptpTimestamp);
+    idlSensorHeadEventTs.setData(SensorInterfaceTypes::SensorHeadingEventT{heading, accuracy});
+    idlSensorHeadEventTsData.push_back(idlSensorHeadEventTs);
+    fireSensorHeadingDataReadEvent(idlSensorHeadEventTsData, 1);
    }
 }
 #endif
 
 // This is the broadcast sensor events.
 void SensorInterfaceStubImpl::onSensorDataReadCb(sensors_event_t *events, int count) {
-    vector<SensorInterface::SensorEvent > idlSensorEventsData = parseSensorEvents (events, count);
-    fireSensorDataReadEvent(idlSensorEventsData, count);
+    vector<SensorInterfaceTypes::SensorImuEventT > idlSensorImuEventTsData = parseSensorImuEventTs (events, count);
+    fireSensorImuDataReadEvent(idlSensorImuEventTsData, count);
 }
 
-// This is the method that will be called on remote calls on the method RegisterSensorClient.
-void SensorInterfaceStubImpl::RegisterSensorClient(const shared_ptr<CommonAPI::ClientId> _client, RegisterSensorClientReply_t _reply)
+// This is the method that will be called on remote calls on the method RegisterSensorClientReq.
+void SensorInterfaceStubImpl::RegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> _client, RegisterSensorClientReqReply_t _reply)
 {
     int resp = 0;
 
@@ -204,12 +216,12 @@ void SensorInterfaceStubImpl::RegisterSensorClient(const shared_ptr<CommonAPI::C
     SensorAPIStartTrackingReqMsg Trackmsg(mClientname.c_str());
     resp += mService->startTracking(&Trackmsg);
 
-    SensorInterface::SensorResponse response = parseSensorResponse(resp);
+    SensorInterfaceTypes::SensorReturnT response = parseSensorReturnT(resp);
     _reply(response);
 }
 
-// This is the method that will be called on remote calls on the method DeRegisterSensorClient.
-void SensorInterfaceStubImpl::DeRegisterSensorClient(const shared_ptr<CommonAPI::ClientId> _client, DeRegisterSensorClientReply_t _reply)
+// This is the method that will be called on remote calls on the method DeRegisterSensorClientReq.
+void SensorInterfaceStubImpl::DeRegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> _client, DeRegisterSensorClientReqReply_t _reply)
 {
     int resp = 0;
 
@@ -222,60 +234,66 @@ void SensorInterfaceStubImpl::DeRegisterSensorClient(const shared_ptr<CommonAPI:
     }
 
     mHeadTracking = false;
-    SensorInterface::SensorResponse response = parseSensorResponse(resp);
+    SensorInterfaceTypes::SensorReturnT response = parseSensorReturnT(resp);
     _reply(response);
 }
 
-// This is the method that will be called on remote calls on the method GetSensorList.
-void SensorInterfaceStubImpl::GetSensorList(const shared_ptr<CommonAPI::ClientId> _client, GetSensorListReply_t _reply)
+// This is the method that will be called on remote calls on the method GetSensorListReq.
+void SensorInterfaceStubImpl::GetSensorListReq(const shared_ptr<CommonAPI::ClientId> _client, GetSensorListReqReply_t _reply)
 {
-    SENSOR_LOGI(LOG_TAG  "<<==== GetSensorList ==== \n");
+    SENSOR_LOGI(LOG_TAG  "<<==== GetSensorInfoTReq ==== \n");
     int count = mService->mSensorCount;
 
     if(mService->mSensorCount > 0) {
-       vector<SensorInterface::SensorList > idlSensorList = parseSensorList(mService->mSensorList, count); 
+       vector<SensorInterfaceTypes::SensorInfoT > idlSensorInfoT = parseSensorInfoT(mService->mSensorList, count); 
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
        count++;
 #endif
-       _reply(idlSensorList, count);
+       _reply(idlSensorInfoT, count);
     }
 }
 
 // This is the method that will be called on remote calls on the method SensorConfig.
-void SensorInterfaceStubImpl::SensorConfig(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, float _samplingRate, int32_t _batchCount, SensorConfigReply_t _reply)
+void SensorInterfaceStubImpl::SensorConfigReq(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, float _samplingRate, int32_t _batchCount, SensorConfigReqReply_t _reply)
 {
     SENSOR_LOGI(LOG_TAG  "<<==== SensorConfig ==== Client %s sensor_id: %d SamplingRate: %f  BatchCount: %d \n", 
 		    mClientname.c_str(), _sensorId, _samplingRate, _batchCount);
     int resp = 0;
-    SensorInterface::SensorResponse response = 0;
+    SensorInterfaceTypes::SensorReturnT response = 0;
 
     if ( _sensorId != SENSOR_ID_HEADING) {
 	    SensorAPIStartBatchingReqMsg msg (mClientname.c_str(), _sensorId, _samplingRate, _batchCount, 1);
 	    resp = mService->startBatching(&msg);
-	    response  = parseSensorResponse(resp);
+	    response  = parseSensorReturnT(resp);
 	    _reply(response);
     }
     else {
            fireSensorConfigUpdateEvent(SENSOR_ID_HEADING, 100, 1);
+	    response  = parseSensorReturnT(resp);
 	   _reply(response);
     }
 }
 
 // This is the method that will be called on remote calls on the method SensorControl.
-void SensorInterfaceStubImpl::SensorControl(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, SensorInterface::SensorState _sensorState, SensorControlReply_t _reply)
+void SensorInterfaceStubImpl::SensorControlReq(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, SensorInterfaceTypes::SensorStateT _sensorState, SensorControlReqReply_t _reply)
 {
     SENSOR_LOGI(LOG_TAG  "<<==== SensorControl === Client %s sensor_id:%d state:%d\n",mClientname.c_str(), _sensorId, static_cast<int>(_sensorState));
-    int resp = 0;
-    SensorInterface::SensorResponse response = 0;
+    int resp = 0, enable = 0;
+    SensorInterfaceTypes::SensorReturnT response = 0;
+
+    if(_sensorState == SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE)
+	    enable = 1;
+    else
+	    enable = 0;
 
     if ( _sensorId != SENSOR_ID_HEADING) {
-	    SensorAPIEnableReqMsg msg (mClientname.c_str(), _sensorId, _sensorState);
+	    SensorAPIEnableReqMsg msg (mClientname.c_str(), _sensorId, enable);
 	    resp = mService->activateSensor(&msg);
 
-	    response = parseSensorResponse(resp);
+	    response = parseSensorReturnT(resp);
 	    _reply(response);
     } else {
-	    if (_sensorState == 1){ 
+	    if (enable == 1){ 
 		    mService->EnableHeadingSensor();
 		    mHeadTracking = true;
 	    }
@@ -283,6 +301,8 @@ void SensorInterfaceStubImpl::SensorControl(const shared_ptr<CommonAPI::ClientId
 		    mService->DisableHeadingSensor();
 		    mHeadTracking = false;
 	    }
+	    response = parseSensorReturnT(resp);
+	    _reply(response);
     }
-    _reply(response);
 }
+#endif

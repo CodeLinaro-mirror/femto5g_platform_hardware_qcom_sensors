@@ -106,14 +106,14 @@ SensorHalDaemonClientHandler - Sensor API callback functions
 bool SensorHalDaemonClientHandler::onCapabilitiesCallback(SensorCapabilitiesMask mask) {
    // please do not attempt to hold the lock, as the caller of this function
    // already holds the lock
-   bool rc = false;
    SENSOR_LOGI(LOG_TAG "--< onCapabilitiesCallback=0x%x", mask);
-
+   bool rc = false;
+#ifdef SENSOR_IVSS_ENABLED
    if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
-     myService->onCapabilitiesCallback(mask);
+     mService->myService->onCapabilitiesCallback(mask);
      return;
    }
-
+#endif
    if (nullptr != mIpcSender) {
         // broadcast
         SensorAPICapabilitiesIndMsg msg(SERVICE_NAME, mask);
@@ -199,12 +199,13 @@ SensorHalDaemonClientHandler - SendDataToClient to send the events to clients
 bool SensorHalDaemonClientHandler::SendDataToClient(sensors_event_t *e, int count) {
   // please do not attempt to hold the lock, as the caller of this function
   // already holds the lock
+#ifdef SENSOR_IVSS_ENABLED
   if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
-     myService->onSensorDataReadCb(e, count);
+     mService->myService->onSensorDataReadCb(e, count);
      memset(e, 0, sizeof(sensors_event_t) * count);
      return true;
   }
-
+#endif
   if (nullptr != mIpcSender) {
      SENSOR_LOGV(LOG_TAG "--< Count %d\n", count);
      size_t msglen = sizeof(SensorAPIDataIndMsg) + sizeof(sensors_event_t) * (count - 1);
@@ -324,8 +325,10 @@ void SensorHalDaemonClientHandler::onSensorListCb(struct sensor_list *s, int cou
    // please do not attempt to hold the lock, as the caller of this function
    // already holds the lock
    SENSOR_LOGI(LOG_TAG "--< onSensorListCb\n");
+#ifdef SENSOR_IVSS_ENABLED
    if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0)
 	   return;
+#endif
    if (nullptr != mIpcSender) {
 	   size_t msglen = sizeof(SensorAPIListIndMsg) + sizeof(sensor_list) * (count - 1);
 	   uint8_t *msg = new(std::nothrow) uint8_t[msglen];
@@ -359,10 +362,12 @@ void SensorHalDaemonClientHandler::onSensorBatchingCb(int sensor_id, float Sampl
    // please do not attempt to hold the lock, as the caller of this function
    // already holds the lock
    SENSOR_LOGI(LOG_TAG "--< onSensorBatchingCb\n");
+#ifdef SENSOR_IVSS_ENABLED
    if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
-           myService->fireSensorConfigUpdateEvent(sensor_id, SamplingRate, BatchCount);
+           mService->myService->fireSensorConfigUpdateEvent(sensor_id, SamplingRate, BatchCount);
 	   return;
    }
+#endif 
    if (nullptr != mIpcSender) {
 	   SensorAPIStartBatchingReqMsg msg (SERVICE_NAME, sensor_id, SamplingRate, BatchCount, Rotate);
 	   bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
@@ -393,8 +398,10 @@ void SensorHalDaemonClientHandler::onSensorMlcCaseListCb(struct sensor_mlc_case_
    // please do not attempt to hold the lock, as the caller of this function
    // already holds the lock
    SENSOR_LOGI(LOG_TAG "--< onSensorMlcCaseListCb\n");
+#ifdef SENSOR_IVSS_ENABLED
    if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0)
 	   return;
+#endif
    StoreMlcCaseListStatus(s, count);
    if (nullptr != mIpcSender) {
            size_t msglen = sizeof(SensorMlcCaseListIndMsg) + sizeof(sensor_mlc_case_list) * (count - 1);

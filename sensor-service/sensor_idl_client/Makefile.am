@@ -34,9 +34,10 @@ libSensorInterface_someip_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
 libSensorInterface_someip_la_LIBADD = $(requiredlibs) -lstdc++ -ldl -lCommonAPI -lCommonAPI-SomeIP
 libSensorInterface_someip_la_SOURCES = \
-    src-gen/someip/v0/com/qualcomm/qti/sensor/SensorInterfaceSomeIPDeployment.cpp \
-    src-gen/someip/v0/com/qualcomm/qti/sensor/SensorInterfaceSomeIPProxy.cpp \
-    src-gen/someip/v0/com/qualcomm/qti/sensor/SensorInterfaceSomeIPStubAdapter.cpp
+    src-gen/someip/v1/com/qualcomm/qti/sensor/SensorInterfaceSomeIPDeployment.cpp \
+    src-gen/someip/v1/com/qualcomm/qti/sensor/SensorInterfaceTypesSomeIPDeployment.cpp \
+    src-gen/someip/v1/com/qualcomm/qti/sensor/SensorInterfaceSomeIPProxy.cpp \
+    src-gen/someip/v1/com/qualcomm/qti/sensor/SensorInterfaceSomeIPStubAdapter.cpp
 
 lib_LTLIBRARIES = libSensorInterface-someip.la
 
@@ -70,4 +71,4 @@ bin_PROGRAMS = sensor_idl_client
 # define the files to be installed in /usr/etc/vsomeip
 #############################################################################################################
 sysconfdir = $(prefix)/etc/vsomeip/SensorInterface
-sysconf_DATA = vsomeip-sensor_client.json vsomeip-sensor_local.json commonapi4someip.ini
+sysconf_DATA = vsomeip-sensor_client.json commonapi4someip.ini

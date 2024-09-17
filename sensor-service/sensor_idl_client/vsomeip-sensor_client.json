@@ -1,18 +1,18 @@
 {
-    "unicast" : "192.168.1.3",
+    "unicast" : "192.168.1.10",
     "netmask" : "255.255.0.0",
     "logging" :
     {
         "level" : "error",
         "console" : "true",
-        "file" : { "enable" : "true", "path" : "/var/log/vsomeip.log" },
-        "dlt" : "true"
+        "file" : { "enable" : "false", "path" : "/var/log/vsomeip.log" },
+        "dlt" : "false"
     },
     "applications" :
     [
         {
             "name" : "sensor-fidl-client",
-            "id" : "0x2"
+            "id" : "0x30B"
         }
     ],
     "services" :
@@ -20,10 +20,10 @@
         {
             "service" : "0xEE01",
             "instance" : "0x1",
-            "unreliable" : "30510",
+            "unreliable" : "30501",
             "someip-tp": 
             {
-		"client-to-service": ["0x80E9", "0x80EA", "0x80EB"]
+		"client-to-service": ["0x8065", "0x8066", "0x8067", "0x8068"]
             }
         }
     ],
