@@ -1739,18 +1739,24 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
 void SensorApiService::EnableHeadingSensor() {
    SENSOR_LOGI(LOG_TAG "<<< Enable HEADING SENSOR \n");
     // create Location client API
-    if (!pLcaClient)
+    if (pLcaClient == nullptr)
 	    pLcaClient = new LocationClientApi(onLocationCapabilitiesCb);
-    if (!pLcaClient)
+    if (pLcaClient == nullptr) {
 	    SENSOR_LOGE(LOG_TAG "failed to create location client, return\n");
+	    return;
+    }
+    SENSOR_LOGI(LOG_TAG "<<< start heading sensor session\n");
     GnssReportCbs reportcbs = {};
     reportcbs.gnssLocationCallback = GnssLocationCb(onGnssLocationCb);
     pLcaClient->startPositionSession(100, reportcbs, onLocationResponseCb);
 }
+
 void SensorApiService::DisableHeadingSensor() {
    SENSOR_LOGI(LOG_TAG "<<< Disable HEADING SENSOR \n");
-   if (!pLcaClient)
+   if (pLcaClient != nullptr) {
+	   SENSOR_LOGI(LOG_TAG "<<< stop heading sensor session\n");
 	   pLcaClient->stopPositionSession();
+   }
 }
 
 /********************************************************************************

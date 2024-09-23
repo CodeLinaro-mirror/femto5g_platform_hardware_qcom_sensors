@@ -315,7 +315,7 @@ int main() {
     myProxy->getProxyStatusEvent().subscribe([&] (const CommonAPI::AvailabilityStatus status) {
       switch (status) {
 	case CommonAPI::AvailabilityStatus::UNKNOWN:
-	cout << "Sensor Service Unkown" << endl;
+	cout << "Sensor Service Unknown" << endl;
 	SHD_RESTARTED = true;
 	break;
 	case CommonAPI::AvailabilityStatus::NOT_AVAILABLE:
@@ -324,7 +324,7 @@ int main() {
 	break;
 	case CommonAPI::AvailabilityStatus::AVAILABLE:
 	cout << "Sensor Service AVAILABLE" << endl;
-	SHD_RESTARTED = false;
+	if(SHD_RESTARTED) {
 	myProxy->RegisterSensorClientReq(callStatus, resp, &info);
 	for (int i=0; i < sensor_count; i++) {
 	 cout << "Reconfiguring Enabled Sensors" << endl;
@@ -334,6 +334,8 @@ int main() {
 	   myProxy->SensorControlReq(mSensorTrackingOption[i].sensor_id, mSensorTrackingOption[i].state, callStatus, resp, &info);
 	 }
 	}
+	}
+	SHD_RESTARTED = false;
 	break;
       }
     });
