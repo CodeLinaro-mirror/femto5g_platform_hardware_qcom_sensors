@@ -55,7 +55,7 @@ using namespace std;
 /*ASM330 temperature*/
 #define ASM_TEMP_SEARCH         "asm330lhh_temp"
 #define ASMX_TEMP_SEARCH        "asm330lhhx_temp"
-#define ASM_ACCEL_FSR           0.000598   // 2G:0.000598, 4G:0.001196, 8G:0.002392, 16G:0.004785
+#define ASM_ACCEL_FSR           0.001196   // 2G:0.000598, 4G:0.001196, 8G:0.002392, 16G:0.004785
 #define ASM_GYRO_FSR            0.000076   // 125:0.000076, 250:0.000153, 500:0.000305, 1000:0.000611, 2000:0
 #define ASM_ACC_SEARCH          "asm330lhh_accel"
 #define ASM_GYR_SEARCH          "asm330lhh_gyro"
@@ -78,13 +78,13 @@ using namespace std;
 /*SMI230 temperature*/
 #define SMI230_TEMP_SEARCH         "SMI230ACC"  // Search key is common for both Accel & Temp
 #define SMI230_GYR_SEARCH          "SMI230GYRO" // Search key for Gyro
-#define SMI230_CONVERT_ACC         (0.000598755)
-#define SMI230_CONVERT_GYRO        (0.00006657903)
+#define SMI230_CONVERT_ACC         (0.001197510) // 2G:0.000598755, 4G:0.001197510, 8G:0.002395020, 16G:0.004790039
+#define SMI230_CONVERT_GYRO        (0.00006657903) //125:0.00006657903, 250:0.00013315805, 500:0.00026631611, 2000:0.00053263222
 
 /*IAM20680 temperature and buffer read*/
 #define IAM_TEMP_SEARCH         "iam20680"
 #define IAM_TEMP_NAME           "out_temperature"
-#define IAM_ACCEL_FSR           2.0f // 2:2g, 4:4g, 8:8g, 16:16g
+#define IAM_ACCEL_FSR           4.0f // 2:2g, 4:4g, 8:8g, 16:16g
 #define IAM_GYRO_FSR            131.0f // 131:250dbps 65.5:500dbps 32.8:1000dbps 16.4:2000dbps
 #define IAM_BATCH_TIME          (1.0 * NS_IN_ONE_SECOND)
 
