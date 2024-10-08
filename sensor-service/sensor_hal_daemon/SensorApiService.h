@@ -24,6 +24,12 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 
 #ifndef SENSORAPISERVICE_H
@@ -65,6 +71,7 @@
 #include <PowerEvtHandler.h>
 #endif
 
+
 #ifdef NO_UNORDERED_SET_OR_MAP
     #include <map>
 #else
@@ -100,6 +107,8 @@ typedef struct {
     int   MinGyroBatchCount;
     int   AccRange;
     int   GyroRange;
+    int   AccBuffRange;
+    int   GyroBuffRange;
     int   DebugLevel;
     int   VariableCountBatching;
 } configParamToRead;
@@ -135,6 +144,14 @@ typedef struct {
 // forward declaration
 class SensorHalDaemonIPCReceiver;
 class SensorHalDaemonQsockReceiver;
+
+/**
+ * set_buff_scaling_factor: Sets the scaling factor based on dynamic range for buffer data
+ * @param sensorType: Sensor id (1:asm, 2:iam, 3:smi130, 4:smi230)
+ * @param accRange: Range of accel to set
+ * @param gyroRange: Range of gyro o set
+ */
+void set_buff_scaling_factor(int sensorType, int accRange, int gyroRange);
 
 /******************************************************************************
 SensorApiService
@@ -259,6 +276,7 @@ private:
         return nullptr;
     }
 
+
     // singleton instance
     static SensorApiService *mInstance;
     // IPC interface
@@ -293,6 +311,8 @@ private:
     int   mMinGyroBatchCount;
     int   mAccRange;
     int   mGyroRange;
+    int   mAccBuffRange;
+    int   mGyroBuffRange;
     bool  mBufferSupported;
     bool  mBufferDeleted;
     bool  mTempSupported;
