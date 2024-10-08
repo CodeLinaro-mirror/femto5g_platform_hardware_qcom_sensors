@@ -108,6 +108,8 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mMinGyroBatchCount(configParamRead.MinGyroBatchCount),
     mAccRange(configParamRead.AccRange),
     mGyroRange(configParamRead.GyroRange),
+    mAccBuffRange(configParamRead.AccBuffRange),
+    mGyroBuffRange(configParamRead.GyroBuffRange),
     mhmi(nullptr),
     mdev(nullptr),
     mpoll_dev_v0(nullptr),
@@ -384,6 +386,9 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
                 return false;
         }
    }
+
+    //set buffer data scaling factor
+    set_buff_scaling_factor(mSensorType, mAccBuffRange, mGyroBuffRange);
 
    err = mhmi->common.methods->open((struct hw_module_t *)mhmi,
 		   SENSORS_HARDWARE_POLL, &mdev);
@@ -1665,7 +1670,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
                 mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
                 s->maxSamplingRate = mMaxGyroSampleRate;
-		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+                if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
                         mMinGyroBatchCount = MAX_BATCH_COUNT;
                 else if (mMinGyroBatchCount <= 0)
                         mMinGyroBatchCount = 1;

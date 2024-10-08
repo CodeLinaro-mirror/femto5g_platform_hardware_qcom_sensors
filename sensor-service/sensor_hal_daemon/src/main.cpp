@@ -135,6 +135,16 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
 		 sscanf(&line[1], "%d", &configParamRead->GyroRange);
 		 break;
 	 }
+         else if(strstr(buffer, "ACC_BUFF_RANGE=")) {
+                line = strstr(buffer, "=");
+                sscanf(&line[1], "%d", &configParamRead->AccBuffRange);
+                break;
+         }
+         else if(strstr(buffer, "GYRO_BUFF_RANGE=")) {
+                line = strstr(buffer, "=");
+                sscanf(&line[1], "%d", &configParamRead->GyroBuffRange);
+                break;
+         }
 	 else if(strstr(buffer, "MIN_ACC_BATCH_COUNT=")) {
                  line = strstr(buffer, "=");
                  sscanf(&line[1], "%d", &configParamRead->MinAccBatchCount);
@@ -161,14 +171,14 @@ void PrintSensorConfigParameters(configParamToRead configParamRead)
    SENSOR_LOGI(LOG_TAG "sensor type:%d\n \
 	\tsensor_lib:%s\n \
 	\tdynamicconfig:%d\n \
-	\tAccelName %s: AccSamplingRate :%f AccBatchcount :%d AccRange :%d\n \
-	\tGyroName  %s:GyroSamplingRate:%f GyroBatchcount:%d GyroRange:%d\n \
-	\tDebugLevel:%d\n",
+	\tAccelName %s: AccSamplingRate :%f AccBatchcount :%d AccRange :%d AccBuffRange :%d\n\
+	\tGyroName  %s:GyroSamplingRate:%f GyroBatchcount:%d GyroRange:%d GyroBuffRange :%d\n \
+	DebugLevel:%d\n",
 	configParamRead.SensorType,
 	configParamRead.SensorHalLibPath,
 	configParamRead.DynamicConfigEnabled,
-	configParamRead.AccelName, configParamRead.MaxAccSampleRate, configParamRead.MinAccBatchCount, configParamRead.AccRange,
-	configParamRead.GyroName,  configParamRead.MaxGyroSampleRate, configParamRead.MinGyroBatchCount, configParamRead.GyroRange,
+	configParamRead.AccelName, configParamRead.MaxAccSampleRate, configParamRead.MinAccBatchCount, configParamRead.AccRange, configParamRead.AccBuffRange,
+	configParamRead.GyroName,  configParamRead.MaxGyroSampleRate, configParamRead.MinGyroBatchCount, configParamRead.GyroRange, configParamRead.GyroBuffRange,
 	configParamRead.DebugLevel);
 }
 

@@ -126,6 +126,8 @@ typedef struct {
     int   MinGyroBatchCount;
     int   AccRange;
     int   GyroRange;
+    int   AccBuffRange;
+    int   GyroBuffRange;
     int   DebugLevel;
 } configParamToRead;
 
@@ -164,6 +166,14 @@ class SensorHalDaemonQsockReceiver;
 class SensorInterfaceStubImpl;
 #endif
 class SensorHalDaemonClientHandler;
+
+/**
+ * set_buff_scaling_factor: Sets the scaling factor based on dynamic range for buffer data
+ * @param sensorType: Sensor id (1:asm, 2:iam, 3:smi130, 4:smi230)
+ * @param accRange: Range of accel to set
+ * @param gyroRange: Range of gyro o set
+ */
+void set_buff_scaling_factor(int sensorType, int accRange, int gyroRange);
 
 /******************************************************************************
 SensorApiService
@@ -325,6 +335,8 @@ private:
     int   mMinGyroBatchCount;
     int   mAccRange;
     int   mGyroRange;
+    int   mAccBuffRange;
+    int   mGyroBuffRange;
     bool  mBufferSupported;
     bool  mBufferDeleted;
     bool  mTempSupported;
