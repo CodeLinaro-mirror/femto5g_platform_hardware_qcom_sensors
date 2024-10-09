@@ -44,6 +44,9 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <SensorApiService.h>
 #include <SensorList.h>
 
+#undef LOG_IVSS_TAG
+#define LOG_IVSS_TAG "SensorSvc_IVSS:"
+
 using namespace v1::com::qualcomm::qti::sensor;
 using namespace std;
 
@@ -83,6 +86,10 @@ public:
   string mClientname;
   uint32_t    mClientId;
   bool mHeadTracking;
+  static mutex mIdlMutex;
+  static map<int32_t, float> sensorSamplingRates;
+  static map<int32_t, bool> sensorStates;
+  static map<int32_t, int32_t> sensorControlRequest;
   // pointer to parent service
   SensorApiService* mService;
 };
