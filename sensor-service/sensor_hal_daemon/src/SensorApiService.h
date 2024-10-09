@@ -249,8 +249,8 @@ private:
     void  onSelfTestRequest(SensorHalDaemonClientHandler*,
 		    int sensor_id, SelfTestType selfTestType, int request_id);
     void  GetSupportedSamplingRateAndRange(struct sensor_list *s);
-    int   NearByBatchCount(int ActualCount, int RequestedCount);
-    float NearBySamplingRate(float sampling_rate, struct sensor_list *s);
+    int   NearByBatchCount(int minBatchCount, int ReqBatchCount, float input_rate, float output_rate, int factor);
+    float NearBySamplingRate(float input_rates[], float target_rate);
 
     //MLC API's
     bool LoadMLC(const char *mcl_fw_name);

@@ -201,7 +201,7 @@ static void dump_buffer_event(const struct sensors_event_t *e)
 
 
 static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
-    SENSOR_LOGI(LOG_TAG "<<< onCapabilitiesCb mask=%d\n", mask);
+    SENSOR_LOGI(LOG_TAG "<<< Recieved onCapabilitiesCb mask=%d\n", mask);
     switch (mask) {
 	case SHD_READY:
 		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is Ready to commnunicate\n");
@@ -229,7 +229,7 @@ static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
 
 static void onBatchingCb(int sensor_id , float sampling_rate, int batch_count, bool Rotate)
 {
-  SENSOR_LOGI(LOG_TAG "hanndle %d sampling_rate %f batch_count %d Rotate %d\n", sensor_id, sampling_rate, batch_count, Rotate);
+  SENSOR_LOGI(LOG_TAG "Recieved Sensor id %d sampling_rate %f batch_count %d Rotate %d\n", sensor_id, sampling_rate, batch_count, Rotate);
 }
 
 static void onSensorDataReadCb(int sensor_id, const sensors_event_t *events, uint32_t count)
@@ -419,6 +419,11 @@ int main(int argc, char *argv[]) {
 		}
 		sleep(1);
 	}
+	/*Enable blocking call to avoid high cpu usage for test app*/
+	char buf[10];
+	memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
+	fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
+	int command = buf[0];
      }
    }
 
