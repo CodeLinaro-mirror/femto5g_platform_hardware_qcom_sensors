@@ -569,7 +569,7 @@ int SensorClientImpl::selfTest(int sensor_id, SelfTestType selfTestType, int req
       for (int i=0; i < mSensorCount; i++) {
          if (mSensorList[i].sensor_id == sensor_id) {
             SensorId = true;
-	    if (selfTestType != Positive && selfTestType != Negative){
+	    if (selfTestType != Positive && selfTestType != Negative && selfTestType != All){
 		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 		}
             break;
@@ -1011,7 +1011,7 @@ void SensorClientImpl::onReceive(const string& data) {
                   const SensorAPISelfTestIndMsg* pSelfMsg = (SensorAPISelfTestIndMsg*) (pMsg);
 		  SENSOR_LOGI(LOG_TAG "mselftestresultcb: sensor_id = %d request_id = %d result = %d\n",
 				  pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result);
-                  mSelfTestResultCb(pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result);
+                  mSelfTestResultCb(pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result, pSelfMsg->resulttype, pSelfMsg->timestamp);
           }
           break;
        }
