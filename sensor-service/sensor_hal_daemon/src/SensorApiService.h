@@ -68,6 +68,8 @@
 #include <CommonAPI/CommonAPI.hpp>
 #include <SensorInterfaceStubImpl.hpp>
 #endif
+#include <SensorDiagLog.h>
+
 #define ASM330LHHX_ACC_SEARCH   "asm330lhhx_accel"
 #define ASM330LHHX_GYRO_SEARCH  "asm330lhhx_gyro"
 
@@ -334,6 +336,8 @@ private:
     uint16_t roll;
     uint16_t pitch;
     uint16_t yaw;
+    SensorDiagLog mDiagLogger;
+
 
 
     //Temperature file pointers

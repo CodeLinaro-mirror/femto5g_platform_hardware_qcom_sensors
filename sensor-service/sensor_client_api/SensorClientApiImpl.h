@@ -44,6 +44,7 @@
 #include <SensorLog.h>
 #include <SensorClientApi.h>
 #include <SensorApiMsg.h>
+#include <SensorDiagLog.h>
 
 #ifdef NO_UNORDERED_SET_OR_MAP
     #include <set>
@@ -183,6 +184,9 @@ private:
     pthread_mutex_t    mSensorLibMutex;
     pthread_cond_t     mSensorLibCond;
     pthread_condattr_t mSensorLibattr;
+
+    //Diag
+    SensorDiagLog mDiagLogger;
 };
 
 } // namespace sensor_client

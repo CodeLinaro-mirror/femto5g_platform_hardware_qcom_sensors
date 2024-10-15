@@ -900,7 +900,9 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
 		     bufferDataScaling(SENSOR_TYPE_ACCELEROMETER, &events[count]);
 		     SENSOR_LOGW(LOG_TAG "ACC Buffer event: x=%f y=%f z=%f timestamp=%lld acccount %d\n",
 				     events[count].acceleration.x, events[count].acceleration.y,
-				     events[count].acceleration.z, events[count].timestamp, acccount++);
+				     events[count].acceleration.z, events[count].timestamp, acccount);
+         mDiagLogger.SendSensorBuffAccelEvent(&events[count], acccount);
+         ++acccount;
 		     count++;
 	     } else {
 		     accelBuffDataTxProgress = false;
@@ -914,7 +916,9 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
 		     bufferDataScaling(SENSOR_TYPE_GYROSCOPE, &events[count]);
 		     SENSOR_LOGW(LOG_TAG "GYRO Buffer event: x=%f y=%f z=%f timestamp=%lld gyrocount %d\n",
 				     events[count].gyro.x, events[count].gyro.y, events[count].gyro.z,
-				     events[count].timestamp, gyrocount++);
+				     events[count].timestamp, gyrocount);
+         mDiagLogger.SendSensorBuffGyroEvent(&events[count], gyrocount);
+         ++gyrocount;
 		     count++;
 	     } else {
 		     gyroBuffDataTxProgress = false;
