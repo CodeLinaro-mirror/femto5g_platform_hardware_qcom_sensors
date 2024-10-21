@@ -159,6 +159,21 @@ int sysfs_write_int(char *file, int val)
         return 0;
 }
 
+int sysfs_read_int(char *file, int *val)
+{
+	FILE *fp;
+	int ret;
+
+	fp = fopen(file, "r");
+	if (NULL == fp)
+		return -errno;
+
+	ret = fscanf(fp, "%d\n", val);
+	fclose(fp);
+
+	return ret;
+}
+
 /**
  * get_sensor_device_by_name() - function to match top level types by name
  * @type: the type of top level instance being searched

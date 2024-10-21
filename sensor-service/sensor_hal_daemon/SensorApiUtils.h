@@ -103,5 +103,6 @@ float process_3byte_received(int input,
 		struct device_iio_info_channel *info);
 int sysfs_read_scale(char *file, float *val);
 int sysfs_write_int(char *file, int val);
+int sysfs_read_int(char *file, int *val);
 
 #endif //SENSORUTILS_H

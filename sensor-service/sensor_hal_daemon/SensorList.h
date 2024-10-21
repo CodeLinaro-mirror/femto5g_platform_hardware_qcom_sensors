@@ -149,7 +149,7 @@ struct sensor_list {
     int type;
     /*maxSamplingRate: Max sampling rate supported by the sensor as defined in
      sensors.conf file.client can’t request the samples more than this*/
-    int maxSamplingRate;
+    float maxSamplingRate;
     /*minBatchCount: Min batch count supported by the sensor as defined in,
      sensors.conf file. clitn  can’t request the samples less than this*/
     int minBatchCount;

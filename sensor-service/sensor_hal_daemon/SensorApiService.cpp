@@ -274,7 +274,7 @@ static void PrintSensorList(struct sensor_list *sensor, int sensor_count)
            SENSOR_LOGD(LOG_TAG"\tsensor_id: %d\n",sensor[i].sensor_id);
            SENSOR_LOGD(LOG_TAG"\ttype: %d\n",sensor[i].type);
            SENSOR_LOGD(LOG_TAG"\trange: %d\n",sensor[i].range);
-           SENSOR_LOGD(LOG_TAG"\tmaxSamplingRate: %d\n",sensor[i].maxSamplingRate);
+           SENSOR_LOGD(LOG_TAG"\tmaxSamplingRate: %f\n",sensor[i].maxSamplingRate);
            SENSOR_LOGD(LOG_TAG"\tminBatchCount: %d\n",sensor[i].minBatchCount);
            SENSOR_LOGD(LOG_TAG"\tmaxBatchCount: %d\n",sensor[i].maxBatchCount);
            SENSOR_LOGD(LOG_TAG"\todr rate: %fHZ %fHZ %fHZ %fHZ %fHZ %fHZ\n",
@@ -822,14 +822,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
     for (int i=0 ; i < mSensorCount; i++)  {
          //Check for proper sensor_id
          if (pMsg->sensor_id == mSensor[i].sensor_id) {
-           //Store requested sampling rate and batch count to client variables
-           pClient->mSampleRate[i] = pMsg->samplingRate;
-	   pClient->mBatchCount[i] = pMsg->batchCount;
 	   //Check for Accel Parameteters
            if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
 	     //Return error if requested sampling rate is more than config file parameters.
              if (pMsg->samplingRate > mMaxAccSampleRate) {
-		     pClient->mSampleRate[i] = 0;
                      ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
                      break;
              }
@@ -839,21 +835,18 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
                      mSensor[i].BatchCount = mMinAccBatchCount;
                      SamplingRate = FREQUENCY_TO_NS(mMaxAccSampleRate);
                      BatchingRate = mMinAccBatchCount * SamplingRate  * mBatchConst;
-                     //If the sensor type is SMI230, the physical sensor is configured for 10 batch count.
-                     if(mSensorType == 4)
-                       BatchingRate = 10 * SamplingRate  * mBatchConst;
+
                      SENSOR_LOGI(LOG_TAG ">-- Configure sensor Acc sensor_id %d sampling Rate %lld BatchingRate %lld\n",
                                      pMsg->sensor_id, SamplingRate, BatchingRate);
                      ret = sensor_set_batch(pMsg->sensor_id, SamplingRate, BatchingRate);
                      if (ret != 0) {
-			  pClient->mSampleRate[i] = 0;
                           ret = SENSOR_ERROR_CONFIG_FAILED;
                           break;
 		     }
              }
 	     //Calcualate the client config parameters based on sensor physical configuration
-	     pMsg->batchCount = NearByBatchCount(mMinAccBatchCount, pMsg->batchCount);
 	     pClient->mAccFactor = lroundf(mSensor[i].SamplingRate / pMsg->samplingRate);
+	     pMsg->batchCount = NearByBatchCount(mMinAccBatchCount, pMsg->batchCount, mSensor[i].SamplingRate, pMsg->samplingRate, pClient->mAccFactor);
 	     pClient->mAccBatchCount = pMsg->batchCount;
 	     pClient->mAccCount = 0;
 	     pClient->mAccMovingCount = 0;
@@ -876,7 +869,6 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
            if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE || mSensor[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED) {
 	     //Return error if requested sampling rate is more than config file parameters.
              if (pMsg->samplingRate > mMaxGyroSampleRate) {
-		     pClient->mSampleRate[i] = 0;
                      ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 		     break;
              }
@@ -886,21 +878,17 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
                      mSensor[i].BatchCount = mMinGyroBatchCount;
                      SamplingRate = FREQUENCY_TO_NS(mMaxGyroSampleRate);
                      BatchingRate = mMinGyroBatchCount * SamplingRate  * mBatchConst;
-                     //If the sensor type is SMI230, the physical sensor is configured for 10 batch count.
-                     if(mSensorType == 4)
-                       BatchingRate = 10 * SamplingRate  * mBatchConst;
                      SENSOR_LOGI(LOG_TAG ">--Configure sensor Gyro sensor_id %d sampling Rate %lld BatchingRate %lld\n",
                                      pMsg->sensor_id, SamplingRate, BatchingRate);
                      ret = sensor_set_batch(pMsg->sensor_id, SamplingRate, BatchingRate);
                      if (ret != 0) {
-			  pClient->mSampleRate[i] = 0;
                           ret = SENSOR_ERROR_CONFIG_FAILED;
                           break;
 		     }
 	     }
 	     //Calcualate the client config parameters based on sensor physical configuration
-	     pMsg->batchCount = NearByBatchCount(mMinGyroBatchCount, pMsg->batchCount);
 	     pClient->mGyroFactor = lroundf(mSensor[i].SamplingRate / pMsg->samplingRate);
+	     pMsg->batchCount = NearByBatchCount(mMinGyroBatchCount, pMsg->batchCount, mSensor[i].SamplingRate, pMsg->samplingRate, pClient->mGyroFactor);
 	     pClient->mGyroBatchCount = pMsg->batchCount;
 	     pClient->mGyroCount = 0;
 	     pClient->mGyroMovingCount = 0;
@@ -947,13 +935,12 @@ void SensorApiService::startBatching(SensorAPIStartBatchingReqMsg *pMsg) {
       for (int i=0; i < mSensorCount; i++) {
 	      if (mSensorList[i].sensor_id == pMsg->sensor_id) {
 		      SensorId = true;
-                     if (pMsg->batchCount > mSensorList[i].maxBatchCount || pMsg->batchCount < mSensorList[i].minBatchCount
-                                     || pMsg->samplingRate <=0 ) {
+                     if (pMsg->batchCount <=0 || pMsg->samplingRate <=0 ) {
 			      ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 			      goto fail;
 		      }
 		      else {
-			      pMsg->samplingRate = NearBySamplingRate(pMsg->samplingRate, &mSensorList[i]);
+			      pMsg->samplingRate = NearBySamplingRate(mSensorList[i].odr, pMsg->samplingRate);
                       }
 		      break;
 	      }
@@ -1268,9 +1255,6 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
 	    if (mSensor[i].Activate == SENSOR_ENABLE){
 		    int64_t SamplingRate = FREQUENCY_TO_NS(mSensor[i].SamplingRate);
 		    int64_t BatchingRate =  mSensor[i].BatchCount *  mSensor[i].SamplingRate  * mBatchConst;
-            //If the sensor type is SMI230, the physical sensor is configured for 10 batch count.
-            if(mSensorType == 4)
-                int64_t BatchingRate = 10 * SamplingRate  * mBatchConst;
 		    SENSOR_LOGI(LOG_TAG ">-- onSelfTest Re-Configure sensor sensor_id %d sampling Rate %lld BatchingRate %lld\n",
 				    mSensor[i].sensor_id, SamplingRate, BatchingRate);
 		    sensor_set_batch(mSensor[i].sensor_id, SamplingRate, BatchingRate); //configure the sensor
@@ -1370,49 +1354,76 @@ count, return batch count which is multiplication of min batch count defined for
 each sensor in /etc/sensors.conf file and should be less than or equal to
 ReqBatchCount
 ******************************************************************************/
-int SensorApiService::NearByBatchCount(int ActualCount, int ReqBatchCount) {
+int SensorApiService::NearByBatchCount(int minBatchCount, int ReqBatchCount, float input_rate, float output_rate, int factor) {
    int count = 0;
+   int supported_batches[MAX_BATCH_COUNT];
 
-   if ( ActualCount <= 0 || ReqBatchCount <= 0)
-	   return ActualCount;
-
+   if ( minBatchCount <= 0 || ReqBatchCount <= 0)
+	   return minBatchCount;
    //No FIFO support
    if (mBatchConst == 0)
 	   return ReqBatchCount;
 
-   //minimum batch count supported is ActualCount
-   if (ReqBatchCount < ActualCount)
-	   return ActualCount;
-   else {
-	   for (int i=2 ; count < MAX_BATCH_COUNT; i++) {
-		   count = ActualCount * i;
-		   if (count == ReqBatchCount)
-			   return count;
-		   if (count > ReqBatchCount || count > MAX_BATCH_COUNT)
-			   return ActualCount * (i-1);
+   for (int i = 1; i <= MAX_BATCH_COUNT; i++) {
+	   if ((i * factor) % minBatchCount == 0) {
+		   supported_batches[count] = i;
+		   count++;
 	   }
    }
-   return 0;
+
+   SENSOR_LOGI(LOG_TAG "Supported batch rates for input rate %.2fHz, output rate %.2fHz, and batch count %d:\n", input_rate, output_rate, minBatchCount);
+   for (int i = 0; i < count; i++) {
+	   SENSOR_LOGI(LOG_TAG "%d ", supported_batches[i]);
+   }
+   SENSOR_LOGI(LOG_TAG "\n");
+
+   int nearest = supported_batches[0];
+   int min_diff = abs(supported_batches[0] - ReqBatchCount);
+
+   for (int i = 0; i < count; i++) {
+	   int diff = abs(supported_batches[i] - ReqBatchCount);
+	   if (diff < 0)
+		   diff = -diff;
+	   if (diff < min_diff) {
+		   nearest = supported_batches[i];
+		   min_diff = diff;
+	   }
+	   // If an exact match is found, return it immediately
+	   if (diff == 0) {
+		   SENSOR_LOGI(LOG_TAG "Nearest supported batch rate to %d: %d\n", ReqBatchCount, supported_batches[i]);
+		   return supported_batches[i];
+	   }
+   }
+   SENSOR_LOGI(LOG_TAG "Nearest supported batch rate to %d: %d\n", ReqBatchCount, nearest);
+   return nearest;
 }
 
 /******************************************************************************
 SensorApiService - implementation - NearBySamplingRate
 Find out near by Nearby sampling rate which client requested
 ******************************************************************************/
-float SensorApiService::NearBySamplingRate(float ReqSamplingRate, struct sensor_list *s) {
-  for(int i=1; i < 6; i++) {
-	  if (s->odr[i] == ReqSamplingRate)
-		  return s->odr[i];
-	  else if (s->odr[i] > ReqSamplingRate)
-		  return s->odr[i-1];
+float SensorApiService::NearBySamplingRate(float input_rates[], float target_rate) {
+   float nearest_rate = input_rates[0];
+   float min_diff = fabs(input_rates[0] - target_rate);
 
-	  else if(s->odr[i] == 0){
-               return s->odr[i-1];
-       }
-  }
+   for (int i = 0; i < MAX_ODR; i++) {
+	   if (input_rates[i] == 0) {
+		   continue; // Skip zero values
+	   }
+	   float diff = fabs(input_rates[i] - target_rate);
+	   if (diff < 0)
+		   diff = -diff;
+	   if (diff < min_diff) {
+		   min_diff = diff;
+		   nearest_rate = input_rates[i];
+	   }
+	   //If an exact match is found, return it immediately
+	   if (diff == 0) {
+		   return input_rates[i];
+	   }
+   }
 
-  //return max sampling rate supported
-  return s->odr[5];
+   return nearest_rate;
 }
 
 /******************************************************************************
@@ -1424,7 +1435,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
       //Check for ASM330 sensor
       case SENSOR_ASM330: {
 	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
-		float samplingRate[6] = {12, 26, 52, 104, 208, 416};
+		float samplingRate[6] = {13, 26, 52, 104, 208, 416};
 		float acc_range[4][2] = { {0.000598,2}, { 0.001196,4}, {0.002392,8}, {0.004785,16}};
 		float scale_value = 0;
 		int acc_num = -1;
@@ -1448,7 +1459,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 				if(acc_range[i][0] == scale_value)
 					s->range = acc_range[i][1];
 		}
-		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+		mMaxAccSampleRate  = NearBySamplingRate(samplingRate, mMaxAccSampleRate);
 		s->maxSamplingRate = mMaxAccSampleRate;
 		if (mMinAccBatchCount >= MAX_BATCH_COUNT)
 			mMinAccBatchCount = MAX_BATCH_COUNT;
@@ -1457,7 +1468,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 		s->minBatchCount   = mMinAccBatchCount;
         }
 	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
-		float samplingRate[6] = {12, 26, 52, 104, 208, 416};
+		float samplingRate[6] = {13, 26, 52, 104, 208, 416};
 		float gyro_range[6][2] = {{0.000076,125}, {0.000153,250}, {0.000305,500}, {0.000611,1000}, {0.001222,2000}, {0.002443,4000}};
 		float scale_value = 0;
 		int gyro_num = -1;
@@ -1481,7 +1492,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 				if(gyro_range[i][0] == scale_value)
 					s->range = gyro_range[i][1];
 		}
-		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+		mMaxGyroSampleRate = NearBySamplingRate(samplingRate, mMaxGyroSampleRate);
 		s->maxSamplingRate = mMaxGyroSampleRate;
 		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
 			mMinGyroBatchCount = MAX_BATCH_COUNT;
@@ -1500,7 +1511,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 int acc_range[4] = {2, 4, 8, 16};
                 memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
                 s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
-                mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+                mMaxAccSampleRate  = NearBySamplingRate(samplingRate, mMaxAccSampleRate);
                 s->maxSamplingRate = mMaxAccSampleRate;
                 if (mMinAccBatchCount >= MAX_BATCH_COUNT)
                         mMinAccBatchCount = MAX_BATCH_COUNT;
@@ -1513,7 +1524,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 int gyro_range[4] = {250, 500, 1000, 2000};
                 memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
                 s->range = (mGyroRange >= 0 && mGyroRange <= 3 ) ? gyro_range[mGyroRange] : gyro_range[3];
-                mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+                mMaxGyroSampleRate = NearBySamplingRate(samplingRate, mMaxGyroSampleRate);
                 s->maxSamplingRate = mMaxGyroSampleRate;
                 if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
                         mMinGyroBatchCount = MAX_BATCH_COUNT;
@@ -1532,7 +1543,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 int acc_range[1] = {2};
                 memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
                 s->range = acc_range[0];
-                mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+                mMaxAccSampleRate  = NearBySamplingRate(samplingRate, mMaxAccSampleRate);
                 s->maxSamplingRate = mMaxAccSampleRate;
                 if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
                         mMinGyroBatchCount = MAX_BATCH_COUNT;
@@ -1545,7 +1556,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 int gyro_range[1] = {250};
                 memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
                 s->range = gyro_range[0];
-                mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+                mMaxGyroSampleRate = NearBySamplingRate(samplingRate, mMaxGyroSampleRate);
                 s->maxSamplingRate = mMaxGyroSampleRate;
                 if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
                         mMinGyroBatchCount = MAX_BATCH_COUNT;
@@ -1560,11 +1571,14 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
       //Check for SMI230 sensor
       case SENSOR_SMI230: {
         if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
-                float samplingRate[6] = {12, 25, 50, 100, 200, 400};
+                float samplingRate[6] = {12.5, 25, 50, 100, 200, 400};
                 int acc_range[4] = {2, 4, 8, 16};
+		char rangeFilePath[SEARCH_PATH_SIZE]={'\0'};
+		find_path(DYN_INPUT_TYPE, rangeFilePath, "SMI230ACC", sizeof(rangeFilePath));
+		strlcat(rangeFilePath, "range", sizeof(rangeFilePath));
+		sysfs_read_int(rangeFilePath, &s->range);
                 memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-                s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
-                mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+                mMaxAccSampleRate  = NearBySamplingRate(samplingRate, mMaxAccSampleRate);
                 s->maxSamplingRate = mMaxAccSampleRate;
                 if (mMinAccBatchCount >= MAX_BATCH_COUNT)
                         mMinAccBatchCount = MAX_BATCH_COUNT;
@@ -1575,11 +1589,14 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
         if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
                 float samplingRate[6] = {100, 200, 400};
                 int gyro_range[5] = {125, 250, 500, 1000, 2000};
+		char rangeFilePath[SEARCH_PATH_SIZE]={'\0'};
+		find_path(DYN_INPUT_TYPE, rangeFilePath, "SMI230GYRO", sizeof(rangeFilePath));
+		strlcat(rangeFilePath, "range", sizeof(rangeFilePath));
+		sysfs_read_int(rangeFilePath, &s->range);
                 memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-                s->range = (mGyroRange >= 0 && mGyroRange <= 4 ) ? gyro_range[mGyroRange] : gyro_range[4];
-                mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+                mMaxGyroSampleRate = NearBySamplingRate(samplingRate, mMaxGyroSampleRate);
                 s->maxSamplingRate = mMaxGyroSampleRate;
-                if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
                         mMinGyroBatchCount = MAX_BATCH_COUNT;
                 else if (mMinGyroBatchCount <= 0)
                         mMinGyroBatchCount = 1;
@@ -1596,7 +1613,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 		int acc_range[1] = {2};
 		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
 		s->range = acc_range[0];
-		mMaxAccSampleRate  = NearBySamplingRate(mMaxAccSampleRate, s);
+		mMaxAccSampleRate  = NearBySamplingRate(samplingRate, mMaxAccSampleRate);
 		s->maxSamplingRate = mMaxAccSampleRate;
 		s->minBatchCount   = 1;
         }
@@ -1605,7 +1622,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 		int gyro_range[1] = {250};
 		memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
 		s->range = gyro_range[0];
-		mMaxGyroSampleRate = NearBySamplingRate(mMaxGyroSampleRate, s);
+		mMaxGyroSampleRate = NearBySamplingRate(samplingRate, mMaxGyroSampleRate);
 		s->maxSamplingRate = mMaxGyroSampleRate;
 		s->minBatchCount   = 1;
         }
