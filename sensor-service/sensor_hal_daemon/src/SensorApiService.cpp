@@ -1719,6 +1719,28 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
     bool rc = false;
     SENSOR_LOGI(LOG_TAG "--< onPowerEvent %d", powerState);
     mPowerState = powerState;
+
+    if(mPowerState == POWER_STATE_SUSPEND || mPowerState == POWER_STATE_SHUTDOWN){
+        for(int i = 0 ; i < mSensorCount; i++)  {
+	    SENSOR_LOGI(LOG_TAG ">-- on Suspend/Shutdown Disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
+            sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Enable the sensor
+        }
+    }
+
+    if(mPowerState == POWER_STATE_RESUME){
+       for(int i = 0 ; i < mSensorCount; i++)  {
+	   if (mSensor[i].Activate == SENSOR_ENABLE){
+               int64_t SamplingRate = FREQUENCY_TO_NS(mSensor[i].SamplingRate);
+               int64_t BatchingRate =  mSensor[i].BatchCount *  SamplingRate  * mBatchConst;
+
+               SENSOR_LOGI(LOG_TAG ">-- on Resume Re-Configure sensor sensor_id %d sampling Rate %lld BatchingRate %lld\n",
+ 	     			    mSensor[i].sensor_id, SamplingRate, BatchingRate);
+               sensor_set_batch(mSensor[i].sensor_id, SamplingRate, BatchingRate); //configure the sensor
+               sensor_activate(mSensor[i].sensor_id, SENSOR_ENABLE); //Enable the sensor
+           }
+       }
+    }
+
     for (auto it = mClients.begin(); it != mClients.end();) {
         if (it->second != nullptr) {
             rc = it->second->onCapabilitiesCallback(mask);
