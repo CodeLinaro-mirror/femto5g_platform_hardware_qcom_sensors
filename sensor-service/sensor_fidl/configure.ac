@@ -1,11 +1,11 @@
-# configure.ac -- Autoconf script for sensor-socket
+# configure.ac -- Autoconf script for sensor-fidl
 #
 # Process this file with autoconf to produce a configure script
 
 # Requires autoconf tool later than 2.61
 AC_PREREQ(2.61)
-# Initialize the sensor_socket package version 1.0.0
-AC_INIT([sensor-socket],1.0.0)
+# Initialize the sensor-fidl package version 1.0.0
+AC_INIT([sensor-fidl],1.0.0)
 # Does not strictly follow GNU Coding standards
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 # Disables auto rebuilding of configure, Makefile.ins
@@ -29,19 +29,13 @@ AC_PROG_MAKE_SET
 PKG_PROG_PKG_CONFIG
 
 # Checks for libraries.
-AC_SUBST([CPPFLAGS])
+PKG_CHECK_MODULES([COMMONAPI], [CommonAPI])
+AC_SUBST([COMMONAPI_CFLAGS])
+AC_SUBST([COMMONAPI_LIBS])
 
-AC_ARG_WITH([qsocket],
-       AC_HELP_STRING([--with-qsocket], [kernel supports qsocket]))
-AM_CONDITIONAL(USE_QSOCKET, test "x${with_qsocket}" = "xyes")
-
-PKG_CHECK_MODULES([QMIFW], [qmi-framework])
-AC_SUBST([QMIFW_CFLAGS])
-AC_SUBST([QMIFW_LIBS])
-
-PKG_CHECK_MODULES([SENSORUTILLIB], [sensor-util-lib])
-AC_SUBST([SENSORUTILLIB_CFLAGS])
-AC_SUBST([SENSORUTILLIB_LIBS])
+PKG_CHECK_MODULES([COMMONAPI_SOMEIP], [CommonAPI-SomeIP])
+AC_SUBST([COMMONAPI_SOMEIP_CFLAGS])
+AC_SUBST([COMMONAPI_SOMEIP_LIBS])
 
 AC_ARG_WITH([core_includes],
       AC_HELP_STRING([--with-core-includes=@<:@dir@:>@],
@@ -73,7 +67,7 @@ AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
 
 AC_CONFIG_FILES([ \
         Makefile \
-        sensor-socket.pc
+        sensor-fidl.pc
         ])
 
 AC_OUTPUT
