@@ -48,7 +48,7 @@
 void sighandler(int signum) {
 	SENSOR_LOGI(LOG_TAG "Recived signum %d\n", signum);
 	SensorApiService::destroy();
-	exit(signum);
+	exit(0);
 }
 
 // this function will block until the directory specified in
