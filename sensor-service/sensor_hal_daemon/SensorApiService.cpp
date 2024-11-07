@@ -518,40 +518,25 @@ void* SensorApiService::send_sensor_data_to_clients(void *arg) {
      std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
 #ifdef POWERMANAGER_ENABLED
      if ((POWER_STATE_SUSPEND != mSensorService->mPowerState) &&
-        (POWER_STATE_SHUTDOWN != mSensorService->mPowerState)) {
-	     for (auto it = mSensorService->mClients.begin(); it != mSensorService->mClients.end();) {
-		    if (it->second && it->second->mTracking && (it->second->mAccTracking || it->second->mGyroTracking)) {
-			    rc = it->second->onSensorDataReadCb(events, count);
-			    // purge this client if failed
-			    if (!rc) {
-				    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
-				    it = mSensorService->deleteClientbyName(it->first.c_str());
-			    }
-			    else
-				    ++it;
-		    }
-		    else {
-			    ++it;
-		   }
-	    }
-    }
-#else
-     for (auto it = mSensorService->mClients.begin(); it != mSensorService->mClients.end();) {
-	     if (it->second && it->second->mTracking && (it->second->mAccTracking || it->second->mGyroTracking)) {
-		     rc = it->second->onSensorDataReadCb(events, count);
-		     // purge this client if failed
-		     if (!rc) {
-			     SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
-			     it = mSensorService->deleteClientbyName(it->first.c_str());
-		     }
-		     else
-			     ++it;
-	     }
-	     else {
-		     ++it;
-	     }
-     }
+        (POWER_STATE_SHUTDOWN != mSensorService->mPowerState))
 #endif
+    {
+        for (auto it = mSensorService->mClients.begin(); it != mSensorService->mClients.end();) {
+            if (it->second && it->second->mTracking && (it->second->mAccTracking || it->second->mGyroTracking)) {
+                rc = it->second->onSensorDataReadCb(events, count);
+                // purge this client if failed
+                if (!rc) {
+                    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+                    it = mSensorService->deleteClientbyName(it->first.c_str());
+                }
+                else
+                    ++it;
+            }
+            else {
+                ++it;
+            }
+        }
+    }
   }
 }
 
@@ -851,6 +836,7 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 	     pClient->mAccCount = 0;
 	     pClient->mAccMovingCount = 0;
 	     pClient->mAccTracking = false;
+         pClient->setFIRFilter(mSensor[i].SamplingRate, mSensor[i].SamplingRate / pClient->mAccFactor, true);
 	     //Allocate memory to store acc events based on requested batch count by client
 	     if (pClient->mAccEvents) {
 		     delete pClient->mAccEvents;
@@ -893,6 +879,8 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 	     pClient->mGyroCount = 0;
 	     pClient->mGyroMovingCount = 0;
 	     pClient->mGyroTracking = false;
+         pClient->setFIRFilter(mSensor[i].SamplingRate, mSensor[i].SamplingRate / pClient->mGyroFactor, false);
+
 	     //Allocate memory to store Gyro events based on requested batch count by client
 	     if (pClient->mGyroEvents) {
 		     delete pClient->mGyroEvents;

@@ -31,6 +31,9 @@
 
 #include <queue>
 #include <mutex>
+#include <string.h>
+#include <utility>
+#include <vector>
 
 #ifdef NO_UNORDERED_SET_OR_MAP
     #include <map>
@@ -38,6 +41,7 @@
     #include <unordered_map>
 #endif
 
+#include <tuple>
 #include <SensorIpc.h>
 #include <SensorApiMsg.h>
 #include <SensorHalDaemonIPCSender.h>
@@ -47,6 +51,7 @@
 
 using namespace sensor_util;
 
+
 // forward declaration
 class SensorApiService;
 
@@ -54,6 +59,70 @@ class SensorApiService;
 struct mlc_case_list {
 	char name[100];
 	int  enable;
+};
+
+
+/**
+ * class FIRFilter: Contains the coefficients array and member methods for FIR Filter
+ */
+class FIRFilter
+{
+    std::tuple<std::vector<float>, std::vector<float>, std::vector<float>> accel_state; 
+    std::tuple<std::vector<float>, std::vector<float>, std::vector<float>> gyro_state;
+    std::vector<float> fir_coef_acc;
+    std::vector<float> fir_coef_gyro;
+    int accel_ptr;
+    int gyro_ptr;
+    uint32_t order_acc;
+    uint32_t order_gyro;
+
+    int init_filter(uint32_t factor, bool is_accel);
+
+    /**
+     * set_filter: Sets the filter coefficients to the one provided by the user. 
+     */
+    int set_filter(const std::vector<float> &coef, bool is_accel);
+public:
+
+
+    FIRFilter(): order_acc(0), order_gyro(0),accel_ptr(0), gyro_ptr(0)
+    {}
+
+    /**
+     * init_filter_acc: Initilizes the FIR coeffients array and sets the default value to moving average for accel
+     * @param factor:  Downsampling factor for accel
+     * @return int: Returns 0 if success else returns -1
+     */
+    int init_filter_acc(uint32_t factor);
+
+    /**
+     * init_filter_gyro: Initilizes the FIR coeffients array and sets the default value to moving average for gyro
+     * @param factor:  Downsampling factor for gyro
+     * @return int: Returns 0 if success else returns -1
+     */
+    int init_filter_gyro(uint32_t factor);
+
+    /**
+     * set_filter_acc: Sets the filter coefficients to the one provided by the user for accel.
+     *                 Ensure size of coef is same as used to initilize.
+     */
+    int set_filter_acc(const std::vector<float> &coef);
+
+    /**
+     * set_filter_gyro: Sets the filter coefficients to the one provided by the user for gyro.
+     *                 Ensure size of coef is same as used to initilize.
+     */
+    int set_filter_gyro(const std::vector<float> &coef);
+
+    /**
+     * convl: Generates new sample by convolving the sample with the coefficient array and returns the new sample (x,y,z)
+     */
+    std::tuple<float,float,float> convl(std::tuple<float,float,float> sample, bool is_accel);
+
+    /**
+     * print_coefficients: Prints the filter coefficients, with output prepended with "prefix"
+     */
+    static void print_coefficients(const FIRFilter &filter, const char *prefix, bool is_accel);
 };
 
 /******************************************************************************
@@ -89,7 +158,9 @@ public:
 	    mGyroMovingCount(0),
 	    mAccBatchCount(0),
 	    mGyroBatchCount(0),
-	    mBufferRead(-1)
+	    mBufferRead(-1),
+        fir_enabled_acc(false),
+        fir_enabled_gyro(false)
     {
 	    SENSOR_LOGI(LOG_TAG "new SensorHalDaemonClientHandler \n");
 	    mIpcSender = new SensorHalDaemonIPCSender(mName.c_str());
@@ -176,6 +247,13 @@ public:
 
     // name of this client
     const std::string mName;
+
+    //Filter coeffcients
+    FIRFilter filter;
+    bool fir_enabled_acc;
+    bool fir_enabled_gyro;
+
+    int setFIRFilter(float sensor_rate, float client_rate, bool is_accel);
 
     //Queue used to send response message
     std::queue<ESensorMsgID> mPendingMessages;

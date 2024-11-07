@@ -27,9 +27,170 @@
  */
 
 #include <cinttypes>
+#include <numeric>
 #include <SensorApiMsg.h>
 #include <SensorHalDaemonClientHandler.h>
 #include <SensorApiService.h>
+
+
+int FIRFilter::init_filter(uint32_t factor, bool is_accel)
+{
+   std::vector<float> &fir_coef = is_accel ? fir_coef_acc : fir_coef_gyro;
+   auto &state = is_accel ? accel_state : gyro_state;
+   uint32_t &order = is_accel ? order_acc : order_gyro;
+   int &ptr = is_accel ? accel_ptr : gyro_ptr;
+   if(factor == 0)
+   {
+      return -1;
+   }
+   if(order != 0)
+   {
+      fir_coef.clear();
+      std::get<0>(state).clear();
+      std::get<1>(state).clear();
+      std::get<2>(state).clear();
+   }
+   order = factor;
+   fir_coef.reserve(order);
+   std::get<0>(state).reserve(2*order);
+   std::get<1>(state).reserve(2*order);
+   std::get<2>(state).reserve(2*order);
+   ptr = 0;
+   fir_coef.assign(order, 0.0f);
+   std::get<0>(state).assign(2*order, 0.0f);
+   std::get<1>(state).assign(2*order, 0.0f);
+   std::get<2>(state).assign(2*order, 0.0f);
+   return 0;
+}
+
+int FIRFilter::init_filter_acc(uint32_t factor)
+{
+   return init_filter(factor, true);
+}
+
+int FIRFilter::init_filter_gyro(uint32_t factor)
+{
+   return init_filter(factor, false);
+}
+
+int FIRFilter::set_filter(const std::vector<float> &coef, bool is_accel)
+{
+   std::vector<float> &fir_coef = is_accel ? fir_coef_acc : fir_coef_gyro;
+   auto &state = is_accel ? accel_state : gyro_state;
+   uint32_t &order = is_accel ? order_acc : order_gyro;
+   int &ptr = is_accel ? accel_ptr : gyro_ptr;
+
+   if(coef.size() != order)
+   {
+      return -1;
+   }
+   fir_coef = coef;
+   return 0;
+}
+
+
+int FIRFilter::set_filter_acc(const std::vector<float> &coef)
+{
+   return set_filter(coef, true);
+}
+
+int FIRFilter::set_filter_gyro(const std::vector<float> &coef)
+{
+   return set_filter(coef, false);
+}
+
+
+//Ref: https://ccrma.stanford.edu/~jatin/Notebooks/FIRBenchmarks.html
+std::tuple<float,float,float> FIRFilter::convl(std::tuple<float,float,float> sample, bool is_accel)
+{
+   std::tuple<float,float,float> new_sample = sample;
+   std::vector<float> &fir_coef = is_accel ? fir_coef_acc : fir_coef_gyro;
+   auto &state = is_accel ? accel_state : gyro_state;
+   uint32_t &order = is_accel ? order_acc : order_gyro;
+   int &ptr = is_accel ? accel_ptr : gyro_ptr;
+
+   if(order > 0)
+   {
+      std::get<0>(state)[ptr] = std::get<0>(sample);
+      std::get<1>(state)[ptr] = std::get<1>(sample);
+      std::get<2>(state)[ptr] = std::get<2>(sample);
+      std::get<0>(state)[ptr + order] = std::get<0>(sample);
+      std::get<1>(state)[ptr + order] = std::get<1>(sample);
+      std::get<2>(state)[ptr + order] = std::get<2>(sample);
+
+      std::get<0>(new_sample) = std::inner_product(std::get<0>(state).begin() + ptr, 
+                                 std::get<0>(state).begin() + ptr + order, fir_coef.begin(), 0.0f);
+      std::get<1>(new_sample) = std::inner_product(std::get<1>(state).begin() + ptr, 
+                                 std::get<1>(state).begin() + ptr + order, fir_coef.begin(), 0.0f);
+      std::get<2>(new_sample) = std::inner_product(std::get<2>(state).begin() + ptr, 
+                                 std::get<2>(state).begin() + ptr + order, fir_coef.begin(), 0.0f);
+      ptr = (ptr == 0 ? order - 1 : ptr - 1);
+   }
+   return new_sample;
+}
+
+static void FIRFilter::print_coefficients(const FIRFilter &filter, const char *prefix, bool is_accel)
+{
+   std::vector<float> fir_coef = is_accel ? filter.fir_coef_acc : filter.fir_coef_gyro;
+   if(fir_coef.size() == 0)
+   {
+      return;
+   }
+   char val_str[1024];
+   val_str[0] = '[';
+   val_str[1] = '\0';
+   for(int i=0; i<fir_coef.size(); i++)
+   {
+      snprintf(val_str + strlen(val_str), 1024 - strlen(val_str), "%.2f,", fir_coef[i]);
+   }
+   if(strlen(val_str) < 1023)
+   {
+      val_str[strlen(val_str)-1] = ']';
+      val_str[strlen(val_str)] = '\0';
+   }
+   SENSOR_LOGI(LOG_TAG "FIR Coef %s = %s\n",prefix,val_str);
+}
+
+int SensorHalDaemonClientHandler::setFIRFilter(float sensor_rate, float client_rate, bool is_accel)
+{
+   int ret = 0;
+   std::vector<float> coef;
+   char conf_suffix[64];
+
+   is_accel ? fir_enabled_acc = false : fir_enabled_gyro = false;
+
+   //Check if custom coefficient values is defined in sensors.conf
+   if(is_accel)
+   {
+      snprintf(conf_suffix, 64, "ACC_%0.0f_%0.0f", sensor_rate, client_rate);
+   }
+   else
+   {
+      snprintf(conf_suffix, 64, "GYRO_%0.0f_%0.0f", sensor_rate, client_rate);
+   }
+   ret = GetFIRCoefficient(coef, conf_suffix);
+   if(coef.size() > 0)
+   {
+      ret = is_accel ? ((filter.init_filter_acc(coef.size())==0) && filter.set_filter_acc(coef)) 
+                     : ((filter.init_filter_gyro(coef.size())==0) && filter.set_filter_gyro(coef));
+      if(ret == 0)
+      {
+         SENSOR_LOGI(LOG_TAG "FIR coeffcient set for %0.0f to %0.0f (%s)", sensor_rate, client_rate, is_accel? "ACC" : "GYRO");
+         is_accel ? fir_enabled_acc = true : fir_enabled_gyro = true;
+      }
+      else
+      {
+         SENSOR_LOGE(LOG_TAG "FIR set_filter failed for %0.0f to %0.0f (%s)", sensor_rate, client_rate, is_accel? "ACC" : "GYRO");
+      }
+   }
+   else
+   {
+      SENSOR_LOGI(LOG_TAG "FIR coeffcient set to moving average for %0.0f to %0.0f (%s)", sensor_rate, client_rate, is_accel? "ACC" : "GYRO");
+   }
+
+   FIRFilter::print_coefficients(filter, conf_suffix, is_accel);
+   return 0;
+}
 
 /************************************************************************************
 SensorHalDaemonClientHandler - cleanup called by SensorAPIService on delete of client
@@ -206,6 +367,7 @@ bool SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
   // please do not attempt to hold the lock, as the caller of this function
   // already holds the lock
   bool rc = true;
+  std::tuple<float,float,float> new_fir_sample;
 
    SENSOR_LOGV(LOG_TAG "--< onSensorDataReadCb\n");
    if (nullptr != mIpcSender) {
@@ -214,14 +376,31 @@ bool SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
 	 case SENSOR_TYPE_ACCELEROMETER:
 	 case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
 	    if (mAccTracking == true && mAccEvents) {
-		 mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib += e[i].acceleration.x;
-		 mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib += e[i].acceleration.y;
-		 mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib += e[i].acceleration.z;
+         if(fir_enabled_acc)
+         {
+            new_fir_sample = filter.convl(std::tuple<float,float,float>(e[i].acceleration.x, e[i].acceleration.y, e[i].acceleration.z), true);
+         }
+         else
+         {
+            //fallback to moving average
+            mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib += e[i].acceleration.x;
+            mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib += e[i].acceleration.y;
+            mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib += e[i].acceleration.z;
+         }
 		 mAccMovingCount++;
 		 if(mAccMovingCount >= mAccFactor) {
-		     mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib /= mAccMovingCount;
-		     mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib /= mAccMovingCount;
-		     mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib /= mAccMovingCount;
+            if(fir_enabled_acc)
+            {
+               mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib = std::get<0>(new_fir_sample);
+               mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib = std::get<1>(new_fir_sample);
+               mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib = std::get<2>(new_fir_sample);
+            }
+            else
+            {
+               mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib /= mAccMovingCount;
+               mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib /= mAccMovingCount;
+               mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib /= mAccMovingCount;
+            }
 		     mAccEvents[mAccCount].timestamp = e[i].timestamp;
 		     mAccEvents[mAccCount].sensor    = e[i].sensor;
 		     mAccEvents[mAccCount++].type    = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
@@ -236,14 +415,31 @@ bool SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
 	 case SENSOR_TYPE_GYROSCOPE:
 	 case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
 	    if (mGyroTracking == true && mGyroEvents) {
-		 mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib += e[i].gyro.x;
-		 mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib += e[i].gyro.y;
-		 mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib += e[i].gyro.z;
+         if(fir_enabled_gyro)
+         {
+            new_fir_sample = filter.convl(std::tuple<float,float,float>(e[i].gyro.x, e[i].gyro.y, e[i].gyro.z), false);
+         }
+         else
+         {
+            //fallback to moving average
+            mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib += e[i].gyro.x;
+            mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib += e[i].gyro.y;
+            mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib += e[i].gyro.z;
+         }
 		 mGyroMovingCount++;
 		 if (mGyroMovingCount >= mGyroFactor) {
-		      mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib /= mGyroMovingCount;
-		      mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib /= mGyroMovingCount;
-		      mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib /= mGyroMovingCount;
+            if(fir_enabled_gyro)
+            {
+               mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib = std::get<0>(new_fir_sample);
+               mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib = std::get<1>(new_fir_sample);
+               mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib = std::get<2>(new_fir_sample);
+            }
+            else
+            {
+               mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib /= mGyroMovingCount;
+               mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib /= mGyroMovingCount;
+               mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib /= mGyroMovingCount;
+            }
 		      mGyroEvents[mGyroCount].timestamp = e[i].timestamp;
 		      mGyroEvents[mGyroCount].sensor    = e[i].sensor;
 		      mGyroEvents[mGyroCount++].type    = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
