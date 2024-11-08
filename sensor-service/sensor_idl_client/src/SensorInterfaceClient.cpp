@@ -130,6 +130,7 @@ void regSigHandler()
    mySigAction.sa_handler = signalHandler;
    sigemptyset(&mySigAction.sa_mask);
    sigaction(SIGHUP, &mySigAction, NULL);
+   sigaction(SIGKILL, &mySigAction, NULL);
    sigaction(SIGTERM, &mySigAction, NULL);
    sigaction(SIGINT, &mySigAction, NULL);
    sigaction(SIGPIPE, &mySigAction, NULL);
@@ -275,6 +276,27 @@ int main() {
     int batch_count = 0, j = 0, i = 0, Enable = 0;
     info.sender_ = 1234;
 
+    const char* envVarName = "COMMONAPI_CONFIG"; // Specify the environment variable name
+    const char* envVarValue = std::getenv(envVarName); // Get the value
+    const char* envVarNameSomeIP = "VSOMEIP_CONFIGURATION"; // Specify the environment variable name
+    const char* envVarValueSomeIP = std::getenv(envVarNameSomeIP); // Get the value
+    const char* envCommonApi = "/usr/etc/vsomeip/SensorInterface/commonapi4someip.ini";
+    const char* envSomeIP = "/usr/etc/vsomeip/SensorInterface/vsomeip-sensor_service.json";
+
+    if(envVarValue != nullptr && envVarValueSomeIP != nullptr){
+	    if(strcmp(envVarValue, envCommonApi) == 0 && strcmp(envVarValueSomeIP, envSomeIP) == 0){
+		    cout << "Environment variables are set properly" << endl;
+	    }
+	    else {
+		    cout << "Environment variables are not set properly" << endl;
+		    exit(EXIT_FAILURE);
+	    }
+			        }
+    else {
+	    cout << "Environment variables are not set properly" << endl;
+	    exit(EXIT_FAILURE);
+    }
+
     // check if this process started by root
     if (0 == getuid()) { 
         // started as root.
@@ -327,8 +349,8 @@ int main() {
 	if(SHD_RESTARTED) {
 	myProxy->RegisterSensorClientReq(callStatus, resp, &info);
 	for (int i=0; i < sensor_count; i++) {
-	 cout << "Reconfiguring Enabled Sensors" << endl;
 	 if (mSensorTrackingOption[i].state == SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE) {
+	   cout << "Reconfiguring Enabled Sensorsi ID: " << mSensorTrackingOption[i].sensor_id << endl;
 	   myProxy->SensorConfigReq(mSensorTrackingOption[i].sensor_id, mSensorTrackingOption[i].sampling_rate,
 			mSensorTrackingOption[i].batch_count, callStatus, resp, &info);
 	   myProxy->SensorControlReq(mSensorTrackingOption[i].sensor_id, mSensorTrackingOption[i].state, callStatus, resp, &info);
