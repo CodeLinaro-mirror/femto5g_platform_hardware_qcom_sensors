@@ -100,6 +100,8 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mSesnorMlcCaseList(nullptr),
     mSensorClient(0),
     mSensor(nullptr),
+    mIpcReceiver(nullptr),
+    mQsockReceiver(nullptr),
     mSensorType(configParamRead.SensorType),
     mDynamicConfigEnabled(configParamRead.DynamicConfigEnabled),
     mMaxAccSampleRate(configParamRead.MaxAccSampleRate),
