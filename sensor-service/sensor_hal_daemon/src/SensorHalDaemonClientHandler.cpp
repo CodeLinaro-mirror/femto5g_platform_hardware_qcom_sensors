@@ -111,7 +111,7 @@ bool SensorHalDaemonClientHandler::onCapabilitiesCallback(SensorCapabilitiesMask
 #ifdef SENSOR_IVSS_ENABLED
    if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
      mService->myService->onCapabilitiesCallback(mask);
-     return;
+     return true;
    }
 #endif
    if (nullptr != mIpcSender) {
