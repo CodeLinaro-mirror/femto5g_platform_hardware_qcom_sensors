@@ -1610,22 +1610,40 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                         mMinAccBatchCount = MAX_BATCH_COUNT;
                 else if (mMinAccBatchCount <= 0)
                         mMinAccBatchCount = 1;
+                /*  Adjusting batch rate to reduce the irq frquency when sensor operating at
+                    higher sampling rate
+                */
+                if (mMaxGyroSampleRate == 100 && mMinGyroBatchCount < 2)
+                    mMinGyroBatchCount = 2;
+                else if (mMaxAccSampleRate == 200 && mMinAccBatchCount < 4)
+                    mMinAccBatchCount = 4;
+                else if (mMaxAccSampleRate == 400 && mMinAccBatchCount < 8)
+                    mMinAccBatchCount = 8;
                 s->minBatchCount   = mMinAccBatchCount;
 	}
         if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
                 float samplingRate[6] = {100, 200, 400};
                 int gyro_range[5] = {125, 250, 500, 1000, 2000};
-		char rangeFilePath[SEARCH_PATH_SIZE]={'\0'};
-		find_path(DYN_INPUT_TYPE, rangeFilePath, "SMI230GYRO", sizeof(rangeFilePath));
-		strlcat(rangeFilePath, "range", sizeof(rangeFilePath));
-		sysfs_read_int(rangeFilePath, &s->range);
+                char rangeFilePath[SEARCH_PATH_SIZE]={'\0'};
+                find_path(DYN_INPUT_TYPE, rangeFilePath, "SMI230GYRO", sizeof(rangeFilePath));
+                strlcat(rangeFilePath, "range", sizeof(rangeFilePath));
+                sysfs_read_int(rangeFilePath, &s->range);
                 memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
                 mMaxGyroSampleRate = NearBySamplingRate(samplingRate, mMaxGyroSampleRate);
                 s->maxSamplingRate = mMaxGyroSampleRate;
-		if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
+		        if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
                         mMinGyroBatchCount = MAX_BATCH_COUNT;
                 else if (mMinGyroBatchCount <= 0)
                         mMinGyroBatchCount = 1;
+                /*  Adjusting batch rate to reduce the irq frquency when sensor operating at
+                    higher sampling rate
+                */
+                if (mMaxGyroSampleRate == 100 && mMinGyroBatchCount < 2)
+                    mMinGyroBatchCount = 2;
+                else if (mMaxGyroSampleRate == 200 && mMinGyroBatchCount < 4)
+                    mMinGyroBatchCount = 4;
+                else if (mMaxGyroSampleRate == 400 && mMinGyroBatchCount < 8)
+                    mMinGyroBatchCount = 8;
                 s->minBatchCount   = mMinGyroBatchCount;
         }
         mBatchConst =  1;
