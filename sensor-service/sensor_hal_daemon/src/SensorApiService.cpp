@@ -1770,6 +1770,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 			mMinAccBatchCount = MAX_BATCH_COUNT;
 		else if (mMinAccBatchCount <= 0)
 			mMinAccBatchCount = 1;
+
 		s->minBatchCount   = mMinAccBatchCount;
         }
 	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
@@ -1889,6 +1890,15 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                         mMinAccBatchCount = MAX_BATCH_COUNT;
                 else if (mMinAccBatchCount <= 0)
                         mMinAccBatchCount = 1;
+		/*  Adjusting batch rate to reduce the irq frquency when sensor operating at
+		    higher sampling rate
+		*/
+		if (mMaxGyroSampleRate == 100 && mMinGyroBatchCount < 2)
+			mMinGyroBatchCount = 2;
+		else if (mMaxAccSampleRate == 200 && mMinAccBatchCount < 4)
+			mMinAccBatchCount = 4;
+		else if (mMaxAccSampleRate == 400 && mMinAccBatchCount < 8)
+			mMinAccBatchCount = 8;
                 s->minBatchCount   = mMinAccBatchCount;
 	}
         if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
@@ -1905,6 +1915,15 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                         mMinGyroBatchCount = MAX_BATCH_COUNT;
                 else if (mMinGyroBatchCount <= 0)
                         mMinGyroBatchCount = 1;
+		/*  Adjusting batch rate to reduce the irq frquency when sensor operating at
+		    higher sampling rate
+		*/
+		if (mMaxGyroSampleRate == 100 && mMinGyroBatchCount < 2)
+			mMinGyroBatchCount = 2;
+		else if (mMaxGyroSampleRate == 200 && mMinGyroBatchCount < 4)
+			mMinGyroBatchCount = 4;
+		else if (mMaxGyroSampleRate == 400 && mMinGyroBatchCount < 8)
+			mMinGyroBatchCount = 8;
                 s->minBatchCount   = mMinGyroBatchCount;
         }
         mBatchConst =  1;
