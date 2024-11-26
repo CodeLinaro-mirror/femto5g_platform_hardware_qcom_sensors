@@ -25,6 +25,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #ifndef __SENSOR_LOG__
 #define __SENSOR_LOG__
@@ -63,5 +66,12 @@ extern int DEBUG_LEVEL;
 void SetSensorDebugLevel(int debug_level);
 
 int SensorReadDebugLevel();
+
+/**
+ * CheckDiagEnabled : Checks if diag for a client is enabled
+ * @param client_name: Client name to check if diag is enabled
+ * @return Returns 1 if the diag is enabled for the client, else returns 0.
+ */
+int CheckDiagEnabled(const char *client_name);
 
 #endif //__SENSOR_LOG__

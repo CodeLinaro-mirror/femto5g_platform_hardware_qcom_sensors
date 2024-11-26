@@ -127,6 +127,17 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 {
     SENSOR_LOGI(LOG_TAG "SensorApiService constructor is called\n");
 
+    //Enable Diag if enabled
+    if(CheckDiagEnabled(DIAG_CLIENT_SHD))
+    {
+        SENSOR_LOGI(LOG_TAG "diag is enabled\n");
+        mDiagLogger.EnableDiag();
+    }
+    else
+    {
+        SENSOR_LOGI(LOG_TAG "diag is disabled\n");
+    }
+
     //Check Sensor Availability
     if(!open_sensor(configParamRead)) {
 	SENSOR_LOGE(LOG_TAG "no sensor supported \n");
@@ -248,6 +259,8 @@ SensorApiService::~SensorApiService() {
         delete mSesnorMlcCaseList;
         mSesnorMlcCaseList = nullptr;
     }
+
+    mDiagLogger.DisableDiag();
 
     SENSOR_LOGI(LOG_TAG "SensorApiService destructor has executed\n");
 }
@@ -559,45 +572,51 @@ void* SensorApiService::send_sensor_data_to_clients(void *arg) {
   while(1)
   {
      count = mSensorService->mpoll_dev->poll(mSensorService->mpoll_dev_v0,
-		     events, sizeof(events)/sizeof(sensors_event_t));
+            events, sizeof(events)/sizeof(sensors_event_t));
      SENSOR_LOGV(LOG_TAG "read events = %d\n",count);
      std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+
 #ifdef POWERMANAGER_ENABLED
      if ((POWER_STATE_SUSPEND != mSensorService->mPowerState) &&
-        (POWER_STATE_SHUTDOWN != mSensorService->mPowerState)) {
-	     for (auto it = mSensorService->mClients.begin(); it != mSensorService->mClients.end();) {
-		    if (it->second && it->second->mTracking && (it->second->mAccTracking || it->second->mGyroTracking)) {
-			    rc = it->second->onSensorDataReadCb(events, count);
-			    // purge this client if failed
-			    if (!rc) {
-				    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
-				    it = mSensorService->deleteClientbyName(it->first.c_str());
-			    }
-			    else
-				    ++it;
-		    }
-		    else {
-			    ++it;
-		   }
-	    }
-    }
-#else
-     for (auto it = mSensorService->mClients.begin(); it != mSensorService->mClients.end();) {
-	     if (it->second && it->second->mTracking && (it->second->mAccTracking || it->second->mGyroTracking)) {
-		     rc = it->second->onSensorDataReadCb(events, count);
-		     // purge this client if failed
-		     if (!rc) {
-			     SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
-			     it = mSensorService->deleteClientbyName(it->first.c_str());
-		     }
-		     else
-			     ++it;
-	     }
-	     else {
-		     ++it;
-	     }
-     }
+        (POWER_STATE_SHUTDOWN != mSensorService->mPowerState)) 
 #endif
+    {
+        for (auto it = mSensorService->mClients.begin(); it != mSensorService->mClients.end();) {
+            if (it->second && it->second->mTracking && (it->second->mAccTracking || it->second->mGyroTracking)) {
+                rc = it->second->onSensorDataReadCb(events, count);
+                // purge this client if failed
+                if (!rc) {
+                    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+                    it = mSensorService->deleteClientbyName(it->first.c_str());
+                }
+                else
+                    ++it;
+            }
+            else {
+                ++it;
+            }
+        }
+
+        if(mSensorService->mDiagLogger.IsEnabled())
+        {
+            uint64_t accCountLocal = 0;
+            uint64_t gyroCountLocal = 0;
+            for(uint64_t i=0; i<count; i++)
+            {
+                switch(events[i].type)
+                {
+                    case SENSOR_TYPE_ACCELEROMETER:
+                    case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
+                        mSensorService->mDiagLogger.SendSensorLiveAccelEvent(&events[i], ++accCountLocal);
+                        break;
+                    case SENSOR_TYPE_GYROSCOPE:
+                    case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
+                        mSensorService->mDiagLogger.SendSensorLiveGyroEvent(&events[i], ++gyroCountLocal);
+                        break;
+                }
+            }
+        }
+    }
   }
 }
 

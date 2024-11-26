@@ -2,6 +2,7 @@ AM_CFLAGS = \
     -DDEBUG \
     -I inc/ \
     -I src/ \
+     $(SENSORS_CFLAGS)\
     -std=c++11\
     -fno-permissive
 
@@ -11,12 +12,14 @@ AM_CPPFLAGS = -std=c++11
 h_sources = \
 	    SensorThread.h \
 	    SensorLog.h \
-	    SensorUtils.h
+	    SensorUtils.h \
+        SensorDiagLog.h
 
 c_sources = \
 	    SensorThread.cpp \
 	    SensorLog.cpp \
-	    SensorUtils.cpp
+	    SensorUtils.cpp \
+        SensorDiagLog.cpp
 
 libsensor_util_lib_la_SOURCES = \
     $(c_sources) $(h_sources)
@@ -37,7 +40,7 @@ libsensor_util_lib_la_LDFLAGS = -lstdc++ -Wl,-z,defs -lpthread -shared -version-
 libsensor_util_lib_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
 
-libsensor_util_lib_la_LIBADD = $(requiredlibs) -lstdc++ -ldl -llog -lm
+libsensor_util_lib_la_LIBADD = $(requiredlibs) -lstdc++ -ldl -llog -lm -ldiag
 
 #Create and Install libraries
 library_include_HEADERS = $(h_sources)

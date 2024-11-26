@@ -315,6 +315,7 @@ bool SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
      }
     }
    }
+
    return rc;
 }
 
