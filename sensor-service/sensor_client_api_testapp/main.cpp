@@ -221,6 +221,15 @@ static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
 	case DEVICE_SHUTDOWN:
 		SENSOR_LOGI(LOG_TAG "Device is about go to shutdown\n");
 		break;
+	case ACCEL_SELFTEST_FAIL:
+		SENSOR_LOGI(LOG_TAG "Accel self-test fail\n");
+                break;
+	case GYRO_SELFTEST_FAIL:
+		SENSOR_LOGI(LOG_TAG "Gyro self-test fail\n");
+                break;
+	case ACCEL_GYRO_BOTH_SELFTEST_FAIL:
+		SENSOR_LOGI(LOG_TAG "Accel and Gyro self-test both failed\n");
+                break;
 	defult:
 		SENSOR_LOGI(LOG_TAG "Unknown mask\n");
 		break;
@@ -286,12 +295,12 @@ static void onSensorTempReadCb(float tempreature)
    SENSOR_LOGI(LOG_TAG "tempreature %f \n",tempreature);
 }
 
-static void onSelfTestResultCallback(int sensor_id, int request_id, SelfTestResult result)
+static void onSelfTestResultCallback(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp)
 {
    end_time = getTimestamp();
    selftest_time = (end_time - start_time);
    SENSOR_LOGI(LOG_TAG "\nselftest time taken = %lldms\n", selftest_time/1000000);
-   SENSOR_LOGI(LOG_TAG "self_test- sensor_id %d request_id %d result %d\n",sensor_id, request_id, result);
+   SENSOR_LOGI(LOG_TAG "self_test- sensor_id %d request_id %d result %d resultType %d timestamp %lld\n",sensor_id, request_id, result, resultType, timestamp);
 }
 
 static void printHelp() {
@@ -562,11 +571,12 @@ int main(int argc, char *argv[]) {
         if (pClient) {
 		SENSOR_LOGI(LOG_TAG "sensor self test\n");
 		for(int i=0; i < sensor_count; i++) {
-			SENSOR_LOGI(LOG_TAG " 0:Positive\n 1:Neagative\nEnter value:");
+			SENSOR_LOGI(LOG_TAG "\n 0:Positive\n 1:Neagative\n 2:All\n Enter value:");
 			memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
 			fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
 			selfTestType=(SelfTestType)strtol(enable,&stopstring,10);
 			start_time = getTimestamp();
+			SENSOR_LOGI(LOG_TAG "sensor[i].sensor_id %d\n", sensor[i].sensor_id);
 			ret = pClient->sensor_self_test(sensor[i].sensor_id, selfTestType, request_id++, onSelfTestResultCallback);
 			if(ret < 0) {
 				SENSOR_LOGE(LOG_TAG "sensor self test request failed ret %d \n", ret);

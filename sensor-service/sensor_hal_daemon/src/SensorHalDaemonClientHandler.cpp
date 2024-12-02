@@ -520,13 +520,13 @@ bool SensorHalDaemonClientHandler::onSensorBufferDataReadCb(sensors_event_t *eve
 SensorHalDaemonClientHandler - onSensorSelfTestResultCb to nofiy client with self test result
 along with sensor id.
 **************************************************************************************/
-void SensorHalDaemonClientHandler::onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result) {
+void SensorHalDaemonClientHandler::onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp) {
    // please do not attempt to hold the lock, as the caller of this function
    // already holds the lock
    SENSOR_LOGI(LOG_TAG "--< onSensorSelfTestResultCb\n");
 
    if (nullptr != mIpcSender) {
-           SensorAPISelfTestIndMsg msg (SERVICE_NAME, sensor_id, request_id, result);
+           SensorAPISelfTestIndMsg msg (SERVICE_NAME, sensor_id, request_id, result, resultType, timestamp);
            bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
                            sizeof(msg));
            // purge this client if failed

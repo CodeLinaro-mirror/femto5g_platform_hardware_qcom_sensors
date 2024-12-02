@@ -160,7 +160,7 @@ public:
     bool onSensorBufferDataReadCb(sensors_event_t *events, int count);
     void onSensorTempCb(float temperature);
     bool onCapabilitiesCallback(SensorCapabilitiesMask mask);
-    void onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result);
+    void onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp);
 
     //MLC public APIs
     void onSensorMlcCaseListCb(struct sensor_mlc_case_list *s, int count);
