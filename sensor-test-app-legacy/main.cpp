@@ -216,10 +216,17 @@ static void deactivate_sensors() {
 static int sensors_initialize(const char *lib_path) {
    int err = 0;
    void *handle = NULL;
+
+   if(!lib_path)
+   {
+	   SENSOR_LOGE(LOG_TAG "Library Path not provided\n");
+	   return -1;
+   }
    handle = dlopen(lib_path, RTLD_NOW);
    if (!handle)
    {
-	   SENSOR_LOGE(LOG_TAG "Unable to load senor HAL lib %s: %s\n", lib_path, dlerror());
+	   char *error = dlerror();
+	   if(error) SENSOR_LOGE(LOG_TAG "Unable to load senor HAL lib %s: %s\n", lib_path, error);
 	   return -1;
    }
 

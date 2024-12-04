@@ -62,7 +62,7 @@ uint64_t SensorInterfaceStubImpl::getGptpTimeFromBootTime(uint64_t boot_time_ns)
 	   SENSOR_LOGI(LOG_IVSS_TAG "GPTP init success \n");
 	   mService->GptpInitialized = true;
    }
-   gptpGetPtpTimeFromMonoTime(&gptpTimestamp, boot_time_ns);
+   (void)gptpGetPtpTimeFromMonoTime(&gptpTimestamp, boot_time_ns);
    return gptpTimestamp;
 }
 
@@ -118,7 +118,7 @@ vector<SensorInterfaceTypes::SensorImuEventT> SensorInterfaceStubImpl::parseSens
   SensorInterfaceTypes::SensorImuEventT idlSensorImuEventTs = {};
   for (i=0 ;i <count; i++){
 	  //dump_sensor_event(&e[i]);
-	  memset(&idlSensorImuEventTs, 0, sizeof(idlSensorImuEventTs));
+	  (void)memset(&idlSensorImuEventTs, 0, sizeof(idlSensorImuEventTs));
 	  gptpTimestamp = getGptpTimeFromBootTime(e[i].timestamp);
 	  idlSensorImuEventTs.setSensorId(e[i].sensor);
 	  idlSensorImuEventTs.setType(e[i].type);
@@ -143,7 +143,7 @@ vector<SensorInterfaceTypes::SensorInfoT> SensorInterfaceStubImpl::parseSensorIn
   vector<SensorInterfaceTypes::SensorInfoT> idlSensorInfoTData;
   SensorInterfaceTypes::SensorInfoT idlSensorInfoT = {};
   for (i=0 ;i < sensor_count; i++){
-	  memset(&idlSensorInfoT, 0, sizeof(idlSensorInfoT));
+	  (void)memset(&idlSensorInfoT, 0, sizeof(idlSensorInfoT));
 	  idlSensorInfoT.setName(s[i].name);
 	  idlSensorInfoT.setVendor(s[i].vendor);
 	  idlSensorInfoT.setSensorVersion(s[i].version);
@@ -158,7 +158,7 @@ vector<SensorInterfaceTypes::SensorInfoT> SensorInterfaceStubImpl::parseSensorIn
 	  idlSensorInfoTData.push_back(idlSensorInfoT);
   }
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
-	  memset(&idlSensorInfoT, 0, sizeof(idlSensorInfoT));
+	  (void)memset(&idlSensorInfoT, 0, sizeof(idlSensorInfoT));
 	  idlSensorInfoT.setName("Heading");
 	  idlSensorInfoT.setVendor("Qcom");
 	  idlSensorInfoT.setSensorVersion(1);
@@ -188,7 +188,7 @@ void SensorInterfaceStubImpl::onSensorHeadingDataReadCb(float heading, float acc
    vector<SensorInterfaceTypes::SensorHeadEventT > idlSensorHeadEventTsData;
    SensorInterfaceTypes::SensorHeadEventT idlSensorHeadEventTs = {};
    if(mHeadTracking) {
-    memset(&idlSensorHeadEventTs, 0, sizeof(idlSensorHeadEventTs));
+    (void)memset(&idlSensorHeadEventTs, 0, sizeof(idlSensorHeadEventTs));
     gptpTimestamp = getGptpTimeFromBootTime(ts);
     idlSensorHeadEventTs.setSensorId(SENSOR_ID_HEADING);
     idlSensorHeadEventTs.setType(SENSOR_TYPE_HEADING);
@@ -208,7 +208,7 @@ void SensorInterfaceStubImpl::onSensorDataReadCb(sensors_event_t *events, int co
 }
 
 // This is the method that will be called on remote calls on the method RegisterSensorClientReq.
-void SensorInterfaceStubImpl::RegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> _client, RegisterSensorClientReqReply_t _reply)
+void SensorInterfaceStubImpl::RegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> client, RegisterSensorClientReqReply_t reply)
 {
     lock_guard<mutex> lock(mIdlMutex);
     int resp = 0;
@@ -223,11 +223,11 @@ void SensorInterfaceStubImpl::RegisterSensorClientReq(const shared_ptr<CommonAPI
     resp += mService->startTracking(&Trackmsg);
 
     SensorInterfaceTypes::SensorReturnT response = parseSensorReturnT(resp);
-    _reply(response);
+    reply(response);
 }
 
 // This is the method that will be called on remote calls on the method DeRegisterSensorClientReq.
-void SensorInterfaceStubImpl::DeRegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> _client, DeRegisterSensorClientReqReply_t _reply)
+void SensorInterfaceStubImpl::DeRegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> client, DeRegisterSensorClientReqReply_t reply)
 {
     lock_guard<mutex> lock(mIdlMutex);
     int resp = 0;
@@ -248,11 +248,11 @@ void SensorInterfaceStubImpl::DeRegisterSensorClientReq(const shared_ptr<CommonA
     }
 
     SensorInterfaceTypes::SensorReturnT response = parseSensorReturnT(resp);
-    _reply(response);
+    reply(response);
 }
 
 // This is the method that will be called on remote calls on the method GetSensorListReq.
-void SensorInterfaceStubImpl::GetSensorListReq(const shared_ptr<CommonAPI::ClientId> _client, GetSensorListReqReply_t _reply)
+void SensorInterfaceStubImpl::GetSensorListReq(const shared_ptr<CommonAPI::ClientId> client, GetSensorListReqReply_t reply)
 {
     lock_guard<mutex> lock(mIdlMutex);
     SENSOR_LOGI(LOG_IVSS_TAG  "<<==== GetSensorInfoTReq ==== \n");
@@ -263,104 +263,104 @@ void SensorInterfaceStubImpl::GetSensorListReq(const shared_ptr<CommonAPI::Clien
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
        count++;
 #endif
-       _reply(idlSensorInfoT, count);
+       reply(idlSensorInfoT, count);
     }
 }
 
 // This is the method that will be called on remote calls on the method SensorConfig.
-void SensorInterfaceStubImpl::SensorConfigReq(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, float _samplingRate, int32_t _batchCount, SensorConfigReqReply_t _reply)
+void SensorInterfaceStubImpl::SensorConfigReq(const shared_ptr<CommonAPI::ClientId> client, int32_t sensorId, float samplingRate, int32_t batchCount, SensorConfigReqReply_t reply)
 {
     lock_guard<mutex> lock(mIdlMutex);
     SENSOR_LOGI(LOG_IVSS_TAG  "<<==== SensorConfig ==== Client %s sensor_id: %d SamplingRate: %f  BatchCount: %d \n", 
-		    mClientname.c_str(), _sensorId, _samplingRate, _batchCount);
+		    mClientname.c_str(), sensorId, samplingRate, batchCount);
     int resp = 0;
     SensorInterfaceTypes::SensorReturnT response = 1;
 
     /*Handle Accel and gyro config request*/
-    if ( _sensorId != SENSOR_ID_HEADING) {
+    if ( sensorId != SENSOR_ID_HEADING) {
 	    /*Configure sensor if required more than already configured rate*/
-	    if (_samplingRate > sensorSamplingRates[_sensorId]) {
-		    SENSOR_LOGI(LOG_IVSS_TAG "<= Switch sensor config id:%d from %fhz to %fhz\n",_sensorId, sensorSamplingRates[_sensorId], _samplingRate);
-		    SensorAPIStartBatchingReqMsg msg (mClientname.c_str(), _sensorId, _samplingRate, _batchCount, 1);
+	    if (samplingRate > sensorSamplingRates[sensorId]) {
+		    SENSOR_LOGI(LOG_IVSS_TAG "<= Switch sensor config id:%d from %fhz to %fhz\n",sensorId, sensorSamplingRates[sensorId], samplingRate);
+		    SensorAPIStartBatchingReqMsg msg (mClientname.c_str(), sensorId, samplingRate, batchCount, 1);
 		    resp = mService->startBatching(&msg);
 		    /*store the configured samplingrate for respective sensor id if config success*/
 		    if(resp == 0)
-			    sensorSamplingRates[_sensorId] = _samplingRate;
+			    sensorSamplingRates[sensorId] = samplingRate;
 		    /*re-enable sensor if already enabled as config is updated*/
-		    if(sensorStates[_sensorId]) {
-			    SensorAPIEnableReqMsg msg (mClientname.c_str(), _sensorId, 1);
-			    mService->activateSensor(&msg);
+		    if(sensorStates[sensorId]) {
+			    SensorAPIEnableReqMsg msg (mClientname.c_str(), sensorId, 1);
+			    (void)mService->activateSensor(&msg);
 	            }
 	    }
 	    response  = parseSensorReturnT(resp);
-	    _reply(response);
+	    reply(response);
     }
     /*Handle heading config request*/
     else {
            fireSensorConfigUpdateEvent(SENSOR_ID_HEADING, 100, 1);
 	    response  = parseSensorReturnT(resp);
-	   _reply(response);
+	   reply(response);
     }
 }
 
 // This is the method that will be called on remote calls on the method SensorControl.
-void SensorInterfaceStubImpl::SensorControlReq(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, SensorInterfaceTypes::SensorStateT _sensorState, SensorControlReqReply_t _reply)
+void SensorInterfaceStubImpl::SensorControlReq(const shared_ptr<CommonAPI::ClientId> client, int32_t sensorId, SensorInterfaceTypes::SensorStateT sensorState, SensorControlReqReply_t reply)
 {
     lock_guard<mutex> lock(mIdlMutex);
-    SENSOR_LOGI(LOG_IVSS_TAG  "<<==== SensorControl === Client %s sensor_id:%d state:%d\n",mClientname.c_str(), _sensorId, static_cast<int>(_sensorState));
+    SENSOR_LOGI(LOG_IVSS_TAG  "<<==== SensorControl === Client %s sensor_id:%d state:%d\n",mClientname.c_str(), sensorId, static_cast<int>(sensorState));
     int resp = 0, enable = 0;
     SensorInterfaceTypes::SensorReturnT response = 1;
 
-    if(_sensorState == SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE) 
+    if(sensorState == SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE) 
 	    enable = 1;
     else
 	    enable = 0;
 
     /*Handle Accel and gyro enable/disable request*/
-    if ( _sensorId != SENSOR_ID_HEADING) {
+    if ( sensorId != SENSOR_ID_HEADING) {
        if (enable == 1) {
-	    SensorAPIEnableReqMsg msg (mClientname.c_str(), _sensorId, enable);
+	    SensorAPIEnableReqMsg msg (mClientname.c_str(), sensorId, enable);
 	    resp = mService->activateSensor(&msg);
 	    if(resp == 0) {
-		    sensorStates[_sensorId] = true;
-		    sensorControlRequest[_sensorId]++;
-		    SENSOR_LOGI(LOG_IVSS_TAG  "<= Sensor enable request id %d count %d \n", _sensorId, sensorControlRequest[_sensorId]);
+		    sensorStates[sensorId] = true;
+		    sensorControlRequest[sensorId]++;
+		    SENSOR_LOGI(LOG_IVSS_TAG  "<= Sensor enable request id %d count %d \n", sensorId, sensorControlRequest[sensorId]);
 	    }
        }
        if (enable == 0) {
-	    sensorControlRequest[_sensorId]--;
-	    SENSOR_LOGI(LOG_IVSS_TAG  "<= Sensor disable request id %d count %d \n", _sensorId, sensorControlRequest[_sensorId]);
-	    if (sensorControlRequest[_sensorId] <= 0)  {
-	       SensorAPIEnableReqMsg msg (mClientname.c_str(), _sensorId, enable);
+	    sensorControlRequest[sensorId]--;
+	    SENSOR_LOGI(LOG_IVSS_TAG  "<= Sensor disable request id %d count %d \n", sensorId, sensorControlRequest[sensorId]);
+	    if (sensorControlRequest[sensorId] <= 0)  {
+	       SensorAPIEnableReqMsg msg (mClientname.c_str(), sensorId, enable);
 	       resp = mService->activateSensor(&msg);
 	       if(resp == 0) {
-		       sensorStates[_sensorId] = false;
-		       sensorSamplingRates[_sensorId] = 0;
+		       sensorStates[sensorId] = false;
+		       sensorSamplingRates[sensorId] = 0;
 	       }
 	    }
        }
        response = parseSensorReturnT(resp);
-       _reply(response);
+       reply(response);
     } 
     /*Handle heading enable/disable request*/
     else {
 	    if (enable == 1){ 
 		    mService->EnableHeadingSensor();
 		    mHeadTracking = true;
-		    sensorStates[_sensorId] = true;
-		    sensorControlRequest[_sensorId]++;
+		    sensorStates[sensorId] = true;
+		    sensorControlRequest[sensorId]++;
 	    }
 	    else { 
-		    sensorControlRequest[_sensorId]--;
-		    if (sensorControlRequest[_sensorId] <= 0) {
+		    sensorControlRequest[sensorId]--;
+		    if (sensorControlRequest[sensorId] <= 0) {
 		       mService->DisableHeadingSensor();
 		       mHeadTracking = false;
-		       sensorStates[_sensorId] = false;
-		       sensorSamplingRates[_sensorId] = 0;
+		       sensorStates[sensorId] = false;
+		       sensorSamplingRates[sensorId] = 0;
 		    }
 	    }
 	    response = parseSensorReturnT(resp);
-	    _reply(response);
+	    reply(response);
     }
 }
 #endif

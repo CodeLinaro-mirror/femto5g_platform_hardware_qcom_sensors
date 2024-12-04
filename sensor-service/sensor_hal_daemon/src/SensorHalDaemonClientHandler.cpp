@@ -51,7 +51,7 @@ void SensorHalDaemonClientHandler::cleanup() {
    if (strncmp(mName.c_str(), SOCKET_SENSOR_CLIENT_DIR,
                 sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) != 0 ) {
         char fileName[MAX_SOCKET_PATHNAME_LENGTH];
-        snprintf (fileName, sizeof(fileName), "%s%s",
+        (void)snprintf (fileName, sizeof(fileName), "%s%s",
                   SOCKET_TO_EXTERANL_AP_SENSOR_CLIENT_BASE, mName.c_str());
         SENSOR_LOGI(LOG_TAG "removed file name %s\n", fileName);
         if (0 != remove(fileName)) {
@@ -180,7 +180,7 @@ void SensorHalDaemonClientHandler::onResponseCb(int ret, ESensorMsgID id) {
     // purge this client if failed
     if (!rc) {
         SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s", rc, mName.c_str());
-        mService->deleteClientbyName(mName);
+        (void)mService->deleteClientbyName(mName);
     }
   }
 }
@@ -194,7 +194,7 @@ bool SensorHalDaemonClientHandler::SendDataToClient(sensors_event_t *e, int coun
 #ifdef SENSOR_IVSS_ENABLED
   if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
      mService->myService->onSensorDataReadCb(e, count);
-     memset(e, 0, sizeof(sensors_event_t) * count);
+     (void)memset(e, 0, sizeof(sensors_event_t) * count);
      return true;
   }
 #endif
@@ -203,16 +203,16 @@ bool SensorHalDaemonClientHandler::SendDataToClient(sensors_event_t *e, int coun
      size_t msglen = sizeof(SensorAPIDataIndMsg) + sizeof(sensors_event_t) * (count - 1);
      uint8_t *msg = new(std::nothrow) uint8_t[msglen];
      if (nullptr == msg) {
-	     return;
+	     return false;
      }
-     memset(msg, 0, msglen);
+     (void)memset(msg, 0, msglen);
      SensorAPIDataIndMsg *pmsg = reinterpret_cast<SensorAPIDataIndMsg*>(msg);
-     strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
+     (void)strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
      pmsg->msgId = E_SENSORAPI_DATA_READ_MSG_ID;
      pmsg->msgVersion = SENSOR_REMOTE_API_MSG_VERSION;
      pmsg->sensorData.count = count;
-     memcpy(&(pmsg->sensorData.events[0]), e, sizeof(sensors_event_t) * count);
-     memset(e, 0, sizeof(sensors_event_t) * count);
+     (void)memcpy(&(pmsg->sensorData.events[0]), e, sizeof(sensors_event_t) * count);
+     (void)memset(e, 0, sizeof(sensors_event_t) * count);
      bool rc = sendMessage(msg, msglen);
      delete[] msg;
      return rc;
@@ -237,28 +237,28 @@ bool SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
 	 case SENSOR_TYPE_ACCELEROMETER:
 	 case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
 	    if (mAccTracking == true && mAccEvents) {
-		 mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib += e[i].acceleration.x;
-		 mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib += e[i].acceleration.y;
-		 mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib += e[i].acceleration.z;
+		 mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib += e[i].acceleration.x; // Add latest X coordinate
+		 mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib += e[i].acceleration.y; // Add latest Y coordinate
+		 mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib += e[i].acceleration.z; // Add latest Z coordinate
 		 mAccMovingCount++;
 		 if(mAccMovingCount >= mAccFactor) {
-		     mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib /= mAccMovingCount;
-		     mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib /= mAccMovingCount;
-		     mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib /= mAccMovingCount;
+		     mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib /= mAccMovingCount; // Get X coordinate average
+		     mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib /= mAccMovingCount; // Get Y coordinate average
+		     mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib /= mAccMovingCount; // Get Z coordinate average
 		     mAccEvents[mAccCount].timestamp = e[i].timestamp;
 		     mAccEvents[mAccCount].sensor    = e[i].sensor;
 		     mAccEvents[mAccCount].type    = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
 		     if(mAccRotate) {
-		        memcpy(&temp_data, &mAccEvents[mAccCount].uncalibrated_accelerometer, 3 * sizeof(float));
-		        mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib = mService->rot[0][0] * temp_data[0] +
-			     							  mService->rot[1][0] * temp_data[1] +
-			     							  mService->rot[2][0] * temp_data[2];
-		        mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib = mService->rot[0][1] * temp_data[0] +
-			     							  mService->rot[1][1] * temp_data[1] +
-			     							  mService->rot[2][1] * temp_data[2];
-		        mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib = mService->rot[0][2] * temp_data[0] +
-			     							  mService->rot[1][2] * temp_data[1] +
-			     							  mService->rot[2][2] * temp_data[2];
+		        (void)memcpy(&temp_data, &mAccEvents[mAccCount].uncalibrated_accelerometer, 3 * sizeof(float));
+		        mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib = mService->rot[0][0] * temp_data[0] + // Matrix Multtiplication 
+			     							  mService->rot[1][0] * temp_data[1] + // Matrix Multtiplication 
+			     							  mService->rot[2][0] * temp_data[2]; // Get Rotated X coordinate
+		        mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib = mService->rot[0][1] * temp_data[0] + // Matrix Multtiplication 
+			     							  mService->rot[1][1] * temp_data[1] + // Matrix Multtiplication 
+			     							  mService->rot[2][1] * temp_data[2]; // Get Rotated Y coordinate
+		        mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib = mService->rot[0][2] * temp_data[0] + // Matrix Multtiplication 
+			     							  mService->rot[1][2] * temp_data[1] + // Matrix Multtiplication 
+			     							  mService->rot[2][2] * temp_data[2]; // Get Rotated Z coordinate
 		     }
 		     mAccMovingCount = 0;
 		     mAccCount++;
@@ -272,28 +272,28 @@ bool SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
 	 case SENSOR_TYPE_GYROSCOPE:
 	 case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
 	    if (mGyroTracking == true && mGyroEvents) {
-		 mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib += e[i].gyro.x;
-		 mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib += e[i].gyro.y;
-		 mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib += e[i].gyro.z;
+		 mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib += e[i].gyro.x; // Add latest X coordinate
+		 mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib += e[i].gyro.y; // Add latest Y coordinate
+		 mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib += e[i].gyro.z; // Add latest Z coordinate
 		 mGyroMovingCount++;
 		 if (mGyroMovingCount >= mGyroFactor) {
-		      mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib /= mGyroMovingCount;
-		      mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib /= mGyroMovingCount;
-		      mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib /= mGyroMovingCount;
+		      mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib /= mGyroMovingCount; // Get X coordinate average
+		      mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib /= mGyroMovingCount; // Get Y coordinate average
+		      mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib /= mGyroMovingCount; // Get Z coordinate average
 		      mGyroEvents[mGyroCount].timestamp = e[i].timestamp;
 		      mGyroEvents[mGyroCount].sensor    = e[i].sensor;
 		      mGyroEvents[mGyroCount].type    = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
 		      if(mGyroRotate) {
-		         memcpy(&temp_data, &mGyroEvents[mGyroCount].uncalibrated_gyro, 3 * sizeof(float));
-		         mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib = mService->rot[0][0] * temp_data[0] +
-			     						    mService->rot[1][0] * temp_data[1] +
-			     						    mService->rot[2][0] * temp_data[2];
-		         mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib = mService->rot[0][1] * temp_data[0] +
-			     						    mService->rot[1][1] * temp_data[1] +
-			     						    mService->rot[2][1] * temp_data[2];
-		         mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib = mService->rot[0][2] * temp_data[0] +
-								            mService->rot[1][2] * temp_data[1] +
-			     						    mService->rot[2][2] * temp_data[2];
+		         (void)memcpy(&temp_data, &mGyroEvents[mGyroCount].uncalibrated_gyro, 3 * sizeof(float));
+		         mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib = mService->rot[0][0] * temp_data[0] + // Matrix Multtiplication 
+			     						    mService->rot[1][0] * temp_data[1] + // Matrix Multtiplication 
+			     						    mService->rot[2][0] * temp_data[2]; // Get Rotated X coordinate
+		         mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib = mService->rot[0][1] * temp_data[0] + // Matrix Multtiplication 
+			     						    mService->rot[1][1] * temp_data[1] + // Matrix Multtiplication 
+			     						    mService->rot[2][1] * temp_data[2]; // Get Rotated Y coordinate
+		         mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib = mService->rot[0][2] * temp_data[0] + // Matrix Multtiplication 
+								            mService->rot[1][2] * temp_data[1] + // Matrix Multtiplication 
+			     						    mService->rot[2][2] * temp_data[2]; // Get Rotated Z coordinate
 		      }
 		      mGyroMovingCount = 0;
 		      mGyroCount++;
@@ -328,19 +328,19 @@ void SensorHalDaemonClientHandler::onSensorListCb(struct sensor_list *s, int cou
 	   if (nullptr == msg) {
 		   return;
 	   }
-	   memset(msg, 0, msglen);
+	   (void)memset(msg, 0, msglen);
 	   SensorAPIListIndMsg *pmsg = reinterpret_cast<SensorAPIListIndMsg*>(msg);
-	   strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
+	   (void)strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
 	   pmsg->msgId = E_SENSORAPI_SENSOR_LIST_MSG_ID;
 	   pmsg->msgVersion = SENSOR_REMOTE_API_MSG_VERSION;
 	   pmsg->sensorList.count = count;
-	   memcpy(&(pmsg->sensorList.s[0]), s, sizeof(struct sensor_list) * count);
+	   (void)memcpy(&(pmsg->sensorList.s[0]), s, sizeof(struct sensor_list) * count);
 
 	   bool rc = sendMessage(msg, msglen);
 	   // purge this client if failed
 	   if (!rc) {
 		   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
-		   mService->deleteClientbyName(mName);
+		   (void)mService->deleteClientbyName(mName);
 	   }
 
 	   delete[] msg;
@@ -368,7 +368,7 @@ void SensorHalDaemonClientHandler::onSensorBatchingCb(int sensor_id, float Sampl
 	   // purge this client if failed
 	   if (!rc) {
 		   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
-		   mService->deleteClientbyName(mName);
+		   (void)mService->deleteClientbyName(mName);
 	   }
    }
 }
@@ -380,7 +380,7 @@ void SensorHalDaemonClientHandler::StoreMlcCaseListStatus(struct sensor_mlc_case
    }
 
    for ( int i = 0; i < count; i++) {
-	   strlcpy(mMlcCaseList[i].name, s[i].name, 100);
+	   (void)strlcpy(mMlcCaseList[i].name, s[i].name, 100);
 	   mMlcCaseList[i].enable = 0;
    }
 }
@@ -402,19 +402,19 @@ void SensorHalDaemonClientHandler::onSensorMlcCaseListCb(struct sensor_mlc_case_
            if (nullptr == msg) {
                    return;
            }
-           memset(msg, 0, msglen);
+           (void)memset(msg, 0, msglen);
            SensorMlcCaseListIndMsg *pmsg = reinterpret_cast<SensorMlcCaseListIndMsg*>(msg);
-           strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
+           (void)strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
            pmsg->msgId = E_SENSORAPI_SENSOR_MLC_CASE_LIST_MSG_ID;
            pmsg->msgVersion = SENSOR_REMOTE_API_MSG_VERSION;
            pmsg->sensorMlcCaseList.count = count;
-           memcpy(&(pmsg->sensorMlcCaseList.s[0]), s, sizeof(struct sensor_mlc_case_list) * count);
+           (void)memcpy(&(pmsg->sensorMlcCaseList.s[0]), s, sizeof(struct sensor_mlc_case_list) * count);
 
            bool rc = sendMessage(msg, msglen);
            // purge this client if failed
            if (!rc) {
                    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
-                   mService->deleteClientbyName(mName);
+                   (void)mService->deleteClientbyName(mName);
            }
 
            delete[] msg;
@@ -446,15 +446,15 @@ bool SensorHalDaemonClientHandler::onSensorMFifoDataReadCb(sensors_event_t *even
            size_t msglen = sizeof(SensorAPImFifoIndMsg) + sizeof(sensors_event_t) * (count-1);
            uint8_t *msg = new(std::nothrow) uint8_t[msglen];
            if (nullptr == msg) {
-                   return;
+                   return false;
            }
-           memset(msg, 0, msglen);
+           (void)memset(msg, 0, msglen);
            SensorAPImFifoIndMsg *pmsg = reinterpret_cast<SensorAPImFifoIndMsg*>(msg);
-           strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
+           (void)strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
            pmsg->msgId = E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID;
            pmsg->msgVersion = SENSOR_REMOTE_API_MSG_VERSION;
            pmsg->sensorData.count = count;
-           memcpy(&pmsg->sensorData.events[0], events, sizeof(sensors_event_t) * count);
+           (void)memcpy(&pmsg->sensorData.events[0], events, sizeof(sensors_event_t) * count);
            bool rc = sendMessage(msg, msglen);
            delete[] msg;
 	   return rc;
@@ -476,7 +476,7 @@ void SensorHalDaemonClientHandler::onSensorTempCb(float temperature) {
 	   // purge this client if failed
 	   if (!rc) {
 		   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
-		   mService->deleteClientbyName(mName);
+		   (void)mService->deleteClientbyName(mName);
 	   }
    }
 }
@@ -492,15 +492,15 @@ bool SensorHalDaemonClientHandler::onSensorBufferDataReadCb(sensors_event_t *eve
 	   size_t msglen = sizeof(SensorAPIBufferDataIndMsg) + sizeof(sensors_event_t) * (count-1);
 	   uint8_t *msg = new(std::nothrow) uint8_t[msglen];
 	   if (nullptr == msg) {
-		   return;
+		   return false;
 	   }
-	   memset(msg, 0, msglen);
+	   (void)memset(msg, 0, msglen);
 	   SensorAPIBufferDataIndMsg *pmsg = reinterpret_cast<SensorAPIBufferDataIndMsg*>(msg);
-	   strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
+	   (void)strlcpy(pmsg->mSocketName, SERVICE_NAME, MAX_SOCKET_PATHNAME_LENGTH);
 	   pmsg->msgId = E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID;
 	   pmsg->msgVersion = SENSOR_REMOTE_API_MSG_VERSION;
 	   pmsg->sensorData.count = count;
-	   memcpy(&pmsg->sensorData.events[0], events, sizeof(sensors_event_t) * count);
+	   (void)memcpy(&pmsg->sensorData.events[0], events, sizeof(sensors_event_t) * count);
 	   bool rc = sendMessage(msg, msglen);
 	   delete[] msg;
 	   return rc;
@@ -524,7 +524,7 @@ void SensorHalDaemonClientHandler::onSensorSelfTestResultCb(int sensor_id, int r
            // purge this client if failed
            if (!rc) {
                    SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, mName.c_str());
-                   mService->deleteClientbyName(mName);
+                   (void)mService->deleteClientbyName(mName);
            }
    }
 }

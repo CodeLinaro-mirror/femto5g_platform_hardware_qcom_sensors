@@ -46,7 +46,7 @@ namespace sensor_socket {
 #define LOG_TAG "SensorSvc_SensorIpc:"
 
 #define SENSOR_MSG_BUF_LEN 8192
-#define SENSOR_MSG_HEAD "$MSGLEN$"
+#define SENSOR_MSG_HEAD "_MSGLEN_"
 #define SENSOR_MSG_ABORT "SensorIpcMsg::ABORT"
 
 bool SensorIpc::startListeningNonBlocking(const std::string& name) {
@@ -56,8 +56,8 @@ bool SensorIpc::startListeningNonBlocking(const std::string& name) {
 
 void* SensorIpc::startListeningNonBlockingThread(void *arg) {
     SensorIpc* mSensorIpc = (SensorIpc*)arg;
-    mSensorIpc->startListeningBlocking(mSensorIpc->mIpcName);
-    return;
+    (void)mSensorIpc->startListeningBlocking(mSensorIpc->mIpcName);
+    return NULL;
 }
 
 bool SensorIpc::startListeningBlocking(const std::string& name) {
@@ -74,9 +74,9 @@ bool SensorIpc::startListeningBlocking(const std::string& name) {
     }
 
     struct sockaddr_un addr = { .sun_family = AF_UNIX };
-    snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", name.c_str());
+    (void)snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", name.c_str());
 
-    umask(0157);
+    (void)umask(0157);
 
     if (::bind(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         SENSOR_LOGE(LOG_TAG "bind socket error. reason:%s\n", strerror(errno));
@@ -112,7 +112,7 @@ bool SensorIpc::startListeningBlocking(const std::string& name) {
             } else {
                 // long message
                 size_t msgLen = 0;
-                sscanf(msg.data(), SENSOR_MSG_HEAD"%zu", &msgLen);
+                (void)sscanf(msg.data(), SENSOR_MSG_HEAD"%zu", &msgLen);
                 msg.resize(msgLen);
                 size_t msgLenReceived = 0;
                 while ((msgLenReceived < msgLen) && (nBytes > 0)) {
@@ -134,7 +134,7 @@ bool SensorIpc::startListeningBlocking(const std::string& name) {
     if (::close(fd)) {
         SENSOR_LOGE(LOG_TAG "cannot close socket:%s\n", strerror(errno));
     }
-    unlink(name.c_str());
+    (void)unlink(name.c_str());
     pthread_exit((void *)0);
     return stopRequested;
 }
@@ -145,7 +145,7 @@ void SensorIpc::stopListening() {
     if (mIpcFd >= 0) {
         std::string abort = SENSOR_MSG_ABORT;
         socketName = mIpcName.c_str();
-        send(socketName, abort);
+        (void)send(socketName, abort);
         mIpcFd = -1;
     }
 }
@@ -164,7 +164,7 @@ bool SensorIpc::send(const char name[], const uint8_t data[], uint32_t length) {
     }
 
     struct sockaddr_un addr = { .sun_family = AF_UNIX };
-    snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", name);
+    (void)snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", name);
 
     result = sendData(fd, addr, data, length);
 
@@ -186,7 +186,7 @@ bool SensorIpc::sendData(int fd, const sockaddr_un &addr, const uint8_t data[], 
         }
     } else {
         std::string head = SENSOR_MSG_HEAD;
-        head.append(std::to_string(length));
+        (void)head.append(std::to_string(length));
         if (::sendto(fd, head.c_str(), head.length(), 0,
                 (struct sockaddr*)&addr, sizeof(addr)) < 0) {
             SENSOR_LOGE(LOG_TAG "cannot send to socket:%s. reason:%s\n",

@@ -47,7 +47,7 @@ bool Sensor_ThreadCreate(pthread_t *tid, void *thread_function(void *), void *ar
     return false;
   }
   else
-    pthread_setname_np(*tid, thread_name);
+    (void)pthread_setname_np(*tid, thread_name);
 
   t = pthread_detach(*tid);
   if (t) {
