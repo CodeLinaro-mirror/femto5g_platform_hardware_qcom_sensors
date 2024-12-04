@@ -191,16 +191,16 @@ int SensorApiService::readTempASM(float *temperature)
   {
     return -1;
   }
-  mTempFilePtr.asmTempFile.tScaleFile->seekg(0);
-  mTempFilePtr.asmTempFile.tOffsetFile->seekg(0);
-  mTempFilePtr.asmTempFile.tRawDataFile->seekg(0);
+  (void)mTempFilePtr.asmTempFile.tScaleFile->seekg(0);
+  (void)mTempFilePtr.asmTempFile.tOffsetFile->seekg(0);
+  (void)mTempFilePtr.asmTempFile.tRawDataFile->seekg(0);
   /* Read offset, scale and raw data */
   (*mTempFilePtr.asmTempFile.tScaleFile) >> tscale;
   (*mTempFilePtr.asmTempFile.tOffsetFile) >> toffset;
   if (mTempFilePtr.asmTempFile.tRawDataFile) {
     (*mTempFilePtr.asmTempFile.tRawDataFile) >> trawdata;
     SENSOR_LOGD(LOG_TAG "Read Raw:%d, Offset: %d, Scale: %f, Temperature: %f\n", trawdata, toffset, tscale, (trawdata + toffset) * tscale);
-    *temperature = (float) (trawdata + toffset) * tscale;
+    *temperature = (float) (trawdata + toffset) * tscale; // Calculate Temperature value
   }
   return 0;
 }
@@ -220,7 +220,7 @@ int SensorApiService::readTempIAM(float *temperature)
   {
     return 0;
   }
-  mTempFilePtr.iamTempFile.dataFile->seekg(0);
+  (void)mTempFilePtr.iamTempFile.dataFile->seekg(0);
 
   if(mTempFilePtr.iamTempFile.dataFile->peek() == EOF)
   {
@@ -236,7 +236,7 @@ int SensorApiService::readTempIAM(float *temperature)
   }
   (*mTempFilePtr.iamTempFile.dataFile)>>timeStamp;
   SENSOR_LOGD(LOG_TAG "Temp Raw values - %d,time base %lld",data,timeStamp);
-  *temperature = (float)data / 100.0F;
+  *temperature = (float)data / 100.0F; // Calculate Temperature Value
   return 0;
 }
 
@@ -258,7 +258,7 @@ int SensorApiService::readTempBMI(float *temperature)
   {
     return 0;
   }
-  mTempFilePtr.bmiTempFile.tTempFile->seekg(0);
+  (void)mTempFilePtr.bmiTempFile.tTempFile->seekg(0);
   /* Read Temp data */
   (*mTempFilePtr.bmiTempFile.tTempFile)>>std::hex>>tempRead;
 
@@ -269,7 +269,7 @@ int SensorApiService::readTempBMI(float *temperature)
     SENSOR_LOGE(LOG_TAG "Read Raw:%d, Temperature: Invalid \n", tempSign);
     return 0;
   }
-  *temperature = 23 + ((float)tempSign / 512.0F);
+  *temperature = 23 + ((float)tempSign / 512.0F); // Calculate Temperature Value
   SENSOR_LOGD(LOG_TAG "Read Raw:%x, Temperature: %f\n", tempSign, *temperature);
   return 0;
 }
@@ -291,7 +291,7 @@ int SensorApiService::readTempSMI(float *temperature)
     return 0;
   }
   /* Read Temp data */
-  mTempFilePtr.smiTempFile.tempFile->seekg(0);
+  (void)mTempFilePtr.smiTempFile.tempFile->seekg(0);
 
   if (mTempFilePtr.smiTempFile.tempFile->eof() )
   {
@@ -305,7 +305,7 @@ int SensorApiService::readTempSMI(float *temperature)
   {
     tempRead |= 0xFFFFFF80;
   }
-  *temperature = 87.5 - ((float)(127 - tempRead)/2);
+  *temperature = 87.5 - ((float)(127 - tempRead)/2); // Calculate Temperature Value
 
   SENSOR_LOGD(LOG_TAG "Read Raw:%d, Temperature: %f\n", tempRead, *temperature);
   return 0;
@@ -330,7 +330,7 @@ int SensorApiService::readTempSMI230(float *temperature)
     return 0;
   }
   /* Read Temp data */
-  mTempFilePtr.smiTempFile.tempFile->seekg(0);
+  (void)mTempFilePtr.smiTempFile.tempFile->seekg(0);
 
   if ( mTempFilePtr.smiTempFile.tempFile->peek() == NULL )
   {
@@ -338,7 +338,7 @@ int SensorApiService::readTempSMI230(float *temperature)
     return 0;
   }
 
-  std::getline(*mTempFilePtr.smiTempFile.tempFile,  tempString);
+  (void)std::getline(*mTempFilePtr.smiTempFile.tempFile,  tempString);
   std::vector<std::string> split;
   {
     std::stringstream ss (tempString);
@@ -426,12 +426,12 @@ bool SensorApiService::tempSensorDataInit()
 		  return false;
 	}
         SENSOR_LOGI(LOG_TAG "found path in temp:%s",tScaleFilePath);
-        strlcpy(tOffsetFilePath, tScaleFilePath, sizeof(tOffsetFilePath));
-        strlcpy(tRawDataFilePath, tScaleFilePath, sizeof(tRawDataFilePath));
+        (void)strlcpy(tOffsetFilePath, tScaleFilePath, sizeof(tOffsetFilePath));
+        (void)strlcpy(tRawDataFilePath, tScaleFilePath, sizeof(tRawDataFilePath));
 
-        strlcat(tScaleFilePath, ASM_TEMP_SCALE, sizeof(tScaleFilePath));
-        strlcat(tOffsetFilePath, ASM_TEMP_OFFSET, sizeof(tOffsetFilePath));
-        strlcat(tRawDataFilePath, ASM_TEMP_RAW , sizeof(tRawDataFilePath));
+        (void)strlcat(tScaleFilePath, ASM_TEMP_SCALE, sizeof(tScaleFilePath));
+        (void)strlcat(tOffsetFilePath, ASM_TEMP_OFFSET, sizeof(tOffsetFilePath));
+        (void)strlcat(tRawDataFilePath, ASM_TEMP_RAW , sizeof(tRawDataFilePath));
 
         mTempFilePtr.asmTempFile.tScaleFile = new(std::nothrow) ifstream;
         if (!mTempFilePtr.asmTempFile.tScaleFile) {
@@ -475,7 +475,7 @@ bool SensorApiService::tempSensorDataInit()
         {
           return false;
         }
-        strlcat(tTempFilePath, BMI_TEMP_NAME, sizeof(tTempFilePath));
+        (void)strlcat(tTempFilePath, BMI_TEMP_NAME, sizeof(tTempFilePath));
         SENSOR_LOGI(LOG_TAG "Bmi temp path - %s",tTempFilePath);
         mTempFilePtr.bmiTempFile.tTempFile = new(std::nothrow)ifstream;
         if (!mTempFilePtr.bmiTempFile.tTempFile) {
@@ -497,7 +497,7 @@ bool SensorApiService::tempSensorDataInit()
         {
           return false;
         }
-        strlcat(iamPathTemp, IAM_TEMP_NAME, sizeof(iamPathTemp));
+        (void)strlcat(iamPathTemp, IAM_TEMP_NAME, sizeof(iamPathTemp));
         mTempFilePtr.iamTempFile.dataFile = new(std::nothrow) ifstream;
         if (!mTempFilePtr.iamTempFile.dataFile) {
           SENSOR_LOGE(LOG_TAG "failed to allocate %s errno %d, (%s)", iamPathTemp, errno, strerror(errno));
@@ -516,14 +516,14 @@ bool SensorApiService::tempSensorDataInit()
         char smiPathTemp[SEARCH_PATH_SIZE]={'\0'};
 	char smiSearchKey[SEARCH_PATH_SIZE]={'\0'};
 	if (SENSOR_SMI130 == mSensorType )
-          memcpy(smiSearchKey, SMI_TEMP_SEARCH, sizeof(SMI_TEMP_SEARCH));
+          (void)memcpy(smiSearchKey, SMI_TEMP_SEARCH, sizeof(SMI_TEMP_SEARCH));
         else
-          memcpy(smiSearchKey, SMI230_TEMP_SEARCH, sizeof(SMI230_TEMP_SEARCH));
+          (void)memcpy(smiSearchKey, SMI230_TEMP_SEARCH, sizeof(SMI230_TEMP_SEARCH));
 
         find_path(DYN_INPUT_TYPE,smiPathTemp, smiSearchKey, sizeof(smiPathTemp));
         if (strlen(smiPathTemp) != 0)
         {
-          strlcat(smiPathTemp, SMI_TEMP_NAME, sizeof(smiPathTemp));
+          (void)strlcat(smiPathTemp, SMI_TEMP_NAME, sizeof(smiPathTemp));
           SENSOR_LOGI(LOG_TAG "Smi temperature Path detected: %s \n",smiPathTemp);
         }
         else
@@ -566,18 +566,18 @@ void scalingBMIBufferData(int SensorType,sensors_event_t *event)
   float scaleFactor = 1;
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
-    scaleFactor = BMI_ACC_RESL * BMI_CONVERT_ACC;
+    scaleFactor = BMI_ACC_RESL * BMI_CONVERT_ACC; // Calculate Scale Value
     event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
-    event->acceleration.x *= scaleFactor;
-    event->acceleration.y *= scaleFactor;
-    event->acceleration.z *= scaleFactor;
+    event->acceleration.x *= scaleFactor; // Calculate scaled X coordinate
+    event->acceleration.y *= scaleFactor; // Calculate scaled Y coordinate
+    event->acceleration.z *= scaleFactor; // Calculate scaled Z coordinate
   }
   else {
     scaleFactor = BMI_CONVERT_GYRO;
     event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
-    event->gyro.x *= scaleFactor;
-    event->gyro.y *= scaleFactor;
-    event->gyro.z *= scaleFactor;
+    event->gyro.x *= scaleFactor; // Calculate scaled X coordinate
+    event->gyro.y *= scaleFactor; // Calculate scaled Y coordinate
+    event->gyro.z *= scaleFactor; // Calculate scaled Z coordinate
   }
 }
 
@@ -597,30 +597,30 @@ void scalingIAMBufferData(int SensorType,sensors_event_t *event)
     float scale = 0;
     float data[3];
     if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
-      scale = 1.f / (32768.0f / convert_acc_buff_iam) * 9.80665f;
+      scale = 1.f / (32768.0f / convert_acc_buff_iam) * 9.80665f; // Calculate scale value
       /* convert to body frame */
       for (int i = 0; i < 3 ; i++) {
-	      data[i] = event->acceleration.x * orientationMatrix[i * 3] +
-		      event->acceleration.y * orientationMatrix[i * 3 + 1] +
-		      event->acceleration.z * orientationMatrix[i * 3 + 2];
+	      data[i] = event->acceleration.x * orientationMatrix[i * 3] + // Caluclate oriented data using X coordinate
+		      event->acceleration.y * orientationMatrix[i * 3 + 1] + // Caluclate oriented data using Y coordinate
+		      event->acceleration.z * orientationMatrix[i * 3 + 2]; // Caluclate oriented data using Z coordinate
       }
       event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
-      event->acceleration.x = (float)data[0] * scale;
-      event->acceleration.y = (float)data[1] * scale;
-      event->acceleration.z = (float)data[2] * scale;
+      event->acceleration.x = (float)data[0] * scale; // Calculate scaled X coordinate
+      event->acceleration.y = (float)data[1] * scale; // Calculate scaled Y coordinate
+      event->acceleration.z = (float)data[2] * scale; // Calculate scaled Z coordinate
     }
     else if (SENSOR_TYPE_GYROSCOPE == SensorType) {
-      scale = 1.f / convert_gyro_buff_iam * 0.0174532925f;
+      scale = 1.f / convert_gyro_buff_iam * 0.0174532925f; // Calculate scale value
       /* convert to body frame */
       for (int i = 0; i < 3 ; i++) {
-              data[i] = event->gyro.x * orientationMatrix[i * 3] +
-                      event->gyro.y * orientationMatrix[i * 3 + 1] +
-                      event->gyro.z * orientationMatrix[i * 3 + 2];
+              data[i] = event->gyro.x * orientationMatrix[i * 3] + // Caluclate oriented data using X coordinate
+                      event->gyro.y * orientationMatrix[i * 3 + 1] + // Caluclate oriented data using Y coordinate
+                      event->gyro.z * orientationMatrix[i * 3 + 2]; // Caluclate oriented data using Z coordinate
       }
       event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
-      event->gyro.x = (float)data[0] * scale;
-      event->gyro.y = (float)data[1] * scale;
-      event->gyro.z = (float)data[2] * scale;
+      event->gyro.x = (float)data[0] * scale; // Calculate scaled X coordinate
+      event->gyro.y = (float)data[1] * scale; // Calculate scaled Y coordinate
+      event->gyro.z = (float)data[2] * scale; // Calculate scaled Z coordinate
     }
 }
 
@@ -638,18 +638,18 @@ void scalingSMIBufferData(int SensorType,sensors_event_t *event)
   float scaleFactor = 1;
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
-    scaleFactor = SMI_ACC_RESL * convert_acc_buff_smi130;
+    scaleFactor = SMI_ACC_RESL * convert_acc_buff_smi130; // Calculate scale value
     event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
-    event->acceleration.x *= scaleFactor;
-    event->acceleration.y *= scaleFactor;
-    event->acceleration.z *= scaleFactor;
+    event->acceleration.x *= scaleFactor; // Calculate scaled X coordinate
+    event->acceleration.y *= scaleFactor; // Calculate scaled Y coordinate
+    event->acceleration.z *= scaleFactor; // Calculate scaled Z coordinate
   }
   else {
     scaleFactor = convert_gyro_buff_smi130;
     event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
-    event->gyro.x *= scaleFactor;
-    event->gyro.y *= scaleFactor;
-    event->gyro.z *= scaleFactor;
+    event->gyro.x *= scaleFactor; // Calculate scaled X coordinate
+    event->gyro.y *= scaleFactor; // Calculate scaled Y coordinate
+    event->gyro.z *= scaleFactor; // Calculate scaled Z coordinate
   }
 }
 
@@ -667,15 +667,15 @@ void scalingSMI230BufferData(int SensorType,sensors_event_t *event)
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
     event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
-    event->acceleration.x *= convert_acc_buff_smi230;
-    event->acceleration.y *= convert_acc_buff_smi230;
-    event->acceleration.z *= convert_acc_buff_smi230;
+    event->acceleration.x *= convert_acc_buff_smi230; // Calculate scaled X coordinate
+    event->acceleration.y *= convert_acc_buff_smi230; // Calculate scaled Y coordinate
+    event->acceleration.z *= convert_acc_buff_smi230; // Calculate scaled Z coordinate
   }
   else {
     event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
-    event->gyro.x *= convert_gyro_buff_smi230;
-    event->gyro.y *= convert_gyro_buff_smi230;
-    event->gyro.z *= convert_gyro_buff_smi230;
+    event->gyro.x *= convert_gyro_buff_smi230; // Calculate scaled X coordinate
+    event->gyro.y *= convert_gyro_buff_smi230; // Calculate scaled Y coordinate
+    event->gyro.z *= convert_gyro_buff_smi230; // Calculate scaled Z coordinate
   }
 }
 
@@ -690,7 +690,7 @@ void scalingSMI230BufferData(int SensorType,sensors_event_t *event)
 static float process_2byte_received(int input, float scale)
 {
   input = le16toh((uint16_t)input);
-  return ((float) ((int16_t)input) * scale);
+  return ((float) ((int16_t)input) * scale); // Calculate scaled data
 }
 
 void scalingASMBufferData(int SensorType,sensors_event_t *event)
@@ -753,11 +753,11 @@ bool SensorApiService::CheckBufferReadFile()
  {
     case SENSOR_BMI160:
       find_path(DYN_IIO_TYPE, acc_boot_sample, BMI_TEMP_SEARCH, sizeof(acc_boot_sample));
-      strlcpy(gyr_boot_sample, acc_boot_sample, sizeof(gyr_boot_sample));
+      (void)strlcpy(gyr_boot_sample, acc_boot_sample, sizeof(gyr_boot_sample));
       break;
     case SENSOR_IAM20680:
       find_path(DYN_IIO_TYPE, acc_boot_sample, IAM_TEMP_SEARCH, sizeof(acc_boot_sample));
-      strlcpy(gyr_boot_sample, acc_boot_sample, sizeof(gyr_boot_sample));
+      (void)strlcpy(gyr_boot_sample, acc_boot_sample, sizeof(gyr_boot_sample));
       break;
     case SENSOR_SMI130:
       find_path(DYN_INPUT_TYPE, acc_boot_sample, SMI_TEMP_SEARCH, sizeof(acc_boot_sample));
@@ -784,16 +784,16 @@ bool SensorApiService::CheckBufferReadFile()
  {
          return false;
  }
- strlcat(acc_boot_sample, ACC_BUFFER_READ, sizeof(acc_boot_sample));
- strlcat(gyr_boot_sample, GYRO_BUFFER_READ, sizeof(gyr_boot_sample));
+ (void)strlcat(acc_boot_sample, ACC_BUFFER_READ, sizeof(acc_boot_sample));
+ (void)strlcat(gyr_boot_sample, GYRO_BUFFER_READ, sizeof(gyr_boot_sample));
 
  mAccBootSample = acc_boot_sample;
  mGyroBootSample = gyr_boot_sample;
 
  SENSOR_LOGI(LOG_TAG "mAccBootSample-%s,mGyroBootSample-%s\n",mAccBootSample.c_str(),mGyroBootSample.c_str());
 
- pthread_mutex_init(&mHalBuffMutex, NULL);
- pthread_cond_init(&mHalBuffCond, NULL);
+ (void)pthread_mutex_init(&mHalBuffMutex, NULL);
+ (void)pthread_cond_init(&mHalBuffCond, NULL);
 
  return true;
 }
@@ -834,14 +834,14 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
 			      mAccBootSample.c_str(), errno, strerror(errno));
 	      return false;
       } else {
-	      fflush(mfdBuffAccelE);
+	      (void)fflush(mfdBuffAccelE);
       }
       if (fwrite("1", 1, 1, mfdBuffGyroE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)\n",
 			      mGyroBootSample.c_str(), errno, strerror(errno));
 	      return false;
       } else {
-	      fflush(mfdBuffGyroE);
+	      (void)fflush(mfdBuffGyroE);
       }
   }
 
@@ -851,14 +851,14 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
 			      mAccBootSample.c_str(), errno, strerror(errno));
 	      return false;
       } else {
-	      fflush(mfdBuffAccelE);
+	      (void)fflush(mfdBuffAccelE);
       }
       if (fwrite("0", 1, 1, mfdBuffGyroE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)",
 			      mGyroBootSample.c_str(), errno, strerror(errno));
 	      return false;
       } else {
-	      fflush(mfdBuffGyroE);
+	      (void)fflush(mfdBuffGyroE);
       }
       mBufferDeleted = true;
   }
@@ -868,6 +868,7 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
 fail:
   CLOSE_FILE_HANDLE(mfdBuffAccel);
   CLOSE_FILE_HANDLE(mfdBuffGyro);
+  return false;
 }
 /**
  * @brief baching and for formatting of buffered data.
@@ -964,12 +965,12 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
      /* Fill the accel buffered data from kernel bufer */
      if (accelBuffDataTxProgress) {
 	     if(getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &zevents[0])) {
-		     memcpy(&events[count], &zevents[0], sizeof(sensors_event_t));
+		     (void)memcpy(&events[count], &zevents[0], sizeof(sensors_event_t));
 		     bufferDataScaling(SENSOR_TYPE_ACCELEROMETER, &events[count]);
 		     SENSOR_LOGW(LOG_TAG "ACC Buffer event: x=%f y=%f z=%f timestamp=%lld acccount %d\n",
 				     events[count].acceleration.x, events[count].acceleration.y,
 				     events[count].acceleration.z, events[count].timestamp, acccount);
-         mDiagLogger.SendSensorBuffAccelEvent(&events[count], acccount);
+         (void)mDiagLogger.SendSensorBuffAccelEvent(&events[count], acccount);
          ++acccount;
 		     count++;
 	     } else {
@@ -980,12 +981,12 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
      /* Fill the gyro buffered data into from kernel buffer */
      if (gyroBuffDataTxProgress) {
 	     if (getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &zevents[1])) {
-		     memcpy(&events[count], &zevents[1], sizeof(sensors_event_t));
+		     (void)memcpy(&events[count], &zevents[1], sizeof(sensors_event_t));
 		     bufferDataScaling(SENSOR_TYPE_GYROSCOPE, &events[count]);
 		     SENSOR_LOGW(LOG_TAG "GYRO Buffer event: x=%f y=%f z=%f timestamp=%lld gyrocount %d\n",
 				     events[count].gyro.x, events[count].gyro.y, events[count].gyro.z,
 				     events[count].timestamp, gyrocount);
-         mDiagLogger.SendSensorBuffGyroEvent(&events[count], gyrocount);
+         (void)mDiagLogger.SendSensorBuffGyroEvent(&events[count], gyrocount);
          ++gyrocount;
 		     count++;
 	     } else {
@@ -994,13 +995,13 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
 	     }
      }
      if (count >= 50) {
-	     usleep(1*1000);
+	     (void)usleep(1*1000);
 	     rc = it->second->onSensorBufferDataReadCb(events, count);
 	     // purge this client if failed
 	     if (!rc) {
 		     return rc;
 	     }
-	     usleep(1*1000);
+	     (void)usleep(1*1000);
 	     count = 0;
      }
   }
@@ -1014,7 +1015,7 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
 	  }
   }
   /***Send BUFFER END PACKET*/
-  memset(&events[0], 0, sizeof(sensors_event_t));
+  (void)memset(&events[0], 0, sizeof(sensors_event_t));
   events[0].type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
   events[0].timestamp = 0xFFFFFFFF;
   it->second->mBufferRead = false;
@@ -1032,11 +1033,12 @@ fail:
 void SensorApiService::SensorBuffread() {
   bool rc = false;
   while(mBufferSupported) {
-    pthread_mutex_lock (&mHalBuffMutex);
-    pthread_cond_wait (&mHalBuffCond, &mHalBuffMutex);
-    pthread_mutex_unlock (&mHalBuffMutex);
+    (void)pthread_mutex_lock (&mHalBuffMutex);
+    (void)pthread_cond_wait (&mHalBuffCond, &mHalBuffMutex);
+    (void)pthread_mutex_unlock (&mHalBuffMutex);
 
-    for (auto it = mClients.begin(); it != mClients.end();) {
+    auto it = mClients.begin();
+    while (it != mClients.end() && it != (std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator)NULL) {
 	    if (it->second->mBufferRead == true && mBufferDeleted != true) {
 		    rc = ReadSensorBufferData(it->first.c_str());
 		    // purge this client if failed
@@ -1046,13 +1048,13 @@ void SensorApiService::SensorBuffread() {
 			    it =deleteClientbyName(it->first.c_str());
 		    } else{
 			    ++it;
-	    }
+		    }
 	    } else{
 		    ++it;
-            }
+	    }
     }
   }
-  pthread_mutex_destroy (&mHalBuffMutex);
-  pthread_cond_destroy (&mHalBuffCond);
+  (void)pthread_mutex_destroy (&mHalBuffMutex);
+  (void)pthread_cond_destroy (&mHalBuffCond);
   SENSOR_LOGI(LOG_TAG "Exiting bufferDataprocessTask.. \n");
 }

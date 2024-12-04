@@ -72,7 +72,7 @@ namespace sensor_socket {
 #define LOG_TAG "SensorSvc_SensorQSocket:"
 
 #define SENSOR_MSG_BUF_LEN 8192
-#define SENSOR_MSG_HEAD "$MSGLEN$"
+#define SENSOR_MSG_HEAD "_MSGLEN_"
 #define SENSOR_MSG_ABORT "SensorQsocketMsg::ABORT"
 
 #ifdef USE_QSOCKET
@@ -89,6 +89,7 @@ bool SensorQsocket::startListeningNonBlocking(const std::string& name, int Servi
 void* SensorQsocket::startListeningNonBlockingThread(void *arg) {
    SensorQsocket* mSensorQsocket = (SensorQsocket*)arg;
    mSensorQsocket->startListeningBlocking(mSensorQsocket->mQsocketName, mSensorQsocket->mServiceIdToWatch);
+   return NULL;
 }
 
 bool SensorQsocket::startListeningBlocking(const std::string& name, int ServiceIdToWatch) {
@@ -300,8 +301,8 @@ bool SensorQsocket::startListeningNonBlocking(const std::string& name, int Servi
 
 void* SensorQsocket::startListeningNonBlockingThread(void *arg) {
    SensorQsocket* mSensorQsocket = (SensorQsocket*)arg;
-   mSensorQsocket->startListeningBlocking(mSensorQsocket->mQsocketName, mSensorQsocket->mServiceIdToWatch);
-   return;
+   (void)mSensorQsocket->startListeningBlocking(mSensorQsocket->mQsocketName, mSensorQsocket->mServiceIdToWatch);
+   return NULL;
 }
 
 bool SensorQsocket::handleQrtrCtrlMsg(const char* data, uint32_t len) { 
@@ -362,7 +363,7 @@ bool SensorQsocket::startListeningBlocking(const std::string& name, int ServiceI
     timeval timeout;
     timeout.tv_sec = SOCKET_SENDER_SEND_TIMEOUT_MSEC / 1000;
     timeout.tv_usec = SOCKET_SENDER_SEND_TIMEOUT_MSEC % 1000 * 1000;
-    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+    (void)setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
     socklen_t sl = sizeof(mAddr);
     int rc = 0;
@@ -370,7 +371,7 @@ bool SensorQsocket::startListeningBlocking(const std::string& name, int ServiceI
 		    mAddr.sq_family != AF_QIPCRTR || sl != sizeof(mAddr)) {
 	    SENSOR_LOGE(LOG_TAG "failed: getsockname rc=%d reason=(%s), mAddr.sq_family=%d",
 			    rc, strerror(errno), mAddr.sq_family);
-	    close(fd);
+	    (void)close(fd);
     } else {
 	    mCtrlPkt.server.service = cpu_to_le32(mService);
 	    mCtrlPkt.server.instance = cpu_to_le32(mInstance);
@@ -443,7 +444,7 @@ bool SensorQsocket::startListeningBlocking(const std::string& name, int ServiceI
         } else {
             // long message
             size_t msgLen = 0;
-            sscanf(msg.data(), SENSOR_MSG_HEAD"%zu", &msgLen);
+            (void)sscanf(msg.data(), SENSOR_MSG_HEAD"%zu", &msgLen);
             msg.resize(msgLen);
             size_t msgLenReceived = 0;
             while ((msgLenReceived < msgLen) && (nBytes > 0)) {
@@ -469,7 +470,7 @@ bool SensorQsocket::startListeningBlocking(const std::string& name, int ServiceI
 void SensorQsocket::stopListening() {
     if (mFdMe >= 0) {
         std::string abort = SENSOR_MSG_ABORT;
-        send(mService, mInstance, abort);
+        (void)send(mService, mInstance, abort);
         mFdMe = -1;
     }
 }
@@ -488,7 +489,7 @@ bool findService(int fd, sockaddr_qrtr& addr, int service, int instance, bool &s
         if (true == serviceDeleted) {
             break;
         }
-        memset(&addr, 0, sizeof(addr));
+        (void)memset(&addr, 0, sizeof(addr));
         socklen_t sl = sizeof(addr);
         // get socket name
         int rc = getsockname(fd, (void*)&addr, &sl);
@@ -573,10 +574,10 @@ bool SensorQsocket::send(int service, int instance, const uint8_t data[], uint32
     timeval timeout;
     timeout.tv_sec = SOCKET_SENDER_SEND_TIMEOUT_MSEC / 1000;
     timeout.tv_usec = SOCKET_SENDER_SEND_TIMEOUT_MSEC % 1000 * 1000;
-    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+    (void)setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
     sockaddr_qrtr addr;
-    memset(&addr, 0, sizeof(addr));
+    (void)memset(&addr, 0, sizeof(addr));
     // this routine is used to send an abort message to
     // the socket itself, so it is safe to set serviceDeleted to false
     bool serviceDeleted = false;
@@ -600,7 +601,7 @@ bool SensorQsocket::sendData(int fd, const sockaddr_qrtr& addr, const uint8_t da
         }
     } else {
         std::string head = SENSOR_MSG_HEAD;
-        head.append(std::to_string(length));
+        (void)head.append(std::to_string(length));
         if (sendto(fd, head.c_str(), head.length(), 0, (void*)&addr, sizeof(addr)) < 0) {
             SENSOR_LOGE(LOG_TAG "cannot send to socket. reason:%s\n", strerror(errno));
             result = false;

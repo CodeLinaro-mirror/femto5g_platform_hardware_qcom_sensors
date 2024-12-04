@@ -38,6 +38,7 @@
 #include <cstring>
 #include <math.h>
 #include <errno.h>
+#include <stack>
 #include "SensorTestApp.h"
 
 using namespace std;
@@ -129,61 +130,54 @@ std::string mGyroBootSample;
 //Search for Path
 void search_in_path(char* parentDir,  char* subFileRead, string contentVerified, int maxLevel,char* outputPath)
 {
-  if ( NULL == parentDir || NULL == subFileRead || NULL == outputPath )
-  {
-    return;
-  }
-  if ( 0 == maxLevel || strlen(outputPath) !=0 )
-  {
-    return;
-  }
-
-  DIR *dir = opendir(parentDir);
-  struct dirent *entry = NULL;
-  if (dir != NULL)
-  {
-    entry = readdir(dir);
-  }
-  SENSOR_LOGD(LOG_TAG "Current directory: %s\n",parentDir);
-  while (entry != NULL)
-  {
-    if ( (entry->d_type == DT_DIR || entry->d_type == DT_LNK) &&
-         (strcmp(entry->d_name,"..") != 0) && (strcmp(entry->d_name,".") !=0 ))
+    if ( NULL == parentDir || NULL == subFileRead || NULL == outputPath )
     {
-      char newParent[SEARCH_PATH_SIZE];
-      snprintf(newParent,sizeof(newParent),"%s/%s/",parentDir,entry->d_name);
-      search_in_path(newParent, subFileRead, contentVerified, maxLevel-1, outputPath);
+        return;
     }
-    else if ( strstr( entry->d_name, subFileRead ) != NULL )
+    if ( 0 == maxLevel || strlen(outputPath) !=0 )
     {
-      char fullFilePath[SEARCH_PATH_SIZE];
-      snprintf(fullFilePath,sizeof(fullFilePath),"%s/%s",parentDir,entry->d_name);
-      string content;
-      ifstream fin(fullFilePath);
-      if ( fin.is_open() && fin.peek() != EOF )
-      {
-        fin>>content;
-        if ( (0 == contentVerified.length() && strlen(entry->d_name) == strlen(subFileRead))
-              || contentVerified == content )
-        {
-          strlcpy(outputPath, parentDir, SEARCH_PATH_SIZE);
+        return;
+    }
+    std::stack<std::pair<std::string, int>> dirs;
+    dirs.push({parentDir, 0});
+
+    while (!dirs.empty()) {
+        auto [currentDir, level] = dirs.top();
+        dirs.pop();
+
+        if (level > maxLevel) continue;
+
+        DIR *dir = opendir(currentDir.c_str());
+        if (dir == NULL) continue;
+
+        struct dirent *entry = readdir(dir);
+	SENSOR_LOGD(LOG_TAG "Current directory: %s\n", currentDir.c_str());
+
+        while (entry != NULL) {
+            if ((entry->d_type == DT_DIR || entry->d_type == DT_LNK) &&
+                std::string(entry->d_name) != ".." && std::string(entry->d_name) != ".") {
+                std::string newParent = currentDir + "/" + entry->d_name;
+                dirs.push({newParent, level + 1});
+            } else if (std::string(entry->d_name).find(subFileRead) != std::string::npos) {
+                std::string fullFilePath = currentDir + "/" + entry->d_name;
+                std::ifstream fin(fullFilePath);
+                std::string content;
+                if (fin.is_open() && fin.peek() != EOF) {
+                    fin >> content;
+                    if ((contentVerified.empty() && std::string(entry->d_name).length() == std::string(subFileRead).length()) ||
+                        contentVerified == content) {
+			(void)snprintf(outputPath, SEARCH_PATH_SIZE, "%s\/", currentDir.c_str());
+                        (void)closedir(dir);
+			fin.close();
+                        return;
+                    }
+                }
+                fin.close();
+            }
+            entry = readdir(dir);
         }
-        }
-      fin.close();
+        (void)closedir(dir);
     }
-    if (strlen(outputPath) != 0)
-    {
-      break;
-    }
-    entry = readdir(dir);
-
-  }
-
-  if (dir != NULL)
-  {
-    closedir(dir);
-  }
-  return;
 }
 
 /**
@@ -796,8 +790,8 @@ void bufferDataScaling(int mSensorType, int Sensor, sensors_event_t *event)
  * @return true if buffer supported else false.
  */
 bool CheckBufferReadFile(int mSensorType) {
- char acc_boot_sample[SEARCH_PATH_SIZE]={'\0'};
- char gyr_boot_sample[SEARCH_PATH_SIZE]={'\0'};
+ char acc_boot_sample[SEARCH_PATH_SIZE + 1]={'\0'};
+ char gyr_boot_sample[SEARCH_PATH_SIZE + 1]={'\0'};
 
  switch (mSensorType)
  {
@@ -840,7 +834,10 @@ bool CheckBufferReadFile(int mSensorType) {
  mAccBootSample = acc_boot_sample;
  mGyroBootSample = gyr_boot_sample;
 
- SENSOR_LOGI(LOG_TAG "mAccBootSample-%s,mGyroBootSample-%s\n",mAccBootSample.c_str(),mGyroBootSample.c_str());
+ acc_boot_sample[SEARCH_PATH_SIZE] = '\0';
+ gyr_boot_sample[SEARCH_PATH_SIZE] = '\0';
+
+ SENSOR_LOGI(LOG_TAG "mAccBootSample-%s,mGyroBootSample-%s\n", acc_boot_sample, gyr_boot_sample);
  return true;
 }
 
@@ -1014,7 +1011,7 @@ void SensorBuffread(int mSensorType)
 			/* Fill the accel buffered data from kernel bufer */
 			if (accelBuffDataTxProgress)
 			{
-				if(getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &zevents[0]))
+				if(mfdBuffAccel && getBufferedSample(SENSOR_TYPE_ACCELEROMETER, mfdBuffAccel, &zevents[0]))
 				{
 					memcpy(&events[0], &zevents[0], sizeof(sensors_event_t));
 					bufferDataScaling(mSensorType, SENSOR_TYPE_ACCELEROMETER, &events[0]);
@@ -1033,7 +1030,7 @@ void SensorBuffread(int mSensorType)
 			/* Fill the gyro buffered data into from kernel buffer */
 			if (gyroBuffDataTxProgress)
 			{
-				if (getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &zevents[1]))
+				if (mfdBuffGyro && getBufferedSample(SENSOR_TYPE_GYROSCOPE, mfdBuffGyro, &zevents[1]))
 				{
 					memcpy(&events[1], &zevents[1], sizeof(sensors_event_t));
 					bufferDataScaling(mSensorType, SENSOR_TYPE_GYROSCOPE, &events[1]);

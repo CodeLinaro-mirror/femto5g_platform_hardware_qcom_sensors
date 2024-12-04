@@ -161,7 +161,7 @@ SensorDiagLog::SensorDiagLog():diagEnabled(false), accel_count(0), gyro_count(0)
 
 SensorDiagLog::~SensorDiagLog()
 {
-    DisableDiag();
+    (void)DisableDiag();
 }
 
 bool SensorDiagLog::IsEnabled()

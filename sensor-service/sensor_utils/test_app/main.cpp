@@ -60,20 +60,20 @@ static const struct option long_options[] = {
 
 static void help(char *argv)
 {
-	printf("To Update sensor position\n");
-	printf("\tsensor_util_lib_testapp --x [-65--+65] --y [-65--+65] --z [-65--+65]\n");
+	(void)printf("To Update sensor position\n");
+	(void)printf("\tsensor_util_lib_testapp --x [-65--+65] --y [-65--+65] --z [-65--+65]\n");
 
-	printf("To Update Sensor Euler angles\n");
-	printf("\tsensor_util_lib_testapp --roll [0--3600] --pitch [0--3600] --yaw [0--3600]\n");
+	(void)printf("To Update Sensor Euler angles\n");
+	(void)printf("\tsensor_util_lib_testapp --roll [0--3600] --pitch [0--3600] --yaw [0--3600]\n");
 
-	printf("To Update towing threshold and time\n");
-	printf("\tsensor_util_lib_testapp --towingthreshold [10--1000] --towingtime [2--89000]\n");
+	(void)printf("To Update towing threshold and time\n");
+	(void)printf("\tsensor_util_lib_testapp --towingthreshold [10--1000] --towingtime [2--89000]\n");
 
-	printf("To Update crash threshold and time\n");
-	printf("\tsensor_util_lib_testapp --crashthreshold [100--2000] --crashtime [2--89000]\n");
+	(void)printf("To Update crash threshold and time\n");
+	(void)printf("\tsensor_util_lib_testapp --crashthreshold [100--2000] --crashtime [2--89000]\n");
 
-	printf("To Update ignition state\n");
-	printf("\tsensor_util_lib_testapp --ignition [0--1]\n");
+	(void)printf("To Update ignition state\n");
+	(void)printf("\tsensor_util_lib_testapp --ignition [0--1]\n");
 
 	exit(0);
 }
@@ -172,19 +172,19 @@ int main(int argc, char **argv)
 	}
 
 	if (rm_value)
-		update_sensor_rotation_matrix(roll,pitch,yaw);
+		(void)update_sensor_rotation_matrix(roll,pitch,yaw);
 
 	if (sp_value)
-		update_sensor_placement(x,y,z);
+		(void)update_sensor_placement(x,y,z);
 
 	if (towing)
-		update_sensor_towing_jack_parameters(towing_threshold, towing_time);
+		(void)update_sensor_towing_jack_parameters(towing_threshold, towing_time);
 
 	if (crash)
-		update_sensor_crash_detection_parameters(crash_threshold, crash_time);
+		(void)update_sensor_crash_detection_parameters(crash_threshold, crash_time);
 
 	if (ignition)
-		update_ignition_state(ign_state);
+		(void)update_ignition_state(ign_state);
 
 	return 0;
 }

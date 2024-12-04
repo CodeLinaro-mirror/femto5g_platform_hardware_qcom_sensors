@@ -90,11 +90,11 @@
 #define SENSOR_LOGD(...) { ALOGD(__VA_ARGS__); }
 #define SENSOR_LOGV(...) { ALOGV(__VA_ARGS__); }
 #else
-#define SENSOR_LOGE(...) { printf(__VA_ARGS__); }
-#define SENSOR_LOGW(...) { printf(__VA_ARGS__); }
-#define SENSOR_LOGI(...) { printf(__VA_ARGS__); }
-#define SENSOR_LOGD(...) { printf(__VA_ARGS__); }
-#define SENSOR_LOGV(...) { printf(__VA_ARGS__); }
+#define SENSOR_LOGE(...) { (void)printf(__VA_ARGS__); }
+#define SENSOR_LOGW(...) { (void)printf(__VA_ARGS__); }
+#define SENSOR_LOGI(...) { (void)printf(__VA_ARGS__); }
+#define SENSOR_LOGD(...) { (void)printf(__VA_ARGS__); }
+#define SENSOR_LOGV(...) { (void)printf(__VA_ARGS__); }
 #endif
 
 static uint64_t start_time = 0, end_time = 0, selftest_time = 0;
@@ -116,7 +116,7 @@ void Usage(void)
 
 static uint64_t getTimestamp() {
     struct timespec ts;
-    clock_gettime(CLOCK_BOOTTIME, &ts);
+    (void)clock_gettime(CLOCK_BOOTTIME, &ts);
     uint64_t system_ts =
             ((uint64_t)(ts.tv_sec)) * 1000000000ULL + ((uint64_t)(ts.tv_nsec));
     return system_ts;
@@ -386,7 +386,7 @@ int main(int argc, char *argv[]) {
 
    pClient = new SensorClient(onCapabilitiesCb);
 
-   sleep(2);
+   (void)sleep(2);
    ret = pClient->get_sensor_list(&sensor, &sensor_count);
    if(ret < 0) {
            SENSOR_LOGE(LOG_TAG "get sensor list failed ret %d \n", ret);
@@ -462,12 +462,12 @@ int main(int argc, char *argv[]) {
 			SENSOR_LOGE(LOG_TAG "sensor read temperature failed ret %d \n", ret);
 			break;
 		}
-		sleep(1);
+		(void)sleep(1);
 	}
 	/*Enable blocking call to avoid high cpu usage for test app*/
 	char buf[10];
-	memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
-	fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
+	(void)memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
+	(void)fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
 	int command = buf[0];
      }
    }
@@ -476,8 +476,8 @@ int main(int argc, char *argv[]) {
    // main loop
    while (1) {
     char buf[10];
-    memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
-    fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
+    (void)memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
+    (void)fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
     int command = buf[0];
 
     switch(command) {
@@ -487,8 +487,9 @@ int main(int argc, char *argv[]) {
 	 if(ret < 0) {
 		SENSOR_LOGE(LOG_TAG "get sensor list failed ret %d \n", ret);
 		break;
+	 }
+	 PrintSensorList(sensor,sensor_count);
 	}
-	PrintSensorList(sensor,sensor_count);
 	break;
      case 'c':
 	if (pClient) {
@@ -496,17 +497,17 @@ int main(int argc, char *argv[]) {
 		SENSOR_LOGI(LOG_TAG "Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n",
                        sensor[i].odr[0],sensor[i].odr[1],sensor[i].odr[2],
 		       sensor[i].odr[3],sensor[i].odr[4],sensor[i].odr[5]);
-		memset (odr, 0, sizeof(odr)/sizeof(odr[0]));
-		memset (batchcount, 0, sizeof(batchcount)/sizeof(batchcount[0]));
-		fgets(odr, sizeof(odr)/sizeof(odr[0]), stdin);
+		(void)memset (odr, 0, sizeof(odr)/sizeof(odr[0]));
+		(void)memset (batchcount, 0, sizeof(batchcount)/sizeof(batchcount[0]));
+		(void)fgets(odr, sizeof(odr)/sizeof(odr[0]), stdin);
 		j=strtol(odr,&stopstring,10);
 
 		SENSOR_LOGI(LOG_TAG "Enter batch set: ");
-		fgets(batchcount, sizeof(batchcount)/sizeof(batchcount[0]), stdin);
+		(void)fgets(batchcount, sizeof(batchcount)/sizeof(batchcount[0]), stdin);
 		batch_count=strtol(batchcount,&stopstring,10);
 
 		SENSOR_LOGI(LOG_TAG "Enter Rotate:1  or Rotate:0 ");
-		fgets(rotate, sizeof(rotate)/sizeof(rotate[0]), stdin);
+		(void)fgets(rotate, sizeof(rotate)/sizeof(rotate[0]), stdin);
 		Rotate=strtol(rotate,&stopstring,10);
 
 		SENSOR_LOGI(LOG_TAG "\nConfiguring sensor sensor_id %d  sampling rate %fHZ and batch count %d Rotate %d\n",
@@ -524,8 +525,8 @@ int main(int argc, char *argv[]) {
            for(int i=0; i < sensor_count; i++) {
 	        SENSOR_LOGI(LOG_TAG "Enable/Disable the sensor sensor[i].sensor_id %d\n",sensor[i].sensor_id);
 		SENSOR_LOGI(LOG_TAG " 0:SENSOR_DISABLE\n 1:SENSOR_ENABLE\n 2:SENSOR_LPM\n 3:SENSOR_HPM\nEnter value:");
-		memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
-		fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
+		(void)memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
+		(void)fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
                 state=(sensor_state)strtol(enable,&stopstring,10);
 		SENSOR_LOGI(LOG_TAG "sensor id %d with contol value %d\n",sensor[i].sensor_id, state);
 		ret = pClient->sensor_control(sensor[i].sensor_id, state);
@@ -595,8 +596,8 @@ int main(int argc, char *argv[]) {
         if (pClient) {
                 SENSOR_LOGI(LOG_TAG "enable/disable mlc case event\n");
 		SENSOR_LOGI(LOG_TAG " 0:DISABLE\n 1:ENABLE\nEnter value:");
-		memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
-		fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
+		(void)memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
+		(void)fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
 		mlc_enable=strtol(enable,&stopstring,10);
 		SENSOR_LOGI(LOG_TAG "mlc_enable %d\n", mlc_enable);
 		for(int i=0; i < mlc_case_count; i++) {
@@ -613,8 +614,8 @@ int main(int argc, char *argv[]) {
 		SENSOR_LOGI(LOG_TAG "sensor self test\n");
 		for(int i=0; i < sensor_count; i++) {
 			SENSOR_LOGI(LOG_TAG "\n 0:Positive\n 1:Neagative\n 2:All\n Enter value:");
-			memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
-			fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
+			(void)memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
+			(void)fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
 			selfTestType=(SelfTestType)strtol(enable,&stopstring,10);
 			start_time = getTimestamp();
 			SENSOR_LOGI(LOG_TAG "sensor[i].sensor_id %d\n", sensor[i].sensor_id);
@@ -631,18 +632,18 @@ int main(int argc, char *argv[]) {
 		SENSOR_LOGI(LOG_TAG "sensor set Euler angles\n");
 
 		SENSOR_LOGI(LOG_TAG "\nEnter roll min 0 max 3600 value:");
-		memset(rm, 0, sizeof(rm)/sizeof(rm[0]));
-		fgets(rm, sizeof(rm)/sizeof(rm[0]), stdin);
+		(void)memset(rm, 0, sizeof(rm)/sizeof(rm[0]));
+		(void)fgets(rm, sizeof(rm)/sizeof(rm[0]), stdin);
 		roll=strtol(rm,&stopstring,10);
 
 		SENSOR_LOGI(LOG_TAG "\nEnter pitch min 0 max 3600 value:");
-		memset(rm, 0, sizeof(rm)/sizeof(rm[0]));
-		fgets(rm, sizeof(rm)/sizeof(rm[0]), stdin);
+		(void)memset(rm, 0, sizeof(rm)/sizeof(rm[0]));
+		(void)fgets(rm, sizeof(rm)/sizeof(rm[0]), stdin);
 		pitch=strtol(rm,&stopstring,10);
 
 		SENSOR_LOGI(LOG_TAG "\nEnter yaw min 0 max 3600 value:");
-		memset(rm, 0, sizeof(rm)/sizeof(rm[0]));
-		fgets(rm, sizeof(rm)/sizeof(rm[0]), stdin);
+		(void)memset(rm, 0, sizeof(rm)/sizeof(rm[0]));
+		(void)fgets(rm, sizeof(rm)/sizeof(rm[0]), stdin);
 		yaw=strtol(rm,&stopstring,10);
 
 		ret = pClient->sensor_update_rotation_matrix(roll, pitch, yaw);
@@ -661,7 +662,6 @@ int main(int argc, char *argv[]) {
      default:
 	SENSOR_LOGI(LOG_TAG "unknown command %s\n", buf);
 	break;
-	}
     }
    }//while(1)
 

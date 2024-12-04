@@ -62,7 +62,7 @@ static inline void waitForDir(const char* dirName) {
         if (!rc) {
             break;
         }
-        usleep(100000); //100ms
+        (void)usleep(100000); //100ms
     }
     SENSOR_LOGI(LOG_TAG "done\n");
 }
@@ -89,80 +89,86 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
 		 continue;
 	 } else if(strstr(buffer, "SENSOR_VENDOR=")) {
 		 line = strstr(buffer, "=");
-		 sscanf(&line[1], "%d", &configParamRead->SensorType);
+		 if(line) (void)sscanf(&line[1], "%d", &configParamRead->SensorType);
 		 break;
 	 }
 	 else if(strstr(buffer, "SENSOR_HAL_LIB_PATH=")) {
 		 line = strstr(buffer, "=");
-		 strlcpy(configParamRead->SensorHalLibPath, &line[1], sizeof(configParamRead->SensorHalLibPath));
-		 configParamRead->SensorHalLibPath[strlen(configParamRead->SensorHalLibPath)-1] = '\0';
+		 if(line) {
+			 (void)strlcpy(configParamRead->SensorHalLibPath, &line[1], sizeof(configParamRead->SensorHalLibPath));
+			 configParamRead->SensorHalLibPath[strlen(configParamRead->SensorHalLibPath)-1] = '\0';
+		 }
 		 break;
 	 }
 	 else if(strstr(buffer, "ACCEL_NAME=")) {
                  line = strstr(buffer, "=");
-                 strlcpy(configParamRead->AccelName, &line[1], sizeof(configParamRead->AccelName));
-                 configParamRead->AccelName[strlen(configParamRead->AccelName)-1] = '\0';
+                 if(line) {
+			 (void)strlcpy(configParamRead->AccelName, &line[1], sizeof(configParamRead->AccelName));
+			 configParamRead->AccelName[strlen(configParamRead->AccelName)-1] = '\0';
+		 }
                  break;
          }
 	 else if(strstr(buffer, "GYRO_NAME=")) {
                  line = strstr(buffer, "=");
-                 strlcpy(configParamRead->GyroName, &line[1],sizeof(configParamRead->GyroName));
-                 configParamRead->GyroName[strlen(configParamRead->GyroName)-1] = '\0';
+                 if(line) {
+			 (void)strlcpy(configParamRead->GyroName, &line[1],sizeof(configParamRead->GyroName));
+			 configParamRead->GyroName[strlen(configParamRead->GyroName)-1] = '\0';
+		 }
                  break;
          }
          else if(strstr(buffer, "DYAMIC_CONFIG_ENABLED=")) {
                  line = strstr(buffer, "=");
-		 sscanf(&line[1], "%d", &configParamRead->DynamicConfigEnabled);
+		 if(line) (void)sscanf(&line[1], "%d", &configParamRead->DynamicConfigEnabled);
                  break;
          }
          else if(strstr(buffer, "MAX_ACC_SAMPLING_RATE=")) {
                  line = strstr(buffer, "=");
-                 sscanf(&line[1], "%f", &configParamRead->MaxAccSampleRate);
+                 if(line) (void)sscanf(&line[1], "%f", &configParamRead->MaxAccSampleRate);
                  break;
          }
          else if(strstr(buffer, "MAX_GYRO_SAMPLING_RATE=")) {
                  line = strstr(buffer, "=");
-                 sscanf(&line[1], "%f", &configParamRead->MaxGyroSampleRate);
+                 if(line) (void)sscanf(&line[1], "%f", &configParamRead->MaxGyroSampleRate);
                  break;
          }
          else if(strstr(buffer, "ACC_RANGE=")) {
                  line = strstr(buffer, "=");
-                 sscanf(&line[1], "%d", &configParamRead->AccRange);
+                 if(line) (void)sscanf(&line[1], "%d", &configParamRead->AccRange);
                  break;
          }
          else if(strstr(buffer, "GYRO_RANGE=")) {
 		 line = strstr(buffer, "=");
-		 sscanf(&line[1], "%d", &configParamRead->GyroRange);
+		 if(line) (void)sscanf(&line[1], "%d", &configParamRead->GyroRange);
 		 break;
 	 }
          else if(strstr(buffer, "ACC_BUFF_RANGE=")) {
                 line = strstr(buffer, "=");
-                sscanf(&line[1], "%d", &configParamRead->AccBuffRange);
+                if(line) (void)sscanf(&line[1], "%d", &configParamRead->AccBuffRange);
                 break;
          }
          else if(strstr(buffer, "GYRO_BUFF_RANGE=")) {
                 line = strstr(buffer, "=");
-                sscanf(&line[1], "%d", &configParamRead->GyroBuffRange);
+                if(line) (void)sscanf(&line[1], "%d", &configParamRead->GyroBuffRange);
                 break;
          }
 	 else if(strstr(buffer, "MIN_ACC_BATCH_COUNT=")) {
                  line = strstr(buffer, "=");
-                 sscanf(&line[1], "%d", &configParamRead->MinAccBatchCount);
+                 if(line) (void)sscanf(&line[1], "%d", &configParamRead->MinAccBatchCount);
                  break;
          }
          else if(strstr(buffer, "MIN_GYRO_BATCH_COUNT=")) {
                  line = strstr(buffer, "=");
-                 sscanf(&line[1], "%d", &configParamRead->MinGyroBatchCount);
+                 if(line) (void)sscanf(&line[1], "%d", &configParamRead->MinGyroBatchCount);
                  break;
          }
          else if(strstr(buffer, "DEBUG_LEVEL=")) {
                  line = strstr(buffer, "=");
-                 sscanf(&line[1], "%d", &configParamRead->DebugLevel);
+                 if(line) (void)sscanf(&line[1], "%d", &configParamRead->DebugLevel);
                  break;
          }
        }
     }
-    fclose(file);
+    (void)fclose(file);
 }
 
 //Print the all values of parametets defined in etc/sensors.conf file
@@ -199,9 +205,9 @@ int main(int argc, char *argv[])
     SENSOR_LOGI(LOG_TAG "starting sensor_hal_daemon\n");
 
     struct sigaction action;
-    memset(&action, 0, sizeof(action));
+    (void)memset(&action, 0, sizeof(action));
     action.sa_handler = sighandler;
-    sigaction(SIGTERM, &action, NULL);
+    (void)sigaction(SIGTERM, &action, NULL);
 
     // start listening for client events - will not return
     if (!SensorApiService::getInstance(configParamRead)) {

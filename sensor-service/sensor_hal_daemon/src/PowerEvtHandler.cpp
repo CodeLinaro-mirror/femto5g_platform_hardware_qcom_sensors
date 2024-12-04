@@ -86,7 +86,7 @@ int PowerEvtHandler::pwrStateCb(power_state_t pwr_state) {
     }
 
     //Allow some time to stop the session and write calibration data NVM.
-    usleep(ACK_TIMEOUT_US);
+    (void)usleep(ACK_TIMEOUT_US);
     syslog(LOG_INFO, "PowerEvtHandler: pwrStateCb sending ack");
     send_acknowledgement(client_ack);
 
