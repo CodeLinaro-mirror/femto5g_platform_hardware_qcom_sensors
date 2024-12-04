@@ -69,6 +69,12 @@
 #include <SensorClientApi.h>
 #include <pwd.h>
 #include <utils/Log.h>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+#include <vector>
 
 #define CMD_OPTIONS     "l:s:b:n:e:t:"
 
@@ -95,6 +101,11 @@ static uint64_t start_time = 0, end_time = 0, selftest_time = 0;
 using namespace sensor_client;
 SensorClient* pClient;
 static int live_count = 0;
+
+std::queue<std::vector<sensors_event_t>> dataQueue;
+std::mutex queueMutex;
+std::condition_variable dataCondition;
+std::atomic<bool> running(true);
 
 void Usage(void)
 {
@@ -241,28 +252,51 @@ static void onBatchingCb(int sensor_id , float sampling_rate, int batch_count, b
   SENSOR_LOGI(LOG_TAG "hanndle %d sampling_rate %f batch_count %d Rotate %d\n", sensor_id, sampling_rate, batch_count, Rotate);
 }
 
+void workerThread() {
+   int i =0;
+   static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_cur = 0;
+   static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0;
+   while (running) {
+      std::unique_lock<std::mutex> lock(queueMutex);
+      dataCondition.wait(lock, [] { return !dataQueue.empty() || !running; });
+
+      while (!dataQueue.empty()) {
+	      std::vector<sensors_event_t> events = std::move(dataQueue.front());
+	      dataQueue.pop();
+	      lock.unlock();
+	      int count =  events.size();
+	      int sensor_id = events[0].sensor;
+	      ts_cur = getTimestamp();
+
+	      if (sensor_id == 1) {
+		      acc_sensor_ts = events[count-1].timestamp;
+		      SENSOR_LOGI(LOG_TAG "Sensor ACC Live: sensor_id %d: read events count %d batch delta in ms=%lld latency in ms=%lld\n",
+				      sensor_id, count, (ts_cur - ts_prv_acc)/1000000, (ts_cur - acc_sensor_ts)/1000000);
+		      ts_prv_acc = ts_cur;
+	      }
+	      else {
+		      gyro_sensor_ts = events[count-1].timestamp;
+		      SENSOR_LOGI(LOG_TAG "Sensor GYRO Live: sensor_id %d: read events count %d batch delta in ms=%lld latency in ms=%lld\n",
+				      sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, (ts_cur - gyro_sensor_ts)/1000000);
+		      ts_prv_gyro = ts_cur;
+	      }
+	      // Process the events
+	      for (const auto& event : events) {
+		    dump_live_event(&event);
+	      }
+	      lock.lock();
+      }
+   }
+}
+
 static void onSensorDataReadCb(int sensor_id, const sensors_event_t *events, uint32_t count)
 {
-    int i =0;
-    static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_cur = 0;
-    static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0;
-    static int LiveCounter = 0;
-    ts_cur = getTimestamp();
-
-    if (sensor_id == 1) {
-	    acc_sensor_ts = events[count-1].timestamp;
-	    SENSOR_LOGI(LOG_TAG "Sensor ACC Live: sensor_id %d: read events count %d batch delta in ms=%lld latency in ms=%lld\n",
-			    sensor_id, count, (ts_cur - ts_prv_acc)/1000000, (ts_cur - acc_sensor_ts)/1000000);
-	    ts_prv_acc = ts_cur;
+    std::vector<sensors_event_t> eventBatch(events, events + count);
+    {
+	    std::lock_guard<std::mutex> lock(queueMutex);
+	    dataQueue.push(std::move(eventBatch));
     }
-    else {
-	    gyro_sensor_ts = events[count-1].timestamp;
-	    SENSOR_LOGI(LOG_TAG "Sensor GYRO Live: sensor_id %d: read events count %d batch delta in ms=%lld latency in ms=%lld\n",
-			    sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, (ts_cur - gyro_sensor_ts)/1000000);
-	    ts_prv_gyro = ts_cur;
-    }
-    for ( i = 0; i < count ; i++)
-	    dump_live_event(&events[i]);
+    dataCondition.notify_one();
 }
 
 static void onSensorMLCEventCb(const char *case_name, struct mlc_event_data *event)
@@ -360,6 +394,8 @@ int main(int argc, char *argv[]) {
 
    PrintSensorList(sensor,sensor_count);
    Usage();
+
+   std::thread worker(workerThread);
 
    if(argc > 2) {
      while ((c = getopt (argc, argv, CMD_OPTIONS)) != -1) {
@@ -628,6 +664,9 @@ EXIT:
    if (pClient) {
 	   delete pClient;
    }
+   running = false;
+   dataCondition.notify_all();
+   worker.join();
    SENSOR_LOGI(LOG_TAG "Done\n");
    exit(0);
 }

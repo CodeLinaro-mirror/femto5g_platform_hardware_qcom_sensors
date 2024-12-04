@@ -324,6 +324,11 @@ public:
 	This API need to call only once after configuring and activating sensor,
 	the data is delivered through SensorDataReadCb callback.
 
+	This function is called to notify about available sensor events. Note the following
+        constraints on this listener API
+        It shall not perform time consuming (compute or I/O intensive) operations on this thread
+        It shall not inovke an sensor APIs on this thread due to the underlying concurrency model
+
         @param[in]  sensor_id: sensor identified to which callback need to registerd. <br/>
         @param[out] SensorDataReadCb: callback method invoked to deliver the sensor data. <br/>
 
