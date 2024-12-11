@@ -32,6 +32,56 @@
 #include <SensorHalDaemonClientHandler.h>
 #include <SensorApiService.h>
 
+default_fir_coef_t DEFAULT_ACC_FIR_COEF_SMI230 = {
+   {400, {
+      {200, {1.0/2, 1.0/2}},
+      {100, {1.0/12, 3.0/12, 4.0/12, 3.0/12, 1.0/12}}
+   }},
+   {200, {
+      {100, {1.0/2, 1.0/2}}
+   }}
+};
+
+default_fir_coef_t DEFAULT_GYRO_FIR_COEF_SMI230 = {
+   {400, {
+      {200, {1.0/12, 3.0/12, 4.0/12, 3.0/12, 1.0/12}},
+      {100, {1.0/45, 3.0/45, 6.0/45, 8.0/45, 9.0/45, 8.0/45, 6.0/45, 3.0/45, 1.0/45}}
+   }},
+   {200, {
+      {100, {1.0/2, 3.0/12, 4.0/12, 3.0/12, 1.0/12}}
+   }}
+};
+
+default_fir_coef_t *DEFAULT_ACC_FIR_COEF = NULL;
+default_fir_coef_t *DEFAULT_GYRO_FIR_COEF = NULL;
+
+static int get_default_fir_coef(int sensor_rate, int client_rate, bool is_accel, std::vector<float> &out_coef)
+{
+   const default_fir_coef_t &default_coef = is_accel ? *DEFAULT_ACC_FIR_COEF : *DEFAULT_GYRO_FIR_COEF;
+   default_fir_coef_t::const_iterator it = default_coef.find(sensor_rate);
+   if (it != default_coef.end())
+   {
+      for (const std::pair<int, std::vector<float>> &coef : it->second)
+      {
+         if (coef.first == client_rate)
+         {
+            out_coef = coef.second;
+            return 0;
+         }
+      }
+   }
+   return -1;
+}
+
+void set_default_fir_coef(int sensorType)
+{
+   if(sensorType == 4)
+   {
+      //smi230
+      DEFAULT_ACC_FIR_COEF = &DEFAULT_ACC_FIR_COEF_SMI230;
+      DEFAULT_GYRO_FIR_COEF = &DEFAULT_GYRO_FIR_COEF_SMI230;
+   }
+}
 
 int FIRFilter::init_filter(uint32_t factor, bool is_accel)
 {
@@ -169,6 +219,12 @@ int SensorHalDaemonClientHandler::setFIRFilter(float sensor_rate, float client_r
       snprintf(conf_suffix, 64, "GYRO_%0.0f_%0.0f", sensor_rate, client_rate);
    }
    ret = GetFIRCoefficient(coef, conf_suffix);
+   if(ret <= 0)
+   {
+      coef.clear();
+      //check if default config is defined
+      ret = get_default_fir_coef((int)sensor_rate, (int)client_rate, is_accel, coef);
+   }
    if(coef.size() > 0)
    {
       ret = is_accel ? ((filter.init_filter_acc(coef.size())==0) && filter.set_filter_acc(coef)) 

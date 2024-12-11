@@ -61,6 +61,13 @@ struct mlc_case_list {
 	int  enable;
 };
 
+#ifdef NO_UNORDERED_SET_OR_MAP
+    typedef std::map<int, std::vector<std::pair<int, std::vector<float>>>> default_fir_coef_t;
+#else
+    typedef std::unordered_map<int, std::vector<std::pair<int, std::vector<float>>>> default_fir_coef_t;
+#endif
+
+void set_default_fir_coef(int sensorType);
 
 /**
  * class FIRFilter: Contains the coefficients array and member methods for FIR Filter

@@ -141,6 +141,8 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 	return;
     }
 
+    set_default_fir_coef(mSensorType);
+
 #ifdef POWERMANAGER_ENABLED
     // register power event handler
     mPowerEventObserver = PowerEvtHandler::getPwrEvtHandler(this);
