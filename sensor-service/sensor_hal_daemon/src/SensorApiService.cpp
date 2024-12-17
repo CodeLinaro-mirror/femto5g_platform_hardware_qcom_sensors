@@ -624,6 +624,8 @@ void* SensorApiService::send_sensor_data_to_clients(void *arg) {
                         break;
                 }
             }
+            (void)mSensorService->mDiagLogger.CommitToDiagAccelLive();
+            (void)mSensorService->mDiagLogger.CommitToDiagGyroLive();
         }
     }
   }
