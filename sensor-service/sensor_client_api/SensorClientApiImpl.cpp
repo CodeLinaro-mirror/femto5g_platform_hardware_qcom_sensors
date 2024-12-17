@@ -933,6 +933,8 @@ void SensorClientImpl::onReceive(const string& data) {
                                 break;
                         }
                     }
+                    mDiagLogger.CommitToDiagAccelLive();
+                    mDiagLogger.CommitToDiagGyroLive();
                 }
             }
 	        break;
@@ -986,6 +988,8 @@ void SensorClientImpl::onReceive(const string& data) {
                             break;
                     }
                 }
+                mDiagLogger.CommitToDiagAccelBuff();
+                mDiagLogger.CommitToDiagGyroBuff();
             }
             break;
        }

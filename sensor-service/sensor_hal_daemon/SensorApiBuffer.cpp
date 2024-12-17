@@ -1122,6 +1122,8 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
      if (count >= 50) {
 	     usleep(1*1000);
 	     rc = it->second->onSensorBufferDataReadCb(events, count);
+       mDiagLogger.CommitToDiagAccelBuff();
+       mDiagLogger.CommitToDiagGyroBuff();
 	     // purge this client if failed
 	     if (!rc) {
 		     return rc;
@@ -1134,6 +1136,8 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
   /***Send remainging packets**/
   if (count != 0) {
 	  rc = it->second->onSensorBufferDataReadCb(events, count);
+    mDiagLogger.CommitToDiagAccelBuff();
+    mDiagLogger.CommitToDiagGyroBuff();
 	  // purge this client if failed
 	  if (!rc) {
 		  return rc;
