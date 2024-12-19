@@ -81,14 +81,6 @@ void SensorHalDaemonClientHandler::cleanup() {
 	delete mActivate;
         mActivate = nullptr;
    }
-   if (mSampleRate) {
-	delete mSampleRate;
-        mSampleRate = nullptr;
-   }
-   if (mBatchCount) {
-	delete mBatchCount;
-        mBatchCount = nullptr;
-   }
    if (mMlcCaseList) {
 	delete mMlcCaseList;
         mMlcCaseList = nullptr;

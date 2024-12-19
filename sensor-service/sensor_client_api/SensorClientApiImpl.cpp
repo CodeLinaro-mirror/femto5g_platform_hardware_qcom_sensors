@@ -284,7 +284,7 @@ int SensorClientImpl::sensorControl(int sensor_id, sensor_state state) {
 SensorClientImpl - StartBatching
 ******************************************************************************/
 int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batch_count, bool rotate, BatchingCb batchingCallback) {
-    SENSOR_LOGI(LOG_TAG ">>> sensorBatching sensor_id %d sampling_rate %f batch_count %d rotate %f\n",
+    SENSOR_LOGI(LOG_TAG ">>> sensorBatching sensor_id %d sampling_rate %f batch_count %d rotate %d\n",
 		    sensor_id, sampling_rate, batch_count, rotate);
 
     int ret = 0;
@@ -305,9 +305,7 @@ int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batc
       for (int i=0; i < mSensorCount; i++) {
          if (mSensorList[i].sensor_id == sensor_id) {
             SensorId = true;
-	    if (batch_count > mSensorList[i].maxBatchCount || batch_count < mSensorList[i].minBatchCount)
-		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
-	    if (sampling_rate <=0)
+	    if (batch_count <= 0 || sampling_rate <=0)
 		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 	    mSensorTrackingOption[i].sampling_rate = sampling_rate;
 	    mSensorTrackingOption[i].batch_count = batch_count;
