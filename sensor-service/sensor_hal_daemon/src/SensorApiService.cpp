@@ -1452,6 +1452,11 @@ int SensorApiService::SensorSelfTest(int sensor_id, SelfTestType selfTestType, S
 	    SENSOR_LOGE(LOG_TAG "self test is failed\n");
 	    result = Failed;
 	}
+	for(int i = 0 ; i < mSensorCount; i++) {
+            if (sensor_id == mSensor[i].sensor_id) {
+                sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //DISABLE the sensor
+            }
+        }
 	fclose(self_test_fd);
      }
 end:
