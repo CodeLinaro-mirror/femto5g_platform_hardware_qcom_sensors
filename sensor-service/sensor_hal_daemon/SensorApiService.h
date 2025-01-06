@@ -112,6 +112,7 @@ typedef struct {
     int   GyroBuffRange;
     int   DebugLevel;
     int   VariableCountBatching;
+    int   EnableFIR;
 } configParamToRead;
 
 
@@ -321,6 +322,7 @@ private:
     int   mBatchConst;
     int   mDynamicConfigEnabled;
     int   mVariableCountBatching;
+    int   mEnableFIR;
     SensorDiagLog mDiagLogger;
 
 

@@ -165,6 +165,11 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
                  sscanf(&line[1], "%d", &configParamRead->VariableCountBatching);
                  break;
          }
+         else if(strstr(buffer, "ENABLE_FIR=")) {
+                line = strstr(buffer, "=");
+                sscanf(&line[1], "%d", &configParamRead->EnableFIR);
+                break;
+         }
        }
     }
     fclose(file);
@@ -178,19 +183,20 @@ void PrintSensorConfigParameters(configParamToRead configParamRead)
 	\tdynamicconfig:%d\n \
 	\tAccelName %s: AccSamplingRate :%f AccBatchcount :%d AccRange :%d AccBuffRange :%d\n \
 	\tGyroName  %s:GyroSamplingRate:%f GyroBatchcount:%d GyroRange:%d GyroBuffRange :%d\n \
-	\tVariableCountBatching:%d DebugLevel:%d\n",
+	\tVariableCountBatching:%d DebugLevel:%d EnableFIR:%d\n",
 	configParamRead.SensorType,
 	configParamRead.SensorHalLibPath,
 	configParamRead.DynamicConfigEnabled,
 	configParamRead.AccelName, configParamRead.MaxAccSampleRate, configParamRead.MinAccBatchCount, configParamRead.AccRange, configParamRead.AccBuffRange,
 	configParamRead.GyroName,  configParamRead.MaxGyroSampleRate, configParamRead.MinGyroBatchCount, configParamRead.GyroRange, configParamRead.GyroBuffRange,
-	configParamRead.VariableCountBatching, configParamRead.DebugLevel);
+	configParamRead.VariableCountBatching, configParamRead.DebugLevel, configParamRead.EnableFIR);
 }
 
 //MAIN
 int main(int argc, char *argv[])
 {
     configParamToRead configParamRead = {};
+    configParamRead.EnableFIR = 0; //By default, use moving average
 
     // read configuration file
     SENSOR_READ_CONF(SENSOR_CONF_PATH, &configParamRead);

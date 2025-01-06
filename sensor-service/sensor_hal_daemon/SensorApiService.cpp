@@ -110,6 +110,7 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mAccBuffRange(configParamRead.AccBuffRange),
     mGyroBuffRange(configParamRead.GyroBuffRange),
     mVariableCountBatching(configParamRead.VariableCountBatching),
+    mEnableFIR(configParamRead.EnableFIR),
     mhmi(nullptr),
     mdev(nullptr),
     mpoll_dev_v0(nullptr),
@@ -874,7 +875,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 	     pClient->mAccCount = 0;
 	     pClient->mAccMovingCount = 0;
 	     pClient->mAccTracking = false;
-         pClient->setFIRFilter(mSensor[i].SamplingRate, mSensor[i].SamplingRate / pClient->mAccFactor, true);
+         if(mEnableFIR)
+         {
+            pClient->setFIRFilter(mSensor[i].SamplingRate, mSensor[i].SamplingRate / pClient->mAccFactor, true);
+         }
 	     //Allocate memory to store acc events based on requested batch count by client
 	     if (pClient->mAccEvents) {
 		     delete pClient->mAccEvents;
@@ -917,7 +921,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 	     pClient->mGyroCount = 0;
 	     pClient->mGyroMovingCount = 0;
 	     pClient->mGyroTracking = false;
-         pClient->setFIRFilter(mSensor[i].SamplingRate, mSensor[i].SamplingRate / pClient->mGyroFactor, false);
+         if(mEnableFIR)
+         {
+            pClient->setFIRFilter(mSensor[i].SamplingRate, mSensor[i].SamplingRate / pClient->mGyroFactor, false);
+         }
 
 	     //Allocate memory to store Gyro events based on requested batch count by client
 	     if (pClient->mGyroEvents) {

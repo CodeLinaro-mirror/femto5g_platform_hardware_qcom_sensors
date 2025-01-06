@@ -162,22 +162,66 @@ void SetSensorDebugLevel(int debug_level) {
     DEBUG_LEVEL = debug_level;
 }
 
-static int to_float_array(char *str_arr, std::vector<float> &out, size_t max_size)
+/**
+ * frac_to_float_array: Parses list of fractions in the form a1/b1,a2/b2,... and returns a float array
+ */
+static int frac_to_float_array(char *str_arr, std::vector<float> &out, size_t max_size)
 {
     char val_str[1024];
+    char val_str1[21];
+    int numerator, denominator;
+    int skip1=0;
     int skip = 0;
     int order = 0;
+    std::vector<float> parsed_arr;
+    parsed_arr.reserve(max_size);
     while((skip = strtok_safe(str_arr, 1024, skip, ",", val_str)) != -1)
     {
         if(order >= max_size)
         {
-            SENSOR_LOGI(LOG_TAG "size of x coefficient array is more than max defined (%lu), skipping rest\n", max_size);
+            SENSOR_LOGE(LOG_TAG "size of x coefficient array is more than max defined (%lu), skipping rest\n", max_size);
             break;
         }
-        out.push_back(atof(val_str));
+        skip1 = 0;
+        skip1 = strtok_safe(val_str, 21, skip1, "/", val_str1);
+        if(skip1 == -1)
+        {
+            SENSOR_LOGE(LOG_TAG "Invalid coefficient value, entries must be in format a/b\n");
+            return 0;
+        }
+        //Check if all the characters are numeric for numerator
+        skip1 = strlen(val_str1);
+        for(int i=0; i<skip1; i++)
+        {
+            if(!isdigit(val_str1[i]))
+            {
+                SENSOR_LOGE(LOG_TAG "Invalid coefficient value, value (%s) is not numeric\n", val_str1);
+                return 0;
+            }
+        }
+        numerator = atoi(val_str1);
+
+        //check if all the characters are numeric for denonimator
+        for(int i=skip1+1; i<strlen(val_str); i++)
+        {
+            if(!isdigit(val_str[i]))
+            {
+                SENSOR_LOGE(LOG_TAG "Invalid coefficient value, value (%s) is not numeric\n", val_str + skip1+1);
+                return 0;
+            }
+        }
+        denominator = atoi(val_str + skip1 + 1);
+
+        if(denominator == 0)
+        {
+            SENSOR_LOGE(LOG_TAG "Invalid coefficient value, denominator is zero\n");
+            return 0;
+        }
+        parsed_arr.push_back((numerator + 0.0) / denominator);
         skip = skip + strlen(val_str) + 1; //+1 for delimeter ','
         order++;
     }
+    out.insert(out.end(), parsed_arr.begin(), parsed_arr.end());
     return order;
 }
 
@@ -196,7 +240,7 @@ int GetFIRCoefficient(std::vector<float> &coef, char *suffix)
         return -1;
     }
     coef.reserve(MAX_FIR_COEF_ORDER);
-    order = to_float_array(conf_coef, coef, MAX_FIR_COEF_ORDER);
+    order = frac_to_float_array(conf_coef, coef, MAX_FIR_COEF_ORDER);
     return order == 0 ? -1 : order;
 }
 
