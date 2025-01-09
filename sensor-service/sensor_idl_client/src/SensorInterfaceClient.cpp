@@ -457,7 +457,8 @@ int main() {
 	    cout << "==== Calling SensorControlReq ====>>" <<  endl;
 	    for(int i=0; i < sensor_count; i++) {
 		printf( "Enable/Disable the sensor id %d\n",sensor[i].getSensorId());
-		fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
+		memset(enable, 0, sizeof(enable));
+		if (fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin) != NULL){
 		Enable=strtol(enable,&stopstring,10);
 		if ( Enable == 1)
 			state = SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE;
@@ -471,6 +472,10 @@ int main() {
 		else {
 			parseSensorReturnT(resp);
 			mSensorTrackingOption[i].state = state;
+		 }
+	        }
+		else{
+			printf("No input received for sensor id %d, skipping...\n", sensor[i].getSensorId());
 		}
 	    }
 	    break;
