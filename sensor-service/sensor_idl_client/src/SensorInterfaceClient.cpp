@@ -119,8 +119,10 @@ void signalHandler(int signal)
 {
    cout << "signalHandler " <<endl;
    DeInitHandles();
+   if (myProxy) {
+       myProxy.reset();
+   }
    exit(0);
-   return;
 }
 
 void regSigHandler()
@@ -489,5 +491,8 @@ EXIT:
     printf("Done\n");
     usleep(5000);
     DeInitHandles();
+    if (myProxy) {
+       myProxy.reset();
+    }
     exit(0);
 }
