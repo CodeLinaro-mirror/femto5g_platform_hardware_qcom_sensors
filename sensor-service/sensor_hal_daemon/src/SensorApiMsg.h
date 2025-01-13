@@ -445,15 +445,19 @@ struct SensorAPISelfTestIndMsg: SensorAPIMsgHeader
     int sensor_id;
     int request_id;
     SelfTestResult result;
+    SelfTestResultType resulttype;
+    uint64_t timestamp;
 
     inline SensorAPISelfTestIndMsg(const char* name,
                                      int sensor_id, int request_id,
-                                     SelfTestResult result
+                                     SelfTestResult result, SelfTestResultType resulttype, uint64_t timestamp
                                      ):
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_SELFTEST_IND_MSG_ID),
         sensor_id(sensor_id),
 	request_id (request_id),
-        result(result){ }
+        result(result),
+	resulttype(resulttype),
+	timestamp(timestamp){ }
 };
 
 //defintion for message with msg id of E_SENSORAPI_SENSOR_EULER_ANGLES_REQ_MSG_ID

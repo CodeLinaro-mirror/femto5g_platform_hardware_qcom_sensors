@@ -99,6 +99,17 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
     // get clientId
     uint32_t pid = (uint32_t)getpid();
 
+    //Enable Diag if enabled
+    if(CheckDiagEnabled(DIAG_CLIENT_SENSOR_CLIENT))
+    {
+        SENSOR_LOGE(LOG_TAG "diag is enabled\n");
+        mDiagLogger.EnableDiag();
+    }
+    else
+    {
+        SENSOR_LOGI(LOG_TAG "diag is disabled\n");
+    }
+
 #ifdef FEATURE_EXTERNAL_AP
     lock_guard<mutex> lock(mMutex);
     int service = SENSOR_CLIENT_API_QSOCKET_HALDAEMON_SERVICE_ID;
@@ -159,6 +170,7 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
 SensorClientImpl - Distructor
 ******************************************************************************/
 SensorClientImpl::~SensorClientImpl() {
+    mDiagLogger.DisableDiag();
 }
 
 void SensorClientImpl::destroy() {
@@ -272,7 +284,7 @@ int SensorClientImpl::sensorControl(int sensor_id, sensor_state state) {
 SensorClientImpl - StartBatching
 ******************************************************************************/
 int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batch_count, bool rotate, BatchingCb batchingCallback) {
-    SENSOR_LOGI(LOG_TAG ">>> sensorBatching sensor_id %d sampling_rate %f batch_count %d rotate %f\n",
+    SENSOR_LOGI(LOG_TAG ">>> sensorBatching sensor_id %d sampling_rate %f batch_count %d rotate %d\n",
 		    sensor_id, sampling_rate, batch_count, rotate);
 
     int ret = 0;
@@ -293,9 +305,7 @@ int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batc
       for (int i=0; i < mSensorCount; i++) {
          if (mSensorList[i].sensor_id == sensor_id) {
             SensorId = true;
-	    if (batch_count > mSensorList[i].maxBatchCount || batch_count < mSensorList[i].minBatchCount)
-		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
-	    if (sampling_rate <=0)
+	    if (batch_count <= 0 || sampling_rate <=0)
 		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 	    mSensorTrackingOption[i].sampling_rate = sampling_rate;
 	    mSensorTrackingOption[i].batch_count = batch_count;
@@ -569,7 +579,7 @@ int SensorClientImpl::selfTest(int sensor_id, SelfTestType selfTestType, int req
       for (int i=0; i < mSensorCount; i++) {
          if (mSensorList[i].sensor_id == sensor_id) {
             SensorId = true;
-	    if (selfTestType != Positive && selfTestType != Negative){
+	    if (selfTestType != Positive && selfTestType != Negative && selfTestType != All){
 		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 		}
             break;
@@ -895,29 +905,29 @@ void SensorClientImpl::onReceive(const string& data) {
        //Received Sensor Read Events response message from SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_START_TRACKING_MSG_ID:
        {
-           if (sizeof(SensorAPIGenericRespMsg) != length) {
-                   SENSOR_LOGE(LOG_TAG "payload size does not match for message with id: %d\n",
-                                   pMsg->msgId);
-           }
-           const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
-	   pthread_mutex_lock (&mSensorLibMutex);
-           mRespReturn = pRespMsg->ret;
-	   pthread_cond_signal (&mSensorLibCond);
-	   pthread_mutex_unlock (&mSensorLibMutex);
-           break;
+            if (sizeof(SensorAPIGenericRespMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "payload size does not match for message with id: %d\n",
+                                pMsg->msgId);
+            }
+            const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
+            pthread_mutex_lock (&mSensorLibMutex);
+            mRespReturn = pRespMsg->ret;
+            pthread_cond_signal (&mSensorLibCond);
+            pthread_mutex_unlock (&mSensorLibMutex);
+            break;
        }
        //Received buffer data read response message from SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID:
        {
-           if (sizeof(SensorAPIGenericRespMsg) != length) {
-                   SENSOR_LOGE(LOG_TAG "payload size does not match for message with id: %d\n",
-                                   pMsg->msgId);
-           }
-           const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
-	   pthread_mutex_lock (&mSensorLibMutex);
-           mRespReturn = pRespMsg->ret;
-	   pthread_cond_signal (&mSensorLibCond);
-	   pthread_mutex_unlock (&mSensorLibMutex);
+            if (sizeof(SensorAPIGenericRespMsg) != length) {
+                    SENSOR_LOGE(LOG_TAG "payload size does not match for message with id: %d\n",
+                                    pMsg->msgId);
+            }
+            const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
+	        pthread_mutex_lock (&mSensorLibMutex);
+            mRespReturn = pRespMsg->ret;
+            pthread_cond_signal (&mSensorLibCond);
+            pthread_mutex_unlock (&mSensorLibMutex);
            break;
        }
        //Received Batching config notification message from SHD(SENSOR HAL DAEMON)
@@ -936,16 +946,38 @@ void SensorClientImpl::onReceive(const string& data) {
        //Received Sensor events from SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_DATA_READ_MSG_ID:
        {
-	   if (mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) {
-		   const SensorAPIDataIndMsg* pDataIndMsg = (SensorAPIDataIndMsg*)(pMsg);
-		   for (int i = 0; i < mSensorCount; i++) {
-			   if((mSensorTrackingOption[i].sensor_id == pDataIndMsg->sensorData.events[0].sensor)
-				   && mSensorTrackingOption[i].mSensorDataReadCb)
-				mSensorTrackingOption[i].mSensorDataReadCb(pDataIndMsg->sensorData.events[0].sensor,
-						&pDataIndMsg->sensorData.events[0], pDataIndMsg->sensorData.count);
-		   }
-	   }
-	   break;
+            if (mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) {
+                const SensorAPIDataIndMsg* pDataIndMsg = (SensorAPIDataIndMsg*)(pMsg);
+                for (int i = 0; i < mSensorCount; i++) {
+                        if((mSensorTrackingOption[i].sensor_id == pDataIndMsg->sensorData.events[0].sensor)
+                        && mSensorTrackingOption[i].mSensorDataReadCb)
+                        {
+                            mSensorTrackingOption[i].mSensorDataReadCb(pDataIndMsg->sensorData.events[0].sensor,
+                                    &pDataIndMsg->sensorData.events[0], pDataIndMsg->sensorData.count);
+                        }
+                }
+                if(mDiagLogger.IsEnabled())
+                {
+                    const SensorAPIDataIndMsg* pDataIndMsg = (SensorAPIDataIndMsg*)(pMsg);
+                    uint64_t accelCountLocal = 0;
+                    uint64_t gyroCountLocal = 0;
+                    for(uint64_t i=0; i<pDataIndMsg->sensorData.count; i++)
+                    {
+                        switch(pDataIndMsg->sensorData.events[i].type)
+                        {
+                            case SENSOR_TYPE_ACCELEROMETER:
+                            case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
+                                mDiagLogger.SendSensorLiveAccelEvent(&pDataIndMsg->sensorData.events[i], ++accelCountLocal);
+                                break;
+                            case SENSOR_TYPE_GYROSCOPE:
+                            case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
+                                mDiagLogger.SendSensorLiveGyroEvent(&pDataIndMsg->sensorData.events[i], ++gyroCountLocal);
+                                break;
+                        }
+                    }
+                }
+            }
+	        break;
        }
        //Received Sensor MLC Case events from SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_SENSOR_MLC_EVENT_IND_MSG_ID:
@@ -973,11 +1005,31 @@ void SensorClientImpl::onReceive(const string& data) {
        //Received sensor buffer data from  SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID:
        {
-	  if((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSensorBufferDataReadCb) {
-		  const SensorAPIBufferDataIndMsg* pBufferDataMsg = (SensorAPIBufferDataIndMsg*) (pMsg);
-		  mSensorBufferDataReadCb(&pBufferDataMsg->sensorData.events[0], pBufferDataMsg->sensorData.count);
-	  }
-	  break;
+            if((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSensorBufferDataReadCb) {
+                const SensorAPIBufferDataIndMsg* pBufferDataMsg = (SensorAPIBufferDataIndMsg*) (pMsg);
+                mSensorBufferDataReadCb(&pBufferDataMsg->sensorData.events[0], pBufferDataMsg->sensorData.count);
+            }
+            if(mDiagLogger.IsEnabled())
+            {
+                const SensorAPIBufferDataIndMsg* pBufferDataMsg = (SensorAPIBufferDataIndMsg*) (pMsg);
+                uint64_t accelCountLocal = 0;
+                uint64_t gyroCountLocal = 0;
+                for(uint64_t i=0; i<pBufferDataMsg->sensorData.count; i++)
+                {
+                    switch(pBufferDataMsg->sensorData.events[i].type)
+                    {
+                        case SENSOR_TYPE_ACCELEROMETER:
+                        case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
+                            mDiagLogger.SendSensorBuffAccelEvent(&pBufferDataMsg->sensorData.events[i], ++accelCountLocal);
+                            break;
+                        case SENSOR_TYPE_GYROSCOPE:
+                        case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
+                            mDiagLogger.SendSensorBuffGyroEvent(&pBufferDataMsg->sensorData.events[i], ++gyroCountLocal);
+                            break;
+                    }
+                }
+            }
+            break;
        }
        //Received sensor mfifo data from  SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID:
@@ -1011,7 +1063,7 @@ void SensorClientImpl::onReceive(const string& data) {
                   const SensorAPISelfTestIndMsg* pSelfMsg = (SensorAPISelfTestIndMsg*) (pMsg);
 		  SENSOR_LOGI(LOG_TAG "mselftestresultcb: sensor_id = %d request_id = %d result = %d\n",
 				  pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result);
-                  mSelfTestResultCb(pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result);
+                  mSelfTestResultCb(pSelfMsg->sensor_id, pSelfMsg->request_id, pSelfMsg->result, pSelfMsg->resulttype, pSelfMsg->timestamp);
           }
           break;
        }

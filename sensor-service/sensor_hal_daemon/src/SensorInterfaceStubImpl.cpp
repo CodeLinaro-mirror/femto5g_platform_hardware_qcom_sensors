@@ -41,6 +41,11 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define NSEC_IN_ONE_SEC       (1000000000ULL)   /* nanosec in a sec */
 
+mutex SensorInterfaceStubImpl::mIdlMutex;
+map<int32_t, float> SensorInterfaceStubImpl::sensorSamplingRates;
+map<int32_t, bool> SensorInterfaceStubImpl::sensorStates;
+map<int32_t, int32_t> SensorInterfaceStubImpl::sensorControlRequest;
+
 SensorInterfaceStubImpl::SensorInterfaceStubImpl(SensorApiService* service):
 	mService(service),
 	mClientId(0),
@@ -54,7 +59,7 @@ SensorInterfaceStubImpl::~SensorInterfaceStubImpl() {
 uint64_t SensorInterfaceStubImpl::getGptpTimeFromBootTime(uint64_t boot_time_ns) {
    uint64_t gptpTimestamp;
    if (!mService->GptpInitialized && gptpInit()) {
-	   SENSOR_LOGI(LOG_TAG "GPTP init success \n");
+	   SENSOR_LOGI(LOG_IVSS_TAG "GPTP init success \n");
 	   mService->GptpInitialized = true;
    }
    gptpGetPtpTimeFromMonoTime(&gptpTimestamp, boot_time_ns);
@@ -205,10 +210,11 @@ void SensorInterfaceStubImpl::onSensorDataReadCb(sensors_event_t *events, int co
 // This is the method that will be called on remote calls on the method RegisterSensorClientReq.
 void SensorInterfaceStubImpl::RegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> _client, RegisterSensorClientReqReply_t _reply)
 {
+    lock_guard<mutex> lock(mIdlMutex);
     int resp = 0;
 
     mClientId++;
-    SENSOR_LOGI(LOG_TAG  "<<==== New SensorClient mClientId %d ==== \n", mClientId);
+    SENSOR_LOGI(LOG_IVSS_TAG  "<<==== New SensorClient mClientId %d ==== \n", mClientId);
 
     SensorAPIClientRegisterReqMsg msg(mClientname.c_str(), SENSOR_CLIENT_API);
     resp = mService->newClient(&msg);
@@ -223,17 +229,24 @@ void SensorInterfaceStubImpl::RegisterSensorClientReq(const shared_ptr<CommonAPI
 // This is the method that will be called on remote calls on the method DeRegisterSensorClientReq.
 void SensorInterfaceStubImpl::DeRegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> _client, DeRegisterSensorClientReqReply_t _reply)
 {
+    lock_guard<mutex> lock(mIdlMutex);
     int resp = 0;
 
     if(mClientId != 0)
 	    mClientId--;
-    SENSOR_LOGI(LOG_TAG  "<<==== Delete SensorClient mClientId %d ====\n", mClientId);
+    SENSOR_LOGI(LOG_IVSS_TAG  "<<==== Delete SensorClient mClientId %d ====\n", mClientId);
     if(mClientId == 0) { 
-	    SensorAPIClientDeregisterReqMsg msg(mClientname.c_str());
+            SensorAPIClientDeregisterReqMsg msg(mClientname.c_str());
 	    mService->deleteClient(&msg);
+	    /*reset all flags when ivss client is removed from shd**/
+	    mHeadTracking = false;
+	    for(int i=0; i< mService->mSensorCount; i++) {
+		    sensorStates[mService->mSensorList[i].sensor_id] = false;
+		    sensorSamplingRates[mService->mSensorList[i].sensor_id] = 0;
+		    sensorControlRequest[mService->mSensorList[i].sensor_id] = 0;
+	    }
     }
 
-    mHeadTracking = false;
     SensorInterfaceTypes::SensorReturnT response = parseSensorReturnT(resp);
     _reply(response);
 }
@@ -241,7 +254,8 @@ void SensorInterfaceStubImpl::DeRegisterSensorClientReq(const shared_ptr<CommonA
 // This is the method that will be called on remote calls on the method GetSensorListReq.
 void SensorInterfaceStubImpl::GetSensorListReq(const shared_ptr<CommonAPI::ClientId> _client, GetSensorListReqReply_t _reply)
 {
-    SENSOR_LOGI(LOG_TAG  "<<==== GetSensorInfoTReq ==== \n");
+    lock_guard<mutex> lock(mIdlMutex);
+    SENSOR_LOGI(LOG_IVSS_TAG  "<<==== GetSensorInfoTReq ==== \n");
     int count = mService->mSensorCount;
 
     if(mService->mSensorCount > 0) {
@@ -256,17 +270,32 @@ void SensorInterfaceStubImpl::GetSensorListReq(const shared_ptr<CommonAPI::Clien
 // This is the method that will be called on remote calls on the method SensorConfig.
 void SensorInterfaceStubImpl::SensorConfigReq(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, float _samplingRate, int32_t _batchCount, SensorConfigReqReply_t _reply)
 {
-    SENSOR_LOGI(LOG_TAG  "<<==== SensorConfig ==== Client %s sensor_id: %d SamplingRate: %f  BatchCount: %d \n", 
+    lock_guard<mutex> lock(mIdlMutex);
+    SENSOR_LOGI(LOG_IVSS_TAG  "<<==== SensorConfig ==== Client %s sensor_id: %d SamplingRate: %f  BatchCount: %d \n", 
 		    mClientname.c_str(), _sensorId, _samplingRate, _batchCount);
     int resp = 0;
-    SensorInterfaceTypes::SensorReturnT response = 0;
+    SensorInterfaceTypes::SensorReturnT response = 1;
 
+    /*Handle Accel and gyro config request*/
     if ( _sensorId != SENSOR_ID_HEADING) {
-	    SensorAPIStartBatchingReqMsg msg (mClientname.c_str(), _sensorId, _samplingRate, _batchCount, 1);
-	    resp = mService->startBatching(&msg);
+	    /*Configure sensor if required more than already configured rate*/
+	    if (_samplingRate > sensorSamplingRates[_sensorId]) {
+		    SENSOR_LOGI(LOG_IVSS_TAG "<= Switch sensor config id:%d from %fhz to %fhz\n",_sensorId, sensorSamplingRates[_sensorId], _samplingRate);
+		    SensorAPIStartBatchingReqMsg msg (mClientname.c_str(), _sensorId, _samplingRate, _batchCount, 1);
+		    resp = mService->startBatching(&msg);
+		    /*store the configured samplingrate for respective sensor id if config success*/
+		    if(resp == 0)
+			    sensorSamplingRates[_sensorId] = _samplingRate;
+		    /*re-enable sensor if already enabled as config is updated*/
+		    if(sensorStates[_sensorId]) {
+			    SensorAPIEnableReqMsg msg (mClientname.c_str(), _sensorId, 1);
+			    mService->activateSensor(&msg);
+	            }
+	    }
 	    response  = parseSensorReturnT(resp);
 	    _reply(response);
     }
+    /*Handle heading config request*/
     else {
            fireSensorConfigUpdateEvent(SENSOR_ID_HEADING, 100, 1);
 	    response  = parseSensorReturnT(resp);
@@ -277,29 +306,58 @@ void SensorInterfaceStubImpl::SensorConfigReq(const shared_ptr<CommonAPI::Client
 // This is the method that will be called on remote calls on the method SensorControl.
 void SensorInterfaceStubImpl::SensorControlReq(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, SensorInterfaceTypes::SensorStateT _sensorState, SensorControlReqReply_t _reply)
 {
-    SENSOR_LOGI(LOG_TAG  "<<==== SensorControl === Client %s sensor_id:%d state:%d\n",mClientname.c_str(), _sensorId, static_cast<int>(_sensorState));
+    lock_guard<mutex> lock(mIdlMutex);
+    SENSOR_LOGI(LOG_IVSS_TAG  "<<==== SensorControl === Client %s sensor_id:%d state:%d\n",mClientname.c_str(), _sensorId, static_cast<int>(_sensorState));
     int resp = 0, enable = 0;
-    SensorInterfaceTypes::SensorReturnT response = 0;
+    SensorInterfaceTypes::SensorReturnT response = 1;
 
-    if(_sensorState == SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE)
+    if(_sensorState == SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE) 
 	    enable = 1;
     else
 	    enable = 0;
 
+    /*Handle Accel and gyro enable/disable request*/
     if ( _sensorId != SENSOR_ID_HEADING) {
+       if (enable == 1) {
 	    SensorAPIEnableReqMsg msg (mClientname.c_str(), _sensorId, enable);
 	    resp = mService->activateSensor(&msg);
-
-	    response = parseSensorReturnT(resp);
-	    _reply(response);
-    } else {
+	    if(resp == 0) {
+		    sensorStates[_sensorId] = true;
+		    sensorControlRequest[_sensorId]++;
+		    SENSOR_LOGI(LOG_IVSS_TAG  "<= Sensor enable request id %d count %d \n", _sensorId, sensorControlRequest[_sensorId]);
+	    }
+       }
+       if (enable == 0) {
+	    sensorControlRequest[_sensorId]--;
+	    SENSOR_LOGI(LOG_IVSS_TAG  "<= Sensor disable request id %d count %d \n", _sensorId, sensorControlRequest[_sensorId]);
+	    if (sensorControlRequest[_sensorId] <= 0)  {
+	       SensorAPIEnableReqMsg msg (mClientname.c_str(), _sensorId, enable);
+	       resp = mService->activateSensor(&msg);
+	       if(resp == 0) {
+		       sensorStates[_sensorId] = false;
+		       sensorSamplingRates[_sensorId] = 0;
+	       }
+	    }
+       }
+       response = parseSensorReturnT(resp);
+       _reply(response);
+    } 
+    /*Handle heading enable/disable request*/
+    else {
 	    if (enable == 1){ 
 		    mService->EnableHeadingSensor();
 		    mHeadTracking = true;
+		    sensorStates[_sensorId] = true;
+		    sensorControlRequest[_sensorId]++;
 	    }
 	    else { 
-		    mService->DisableHeadingSensor();
-		    mHeadTracking = false;
+		    sensorControlRequest[_sensorId]--;
+		    if (sensorControlRequest[_sensorId] <= 0) {
+		       mService->DisableHeadingSensor();
+		       mHeadTracking = false;
+		       sensorStates[_sensorId] = false;
+		       sensorSamplingRates[_sensorId] = 0;
+		    }
 	    }
 	    response = parseSensorReturnT(resp);
 	    _reply(response);

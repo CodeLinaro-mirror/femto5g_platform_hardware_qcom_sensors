@@ -55,7 +55,7 @@ using namespace std;
 /*ASM330 temperature*/
 #define ASM_TEMP_SEARCH         "asm330lhh_temp"
 #define ASMX_TEMP_SEARCH        "asm330lhhx_temp"
-#define ASM_ACCEL_FSR           0.000598   // 2G:0.000598, 4G:0.001196, 8G:0.002392, 16G:0.004785
+#define ASM_ACCEL_FSR           0.001196   // 2G:0.000598, 4G:0.001196, 8G:0.002392, 16G:0.004785
 #define ASM_GYRO_FSR            0.000076   // 125:0.000076, 250:0.000153, 500:0.000305, 1000:0.000611, 2000:0
 #define ASM_ACC_SEARCH          "asm330lhh_accel"
 #define ASM_GYR_SEARCH          "asm330lhh_gyro"
@@ -78,13 +78,13 @@ using namespace std;
 /*SMI230 temperature*/
 #define SMI230_TEMP_SEARCH         "SMI230ACC"  // Search key is common for both Accel & Temp
 #define SMI230_GYR_SEARCH          "SMI230GYRO" // Search key for Gyro
-#define SMI230_CONVERT_ACC         (0.000598755)
-#define SMI230_CONVERT_GYRO        (0.00006657903)
+#define SMI230_CONVERT_ACC         (0.001197510) // 2G:0.000598755, 4G:0.001197510, 8G:0.002395020, 16G:0.004790039
+#define SMI230_CONVERT_GYRO        (0.00006657903) //125:0.00006657903, 250:0.00013315805, 500:0.00026631611, 2000:0.00053263222
 
 /*IAM20680 temperature and buffer read*/
 #define IAM_TEMP_SEARCH         "iam20680"
 #define IAM_TEMP_NAME           "out_temperature"
-#define IAM_ACCEL_FSR           2.0f // 2:2g, 4:4g, 8:8g, 16:16g
+#define IAM_ACCEL_FSR           4.0f // 2:2g, 4:4g, 8:8g, 16:16g
 #define IAM_GYRO_FSR            131.0f // 131:250dbps 65.5:500dbps 32.8:1000dbps 16.4:2000dbps
 #define IAM_BATCH_TIME          (1.0 * NS_IN_ONE_SECOND)
 
@@ -98,6 +98,80 @@ using namespace std;
 
 static FILE *mfdBuffAccel  = NULL;
 static FILE *mfdBuffGyro   = NULL;
+
+
+
+static float convert_acc_buff_asm = ASM_ACCEL_FSR;
+static float convert_gyro_buff_asm = ASM_GYRO_FSR;
+
+static float convert_acc_buff_iam = IAM_ACCEL_FSR;
+static float convert_gyro_buff_iam = IAM_GYRO_FSR;
+
+static float convert_acc_buff_smi130 = SMI_CONVERT_ACC;
+static float convert_gyro_buff_smi130 = SMI_CONVERT_GYRO;
+
+static float convert_acc_buff_smi230 = SMI230_CONVERT_ACC;
+static float convert_gyro_buff_smi230 = SMI230_CONVERT_GYRO;
+
+
+void set_buff_scaling_factor(int sensorType, int accRange, int gyroRange)
+{
+  if(sensorType == 1)
+  {
+    //asm
+    float acc_range_conv[4] = {0.000598, 0.001196, 0.002392, 0.004785};
+    float gyro_range_conv[6] = {0.000076, 0.000153, 0.000305, 0.000611, 0.001222, 0.002443};
+    if(accRange >= 0 && accRange <= 3)
+    {
+      convert_acc_buff_asm = acc_range_conv[accRange];
+    }
+    if(gyroRange >= 0 && gyroRange <= 5)
+    {
+      convert_gyro_buff_asm = gyro_range_conv[gyroRange];
+    }
+    SENSOR_LOGI(LOG_TAG "convert_acc_buff_asm : %f, convert_gyro_buff_asm : %f\n", convert_acc_buff_asm, convert_gyro_buff_asm);
+  }
+  else if(sensorType == 2)
+  {
+    //iam
+    float acc_range_conv[4] = {2.0, 4.0, 8.0, 16.0};
+    float gyro_range_conv[4] = {131.0, 65.5, 32.8, 16.4};
+    if(accRange >= 0 && accRange <= 3)
+    {
+      convert_acc_buff_iam = acc_range_conv[accRange];
+    }
+    if(gyroRange >= 0 && gyroRange <= 3)
+    {
+      convert_gyro_buff_iam = gyro_range_conv[gyroRange];
+    }
+    SENSOR_LOGI(LOG_TAG "convert_acc_buff_iam : %f, convert_gyro_buff_iam : %f\n", convert_acc_buff_iam, convert_gyro_buff_iam);
+  }
+  else if(sensorType == 3)
+  {
+    //smi130, only one range supported
+    convert_acc_buff_smi130 = 0.0098;
+    convert_gyro_buff_smi130 = 0.000066322;
+    SENSOR_LOGI(LOG_TAG "convert_acc_buff_smi130 : %f, convert_gyro_buff_smi130 : %f\n", convert_acc_buff_smi130, convert_gyro_buff_smi130);
+  }
+  else if(sensorType == 4)
+  {
+    //smi230
+    float acc_range_conv[4] = {0.000598755, 0.001197510, 0.002395020, 0.004790039};
+    float gyro_range_conv[5] = {0.00006657903, 0.00013315805, 0.00026631611, 0.00053263222, 0.00106526444};
+    if(accRange >= 0 && accRange <= 3)
+    {
+      convert_acc_buff_smi230 = acc_range_conv[accRange];
+    }
+    if(gyroRange >= 0 && gyroRange <= 4)
+    {
+      convert_gyro_buff_smi230 = gyro_range_conv[gyroRange];
+    }
+    SENSOR_LOGI(LOG_TAG "convert_acc_buff_smi230 : %f, convert_gyro_buff_smi230 : %f\n", convert_acc_buff_smi230, convert_gyro_buff_smi230);
+  }
+}
+
+
+
 /**
  * @brief Read Temp Sensor data from SYS File System for ASM330 Sensor.
  *
@@ -523,7 +597,7 @@ void scalingIAMBufferData(int SensorType,sensors_event_t *event)
     float scale = 0;
     float data[3];
     if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
-      scale = 1.f / (32768.0f / IAM_ACCEL_FSR) * 9.80665f;
+      scale = 1.f / (32768.0f / convert_acc_buff_iam) * 9.80665f;
       /* convert to body frame */
       for (int i = 0; i < 3 ; i++) {
 	      data[i] = event->acceleration.x * orientationMatrix[i * 3] +
@@ -536,7 +610,7 @@ void scalingIAMBufferData(int SensorType,sensors_event_t *event)
       event->acceleration.z = (float)data[2] * scale;
     }
     else if (SENSOR_TYPE_GYROSCOPE == SensorType) {
-      scale = 1.f / IAM_GYRO_FSR * 0.0174532925f;
+      scale = 1.f / convert_gyro_buff_iam * 0.0174532925f;
       /* convert to body frame */
       for (int i = 0; i < 3 ; i++) {
               data[i] = event->gyro.x * orientationMatrix[i * 3] +
@@ -564,14 +638,14 @@ void scalingSMIBufferData(int SensorType,sensors_event_t *event)
   float scaleFactor = 1;
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
-    scaleFactor = SMI_ACC_RESL * SMI_CONVERT_ACC;
+    scaleFactor = SMI_ACC_RESL * convert_acc_buff_smi130;
     event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
     event->acceleration.x *= scaleFactor;
     event->acceleration.y *= scaleFactor;
     event->acceleration.z *= scaleFactor;
   }
   else {
-    scaleFactor = SMI_CONVERT_GYRO;
+    scaleFactor = convert_gyro_buff_smi130;
     event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
     event->gyro.x *= scaleFactor;
     event->gyro.y *= scaleFactor;
@@ -590,21 +664,18 @@ void scalingSMIBufferData(int SensorType,sensors_event_t *event)
 void scalingSMI230BufferData(int SensorType,sensors_event_t *event)
 {
   int cnt;
-  float scaleFactor = 1;
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType) {
-    scaleFactor = SMI230_CONVERT_ACC;
     event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
-    event->acceleration.x *= scaleFactor;
-    event->acceleration.y *= scaleFactor;
-    event->acceleration.z *= scaleFactor;
+    event->acceleration.x *= convert_acc_buff_smi230;
+    event->acceleration.y *= convert_acc_buff_smi230;
+    event->acceleration.z *= convert_acc_buff_smi230;
   }
   else {
-    scaleFactor = SMI230_CONVERT_GYRO;
     event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
-    event->gyro.x *= scaleFactor;
-    event->gyro.y *= scaleFactor;
-    event->gyro.z *= scaleFactor;
+    event->gyro.x *= convert_gyro_buff_smi230;
+    event->gyro.y *= convert_gyro_buff_smi230;
+    event->gyro.z *= convert_gyro_buff_smi230;
   }
 }
 
@@ -625,22 +696,19 @@ static float process_2byte_received(int input, float scale)
 void scalingASMBufferData(int SensorType,sensors_event_t *event)
 {
   int cnt;
-  float scaleFactor = 1;
   /* Get the scale factor based on sensor type */
   if (SENSOR_TYPE_ACCELEROMETER == SensorType)
   {
-    scaleFactor = ASM_ACCEL_FSR;
     event->type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
-    event->acceleration.x = process_2byte_received(event->acceleration.x, scaleFactor);
-    event->acceleration.y = process_2byte_received(event->acceleration.y, scaleFactor);
-    event->acceleration.z = process_2byte_received(event->acceleration.z, scaleFactor);
+    event->acceleration.x = process_2byte_received(event->acceleration.x, convert_acc_buff_asm);
+    event->acceleration.y = process_2byte_received(event->acceleration.y, convert_acc_buff_asm);
+    event->acceleration.z = process_2byte_received(event->acceleration.z, convert_acc_buff_asm);
   }
   else {
-    scaleFactor = ASM_GYRO_FSR;
     event->type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
-    event->gyro.x = process_2byte_received(event->gyro.x, scaleFactor);
-    event->gyro.y = process_2byte_received(event->gyro.y, scaleFactor);
-    event->gyro.z = process_2byte_received(event->gyro.z, scaleFactor);
+    event->gyro.x = process_2byte_received(event->gyro.x, convert_gyro_buff_asm);
+    event->gyro.y = process_2byte_received(event->gyro.y, convert_gyro_buff_asm);
+    event->gyro.z = process_2byte_received(event->gyro.z, convert_gyro_buff_asm);
   }
 }
 
@@ -900,7 +968,9 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
 		     bufferDataScaling(SENSOR_TYPE_ACCELEROMETER, &events[count]);
 		     SENSOR_LOGW(LOG_TAG "ACC Buffer event: x=%f y=%f z=%f timestamp=%lld acccount %d\n",
 				     events[count].acceleration.x, events[count].acceleration.y,
-				     events[count].acceleration.z, events[count].timestamp, acccount++);
+				     events[count].acceleration.z, events[count].timestamp, acccount);
+         mDiagLogger.SendSensorBuffAccelEvent(&events[count], acccount);
+         ++acccount;
 		     count++;
 	     } else {
 		     accelBuffDataTxProgress = false;
@@ -914,7 +984,9 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
 		     bufferDataScaling(SENSOR_TYPE_GYROSCOPE, &events[count]);
 		     SENSOR_LOGW(LOG_TAG "GYRO Buffer event: x=%f y=%f z=%f timestamp=%lld gyrocount %d\n",
 				     events[count].gyro.x, events[count].gyro.y, events[count].gyro.z,
-				     events[count].timestamp, gyrocount++);
+				     events[count].timestamp, gyrocount);
+         mDiagLogger.SendSensorBuffGyroEvent(&events[count], gyrocount);
+         ++gyrocount;
 		     count++;
 	     } else {
 		     gyroBuffDataTxProgress = false;

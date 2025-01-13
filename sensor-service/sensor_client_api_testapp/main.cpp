@@ -69,6 +69,12 @@
 #include <SensorClientApi.h>
 #include <pwd.h>
 #include <utils/Log.h>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+#include <vector>
 
 #define CMD_OPTIONS     "l:s:b:n:e:t:"
 
@@ -95,6 +101,11 @@ static uint64_t start_time = 0, end_time = 0, selftest_time = 0;
 using namespace sensor_client;
 SensorClient* pClient;
 static int live_count = 0;
+
+std::queue<std::vector<sensors_event_t>> dataQueue;
+std::mutex queueMutex;
+std::condition_variable dataCondition;
+std::atomic<bool> running(true);
 
 void Usage(void)
 {
@@ -201,7 +212,7 @@ static void dump_buffer_event(const struct sensors_event_t *e)
 
 
 static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
-    SENSOR_LOGI(LOG_TAG "<<< onCapabilitiesCb mask=%d\n", mask);
+    SENSOR_LOGI(LOG_TAG "<<< Recieved onCapabilitiesCb mask=%d\n", mask);
     switch (mask) {
 	case SHD_READY:
 		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is Ready to commnunicate\n");
@@ -221,6 +232,15 @@ static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
 	case DEVICE_SHUTDOWN:
 		SENSOR_LOGI(LOG_TAG "Device is about go to shutdown\n");
 		break;
+	case ACCEL_SELFTEST_FAIL:
+		SENSOR_LOGI(LOG_TAG "Accel self-test fail\n");
+                break;
+	case GYRO_SELFTEST_FAIL:
+		SENSOR_LOGI(LOG_TAG "Gyro self-test fail\n");
+                break;
+	case ACCEL_GYRO_BOTH_SELFTEST_FAIL:
+		SENSOR_LOGI(LOG_TAG "Accel and Gyro self-test both failed\n");
+                break;
 	defult:
 		SENSOR_LOGI(LOG_TAG "Unknown mask\n");
 		break;
@@ -229,31 +249,54 @@ static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
 
 static void onBatchingCb(int sensor_id , float sampling_rate, int batch_count, bool Rotate)
 {
-  SENSOR_LOGI(LOG_TAG "hanndle %d sampling_rate %f batch_count %d Rotate %d\n", sensor_id, sampling_rate, batch_count, Rotate);
+  SENSOR_LOGI(LOG_TAG "Recieved Sensor id %d sampling_rate %f batch_count %d Rotate %d\n", sensor_id, sampling_rate, batch_count, Rotate);
+}
+
+void workerThread() {
+   int i =0;
+   static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_cur = 0;
+   static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0;
+   while (running) {
+      std::unique_lock<std::mutex> lock(queueMutex);
+      dataCondition.wait(lock, [] { return !dataQueue.empty() || !running; });
+
+      while (!dataQueue.empty()) {
+	      std::vector<sensors_event_t> events = std::move(dataQueue.front());
+	      dataQueue.pop();
+	      lock.unlock();
+	      int count =  events.size();
+	      int sensor_id = events[0].sensor;
+	      ts_cur = getTimestamp();
+
+	      if (sensor_id == 1) {
+		      acc_sensor_ts = events[count-1].timestamp;
+		      SENSOR_LOGI(LOG_TAG "Sensor ACC Live: sensor_id %d: read events count %d batch delta in ms=%lld latency in ms=%lld\n",
+				      sensor_id, count, (ts_cur - ts_prv_acc)/1000000, (ts_cur - acc_sensor_ts)/1000000);
+		      ts_prv_acc = ts_cur;
+	      }
+	      else {
+		      gyro_sensor_ts = events[count-1].timestamp;
+		      SENSOR_LOGI(LOG_TAG "Sensor GYRO Live: sensor_id %d: read events count %d batch delta in ms=%lld latency in ms=%lld\n",
+				      sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, (ts_cur - gyro_sensor_ts)/1000000);
+		      ts_prv_gyro = ts_cur;
+	      }
+	      // Process the events
+	      for (const auto& event : events) {
+		    dump_live_event(&event);
+	      }
+	      lock.lock();
+      }
+   }
 }
 
 static void onSensorDataReadCb(int sensor_id, const sensors_event_t *events, uint32_t count)
 {
-    int i =0;
-    static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_cur = 0;
-    static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0;
-    static int LiveCounter = 0;
-    ts_cur = getTimestamp();
-
-    if (sensor_id == 1) {
-	    acc_sensor_ts = events[count-1].timestamp;
-	    SENSOR_LOGI(LOG_TAG "Sensor ACC Live: sensor_id %d: read events count %d batch delta in ms=%lld latency in ms=%lld\n",
-			    sensor_id, count, (ts_cur - ts_prv_acc)/1000000, (ts_cur - acc_sensor_ts)/1000000);
-	    ts_prv_acc = ts_cur;
+    std::vector<sensors_event_t> eventBatch(events, events + count);
+    {
+	    std::lock_guard<std::mutex> lock(queueMutex);
+	    dataQueue.push(std::move(eventBatch));
     }
-    else {
-	    gyro_sensor_ts = events[count-1].timestamp;
-	    SENSOR_LOGI(LOG_TAG "Sensor GYRO Live: sensor_id %d: read events count %d batch delta in ms=%lld latency in ms=%lld\n",
-			    sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, (ts_cur - gyro_sensor_ts)/1000000);
-	    ts_prv_gyro = ts_cur;
-    }
-    for ( i = 0; i < count ; i++)
-	    dump_live_event(&events[i]);
+    dataCondition.notify_one();
 }
 
 static void onSensorMLCEventCb(const char *case_name, struct mlc_event_data *event)
@@ -286,12 +329,12 @@ static void onSensorTempReadCb(float tempreature)
    SENSOR_LOGI(LOG_TAG "tempreature %f \n",tempreature);
 }
 
-static void onSelfTestResultCallback(int sensor_id, int request_id, SelfTestResult result)
+static void onSelfTestResultCallback(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp)
 {
    end_time = getTimestamp();
    selftest_time = (end_time - start_time);
    SENSOR_LOGI(LOG_TAG "\nselftest time taken = %lldms\n", selftest_time/1000000);
-   SENSOR_LOGI(LOG_TAG "self_test- sensor_id %d request_id %d result %d\n",sensor_id, request_id, result);
+   SENSOR_LOGI(LOG_TAG "self_test- sensor_id %d request_id %d result %d resultType %d timestamp %lld\n",sensor_id, request_id, result, resultType, timestamp);
 }
 
 static void printHelp() {
@@ -351,6 +394,8 @@ int main(int argc, char *argv[]) {
 
    PrintSensorList(sensor,sensor_count);
    Usage();
+
+   std::thread worker(workerThread);
 
    if(argc > 2) {
      while ((c = getopt (argc, argv, CMD_OPTIONS)) != -1) {
@@ -419,6 +464,11 @@ int main(int argc, char *argv[]) {
 		}
 		sleep(1);
 	}
+	/*Enable blocking call to avoid high cpu usage for test app*/
+	char buf[10];
+	memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
+	fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
+	int command = buf[0];
      }
    }
 
@@ -562,11 +612,12 @@ int main(int argc, char *argv[]) {
         if (pClient) {
 		SENSOR_LOGI(LOG_TAG "sensor self test\n");
 		for(int i=0; i < sensor_count; i++) {
-			SENSOR_LOGI(LOG_TAG " 0:Positive\n 1:Neagative\nEnter value:");
+			SENSOR_LOGI(LOG_TAG "\n 0:Positive\n 1:Neagative\n 2:All\n Enter value:");
 			memset(enable, 0, sizeof(enable)/sizeof(enable[0]));
 			fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin);
 			selfTestType=(SelfTestType)strtol(enable,&stopstring,10);
 			start_time = getTimestamp();
+			SENSOR_LOGI(LOG_TAG "sensor[i].sensor_id %d\n", sensor[i].sensor_id);
 			ret = pClient->sensor_self_test(sensor[i].sensor_id, selfTestType, request_id++, onSelfTestResultCallback);
 			if(ret < 0) {
 				SENSOR_LOGE(LOG_TAG "sensor self test request failed ret %d \n", ret);
@@ -618,6 +669,9 @@ EXIT:
    if (pClient) {
 	   delete pClient;
    }
+   running = false;
+   dataCondition.notify_all();
+   worker.join();
    SENSOR_LOGI(LOG_TAG "Done\n");
    exit(0);
 }

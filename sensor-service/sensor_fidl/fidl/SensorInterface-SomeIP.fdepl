@@ -126,9 +126,6 @@ define org.genivi.commonapi.someip.deployment for provider as Service {
 
         SomeIpInstanceID = 1        /**Instance 0x01*/
 
-        SomeIpUnicastAddress = "192.168.1.1"
-        SomeIpReliableUnicastPort = 30499
-        SomeIpUnreliableUnicastPort = 30499
     }
 }
 
