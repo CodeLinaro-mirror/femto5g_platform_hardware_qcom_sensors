@@ -45,7 +45,7 @@
 /** Sensor Client Interface Major Version */
 #define SCI_MAJOR_VERSION  1
 /** Sensor Client Interface Minor Version */
-#define SCI_MINOR_VERSION  1
+#define SCI_MINOR_VERSION  2
 
 using std::string;
 
@@ -143,10 +143,16 @@ const sensors_event_t *events, uint32_t count
                                   Passed,
                                   Failed,
                                   // Any other error-code
+				  };
+    @param[out] SelfTestResultType: Senosr_BUSY or SENSOR_IDLE.
+                                  enum SelfTestResultType {
+                                  SENSOR_BUSY,
+				  SENSOR_IDLE,
                                 };
+    @param[out] timestamp: Provides the self-test timestamp.
 */
 typedef std::function<void(
-int sensor_id, int request_id, SelfTestResult result
+int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resulttype, uint64_t timestamp
 )> SelfTestResultCallback;
 
 
@@ -317,6 +323,11 @@ public:
 	successfully by client.
 	This API need to call only once after configuring and activating sensor,
 	the data is delivered through SensorDataReadCb callback.
+
+	This function is called to notify about available sensor events. Note the following
+        constraints on this listener API
+        It shall not perform time consuming (compute or I/O intensive) operations on this thread
+        It shall not inovke an sensor APIs on this thread due to the underlying concurrency model
 
         @param[in]  sensor_id: sensor identified to which callback need to registerd. <br/>
         @param[out] SensorDataReadCb: callback method invoked to deliver the sensor data. <br/>

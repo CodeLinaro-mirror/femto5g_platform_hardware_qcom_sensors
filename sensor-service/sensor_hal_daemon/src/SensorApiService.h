@@ -68,8 +68,13 @@
 #include <CommonAPI/CommonAPI.hpp>
 #include <SensorInterfaceStubImpl.hpp>
 #endif
+#include <SensorDiagLog.h>
+
 #define ASM330LHHX_ACC_SEARCH   "asm330lhhx_accel"
 #define ASM330LHHX_GYRO_SEARCH  "asm330lhhx_gyro"
+
+#define SMI230_TEMP_SEARCH         "SMI230ACC"
+#define SMI230_GYR_SEARCH          "SMI230GYRO"
 
 #ifdef POWERMANAGER_ENABLED
 #include <PowerEvtHandler.h>
@@ -126,6 +131,8 @@ typedef struct {
     int   MinGyroBatchCount;
     int   AccRange;
     int   GyroRange;
+    int   AccBuffRange;
+    int   GyroBuffRange;
     int   DebugLevel;
 } configParamToRead;
 
@@ -164,6 +171,14 @@ class SensorHalDaemonQsockReceiver;
 class SensorInterfaceStubImpl;
 #endif
 class SensorHalDaemonClientHandler;
+
+/**
+ * set_buff_scaling_factor: Sets the scaling factor based on dynamic range for buffer data
+ * @param sensorType: Sensor id (1:asm, 2:iam, 3:smi130, 4:smi230)
+ * @param accRange: Range of accel to set
+ * @param gyroRange: Range of gyro o set
+ */
+void set_buff_scaling_factor(int sensorType, int accRange, int gyroRange);
 
 /******************************************************************************
 SensorApiService
@@ -248,9 +263,12 @@ private:
     void  setEulerAngles(SensorAPIEulerAnglesReqMsg*);
     void  onSelfTestRequest(SensorHalDaemonClientHandler*,
 		    int sensor_id, SelfTestType selfTestType, int request_id);
+    int   SensorSelfTest(int sensor_id, SelfTestType selfTestType, SelfTestResult &SelfTestResult,
+		    SelfTestResultType &resultType, int &AccelTest, int &GyroTest, bool voluntary);
+    void  onPowerEventSelfTest();
     void  GetSupportedSamplingRateAndRange(struct sensor_list *s);
-    int   NearByBatchCount(int ActualCount, int RequestedCount);
-    float NearBySamplingRate(float sampling_rate, struct sensor_list *s);
+    int   NearByBatchCount(int minBatchCount, int ReqBatchCount, float input_rate, float output_rate, int factor);
+    float NearBySamplingRate(float input_rates[], float target_rate);
 
     //MLC API's
     bool LoadMLC(const char *mcl_fw_name);
@@ -259,6 +277,12 @@ private:
     bool SensorMlcEnableEvents(char *mlc_case_name, int enable);
     static void* mlcPollEvents(void *arg);
     void pollEvents(void);
+
+    /* Self-Test Variables */
+    int SelfTestResultAccel;
+    int SelfTestResultGyro;
+    uint64_t Acceltimestamp;
+    uint64_t Gyrotimestamp;
 
     //Temperature API's
     int  tempSensorDataPollTask(float* temperature);
@@ -325,6 +349,8 @@ private:
     int   mMinGyroBatchCount;
     int   mAccRange;
     int   mGyroRange;
+    int   mAccBuffRange;
+    int   mGyroBuffRange;
     bool  mBufferSupported;
     bool  mBufferDeleted;
     bool  mTempSupported;
@@ -334,6 +360,8 @@ private:
     uint16_t roll;
     uint16_t pitch;
     uint16_t yaw;
+    SensorDiagLog mDiagLogger;
+
 
 
     //Temperature file pointers

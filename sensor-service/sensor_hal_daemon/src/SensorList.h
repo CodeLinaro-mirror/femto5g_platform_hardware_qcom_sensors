@@ -62,6 +62,12 @@ typedef enum {
 	/*Device is about to go shutdown state, This notifcation
 	will get when SHD is enabled with power manager daemon*/
         DEVICE_SHUTDOWN  = (1<<5),
+	/*Accel self_test fail*/
+	ACCEL_SELFTEST_FAIL = (1<<6),
+	/*Gyro self_test fail*/
+	GYRO_SELFTEST_FAIL = (1<<7),
+	/*Both Accel & Gyro self_test fail*/
+	ACCEL_GYRO_BOTH_SELFTEST_FAIL = (1<<8),
 }SensorCapabilitiesMask;
 
 typedef enum {
@@ -119,8 +125,17 @@ enum SelfTestType {
         Positive,
         /*Negative-Sign of selftest*/
         Negative,
+	/*All: Incase of both Postive & Negative sign*/
+	All,
         /*Any future mode of selftest*/
         // Any other
+};
+
+enum SelfTestResultType {
+	/* Returns last known result */
+	SENSOR_BUSY,
+	/* Returns real time result */
+	SENSOR_IDLE,
 };
 
 enum SelfTestResult {
@@ -128,6 +143,8 @@ enum SelfTestResult {
         Passed,
         /*selftest is failed*/
         Failed,
+	/*selftest is not available*/
+	NotAvailable,
         /*future error code*/
         // Any other error-code
 };

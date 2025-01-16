@@ -93,6 +93,15 @@ struct device_iio_info_channel {
         unsigned int location;
 };
 
+// Monotonic boot time
+static uint64_t getTimestamp() {
+        struct timespec ts;
+        clock_gettime(CLOCK_BOOTTIME, &ts);
+        uint64_t system_ts =
+                ((uint64_t)(ts.tv_sec)) * 1000000000ULL + ((uint64_t)(ts.tv_nsec));
+        return system_ts;
+}
+
 int  enable_sensor_channels(const char *device_dir, bool enable);
 void find_path(dynDeviceType aeType, char *aPath, std::string aKey, int aLength);
 int  get_sensor_device_by_name(const char *name);

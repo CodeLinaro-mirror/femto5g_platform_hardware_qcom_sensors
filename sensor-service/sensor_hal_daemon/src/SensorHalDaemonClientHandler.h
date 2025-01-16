@@ -133,20 +133,8 @@ public:
 		return;
 	    }
 
-	    mSampleRate = new (std::nothrow) float[mSensorCount];
-	    if (mSampleRate == nullptr) {
-		return;
-	    }
-
-	    mBatchCount = new (std::nothrow) int[mSensorCount];
-	    if (mBatchCount == nullptr) {
-		return;
-	    }
-
 	    for(int i=0; i < mSensorCount; i++) {
 		    mActivate[i]=0;
-		    mSampleRate[i]=0;
-		    mBatchCount[i]=0;
 	    }
     }
 
@@ -160,7 +148,7 @@ public:
     bool onSensorBufferDataReadCb(sensors_event_t *events, int count);
     void onSensorTempCb(float temperature);
     bool onCapabilitiesCallback(SensorCapabilitiesMask mask);
-    void onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result);
+    void onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp);
 
     //MLC public APIs
     void onSensorMlcCaseListCb(struct sensor_mlc_case_list *s, int count);
@@ -176,8 +164,6 @@ public:
 
     //Client config parameters of sensor
     int*    mActivate;
-    float*  mSampleRate;
-    int*    mBatchCount;
     int     mAccBatchCount;
     int     mGyroBatchCount;
     int     mAccFactor;
