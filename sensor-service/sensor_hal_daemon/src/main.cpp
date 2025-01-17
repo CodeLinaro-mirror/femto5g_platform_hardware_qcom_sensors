@@ -166,6 +166,11 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
                  if(line) (void)sscanf(&line[1], "%d", &configParamRead->DebugLevel);
                  break;
          }
+         else if(strstr(buffer, "ENABLE_FIR=")) {
+                line = strstr(buffer, "=");
+                sscanf(&line[1], "%d", &configParamRead->EnableFIR);
+                break;
+         }
        }
     }
     (void)fclose(file);
@@ -179,19 +184,20 @@ void PrintSensorConfigParameters(configParamToRead configParamRead)
 	\tdynamicconfig:%d\n \
 	\tAccelName %s: AccSamplingRate :%f AccBatchcount :%d AccRange :%d AccBuffRange :%d\n\
 	\tGyroName  %s:GyroSamplingRate:%f GyroBatchcount:%d GyroRange:%d GyroBuffRange :%d\n \
-	DebugLevel:%d\n",
+	DebugLevel:%d EnableFIR:%d\n",
 	configParamRead.SensorType,
 	configParamRead.SensorHalLibPath,
 	configParamRead.DynamicConfigEnabled,
 	configParamRead.AccelName, configParamRead.MaxAccSampleRate, configParamRead.MinAccBatchCount, configParamRead.AccRange, configParamRead.AccBuffRange,
 	configParamRead.GyroName,  configParamRead.MaxGyroSampleRate, configParamRead.MinGyroBatchCount, configParamRead.GyroRange, configParamRead.GyroBuffRange,
-	configParamRead.DebugLevel);
+	configParamRead.DebugLevel, configParamRead.EnableFIR);
 }
 
 //MAIN
 int main(int argc, char *argv[])
 {
     configParamToRead configParamRead = {};
+    configParamRead.EnableFIR = 0; //By default, use moving average
 
     SENSOR_LOGI(LOG_TAG "sensor_hal_daemon - ver %s\n", HAL_DAEMON_VERSION);
 

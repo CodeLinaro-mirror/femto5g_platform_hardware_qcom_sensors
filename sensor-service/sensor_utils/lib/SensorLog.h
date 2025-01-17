@@ -37,6 +37,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <pthread.h>
+#include <vector>
 #include <utils/Log.h>
 
 extern int DEBUG_LEVEL;
@@ -63,6 +64,8 @@ extern int DEBUG_LEVEL;
 #define SENSOR_LOGV(...) IF_SENSOR_LOGV { printf(__VA_ARGS__); }
 #endif
 
+#define MAX_FIR_COEF_ORDER          20
+
 void SetSensorDebugLevel(int debug_level);
 
 int SensorReadDebugLevel();
@@ -73,5 +76,14 @@ int SensorReadDebugLevel();
  * @return Returns 1 if the diag is enabled for the client, else returns 0.
  */
 int CheckDiagEnabled(const char *client_name);
+
+
+/**
+ * GetFIRCoefficient: Get the FIR coefficients
+ * @param coef: array to store coefficients
+ * @param suffix: suffix for sensor conf key (eg:suffix=ACC_400 means look for FIR_COEFFICIENT_ACC_400 and so on)
+ * @return Returns size of coefficient array on success else returns -1
+ */
+int GetFIRCoefficient(std::vector<float> &coef, char *suffix);
 
 #endif //__SENSOR_LOG__

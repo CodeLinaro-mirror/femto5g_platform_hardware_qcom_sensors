@@ -112,6 +112,7 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mGyroRange(configParamRead.GyroRange),
     mAccBuffRange(configParamRead.AccBuffRange),
     mGyroBuffRange(configParamRead.GyroBuffRange),
+    mEnableFIR(configParamRead.EnableFIR),
     mhmi(nullptr),
     mdev(nullptr),
     mpoll_dev_v0(nullptr),
@@ -148,6 +149,8 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
 	SENSOR_LOGE(LOG_TAG "no sensor supported \n");
 	return;
     }
+
+    set_default_fir_coef(mSensorType);
 
 #ifdef POWERMANAGER_ENABLED
     // register power event handler
@@ -944,6 +947,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 	     pClient->mAccMovingCount = 0;
 	     pClient->mAccTracking = false;
 	     pClient->mAccRotate = pMsg->rotate;
+         if(mEnableFIR)
+         {
+            pClient->setFIRFilter(mSensor[i].SamplingRate, mSensor[i].SamplingRate / pClient->mAccFactor, true);
+         }
 	     //Allocate memory to store acc events based on requested batch count by client
 	     if (pClient->mAccEvents) {
 		     delete pClient->mAccEvents;
@@ -988,6 +995,10 @@ int SensorApiService::SensorCofig(SensorAPIStartBatchingReqMsg *pMsg) {
 	     pClient->mGyroMovingCount = 0;
 	     pClient->mGyroTracking = false;
 	     pClient->mGyroRotate = pMsg->rotate;
+         if(mEnableFIR)
+         {
+            pClient->setFIRFilter(mSensor[i].SamplingRate, mSensor[i].SamplingRate / pClient->mGyroFactor, false);
+         }
 	     //Allocate memory to store Gyro events based on requested batch count by client
 	     if (pClient->mGyroEvents) {
 		     delete pClient->mGyroEvents;
