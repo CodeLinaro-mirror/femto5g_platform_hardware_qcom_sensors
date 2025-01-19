@@ -283,6 +283,7 @@ private:
     int SelfTestResultGyro;
     uint64_t Acceltimestamp;
     uint64_t Gyrotimestamp;
+    uint64_t timestamp;
 
     //Temperature API's
     int  tempSensorDataPollTask(float* temperature);
