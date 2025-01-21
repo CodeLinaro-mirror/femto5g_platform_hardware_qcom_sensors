@@ -463,7 +463,6 @@ fail:
 }
 
 void SensorCore::SensorCore_Init() {
-    float temp_data[3];
     float x_uncalib, y_uncalib, z_uncalib;
 
     regSigHandler();
@@ -573,13 +572,9 @@ void SensorCore::SensorCore_Init() {
        for (int i=0 ;i <count; i++){
             memset(&idlSensorEvents, 0, sizeof(idlSensorEvents));
 	    const SensorInterfaceTypes::SensorUncalibratedEventT & data = events[i].getData();
-            memcpy(&temp_data, &data, 3 * sizeof(float));
-            x_uncalib = data.getXUncalib();
-            y_uncalib = data.getYUncalib();
-            z_uncalib = data.getZUncalib();
-            x_uncalib = rot[0][0] * temp_data[0] + rot[1][0] * temp_data[1] + rot[2][0] * temp_data[2];
-            y_uncalib = rot[0][1] * temp_data[0] + rot[1][1] * temp_data[1] + rot[2][1] * temp_data[2];
-            z_uncalib = rot[0][2] * temp_data[0] + rot[1][2] * temp_data[1] + rot[2][2] * temp_data[2];
+	    x_uncalib = rot[0][0] * data.getXUncalib() + rot[1][0] * data.getYUncalib() + rot[2][0] * data.getZUncalib();
+            y_uncalib = rot[0][1] * data.getXUncalib() + rot[1][1] * data.getYUncalib() + rot[2][1] * data.getZUncalib();
+            z_uncalib = rot[0][2] * data.getXUncalib() + rot[1][2] * data.getYUncalib() + rot[2][2] * data.getZUncalib();
 	    idlSensorEvents.sensorId = events[i].getSensorId();
 	    idlSensorEvents.Type = events[i].getType();
 	    idlSensorEvents.timestamp = events[i].getTimestamp();
