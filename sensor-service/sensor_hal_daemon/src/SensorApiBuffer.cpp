@@ -949,6 +949,7 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
   int acccount = 0;
   int gyrocount = 0;
   int count = 0;
+  bool enable = true;
   sensors_event_t events[60];
   sensors_event_t zevents[2];
 
@@ -956,6 +957,11 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
 
   accelBuffDataTxProgress = true;
   gyroBuffDataTxProgress = true;
+
+  if(mfdBuffAccel == nullptr || mfdBuffGyro == nullptr) {
+      WritetoBufferFile(enable);
+  }
+
   //start reading kernel buffered data;
   // Read and process all buffered data from sysfs
   // Before reading and processing buffered data make sure client is available to receive data
