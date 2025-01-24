@@ -223,6 +223,7 @@ bool convertFromSTMSensor(const stm::core::STMSensor &src,
     dst->maxRange = std::ceil(src.getMaxRange());
     dst->resolution = src.getResolution();
     dst->power = src.getPower();
+    dst->flags = 0;
 
     if (src.isOnChange()) {
         if (isOneShot(dst->type)) {
