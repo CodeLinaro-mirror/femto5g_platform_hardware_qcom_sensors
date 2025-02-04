@@ -171,6 +171,11 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
                 sscanf(&line[1], "%d", &configParamRead->EnableFIR);
                 break;
          }
+	 else if(strstr(buffer, "SELF_TEST=")) {
+                line = strstr(buffer, "=");
+                sscanf(&line[1], "%d", &configParamRead->SensorSelfTest);
+                break;
+         }
        }
     }
     (void)fclose(file);
