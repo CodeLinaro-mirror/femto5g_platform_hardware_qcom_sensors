@@ -135,6 +135,7 @@ typedef struct {
     int   GyroBuffRange;
     int   DebugLevel;
     int   EnableFIR;
+    int   SensorSelfTest;
 } configParamToRead;
 
 
@@ -363,6 +364,7 @@ private:
     uint16_t pitch;
     uint16_t yaw;
     int   mEnableFIR;
+    int   mSensorSelfTest;
     SensorDiagLog mDiagLogger;
 
 
