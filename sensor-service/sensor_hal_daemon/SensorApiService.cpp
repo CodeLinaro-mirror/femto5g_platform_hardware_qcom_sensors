@@ -1260,7 +1260,7 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
     for(int i = 0 ; i < mSensorCount; i++)  {
 	    if (mSensor[i].Activate == SENSOR_ENABLE){
 		    int64_t SamplingRate = FREQUENCY_TO_NS(mSensor[i].SamplingRate);
-		    int64_t BatchingRate =  mSensor[i].BatchCount *  mSensor[i].SamplingRate  * mBatchConst;
+		    int64_t BatchingRate =  mSensor[i].BatchCount * SamplingRate  * mBatchConst;
                     //If the sensor type is SMI230, the physical sensor is configured for 10 batch count.
                     if(mSensorType == 4)
                        int64_t BatchingRate = 10 * SamplingRate  * mBatchConst;
