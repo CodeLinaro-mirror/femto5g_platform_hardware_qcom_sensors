@@ -236,6 +236,12 @@ SensorApiService - Destructors
 ******************************************************************************/
 SensorApiService::~SensorApiService() {
     SENSOR_LOGI(LOG_TAG "SensorApiService Destructor is called\n");
+
+    for(int i = 0 ; i < mSensorCount; i++)  {
+        SENSOR_LOGI(LOG_TAG ">-- Destructor invoked, disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
+        (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
+    }
+
     if(mSensorType == 3 || mSensorType == 4){
         mpoll_dev_v0->common.close(&mpoll_dev_v0->common);
     }
@@ -2104,7 +2110,7 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
 
         for(int i = 0 ; i < mSensorCount; i++)  {
 	    SENSOR_LOGI(LOG_TAG ">-- on Suspend/Shutdown Disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
-            (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Enable the sensor
+            (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
         }
     }
 
