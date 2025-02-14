@@ -25,11 +25,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 #ifndef SENSORHAL_CLIENT_HANDLER_H
@@ -70,34 +69,31 @@ struct mlc_case_list {
 };
 
 #ifdef NO_UNORDERED_SET_OR_MAP
-    typedef std::map<int, std::vector<std::pair<int, std::vector<float>>>> default_fir_coef_t;
+    typedef map<int, vector<pair<int, vector<float>>>> default_fir_coef_t;
 #else
-    typedef std::unordered_map<int, std::vector<std::pair<int, std::vector<float>>>> default_fir_coef_t;
+    typedef unordered_map<int, vector<pair<int, vector<float>>>> default_fir_coef_t;
 #endif
-
-void set_default_fir_coef(int sensorType);
-
 
 /**
  * class FIRFilter: Contains the coefficients array and member methods for FIR Filter
  */
 class FIRFilter
 {
-    std::tuple<std::vector<float>, std::vector<float>, std::vector<float>> accel_state; 
-    std::tuple<std::vector<float>, std::vector<float>, std::vector<float>> gyro_state;
-    std::vector<float> fir_coef_acc;
-    std::vector<float> fir_coef_gyro;
+    tuple<vector<float>, vector<float>, vector<float>> accel_state;
+    tuple<vector<float>, vector<float>, vector<float>> gyro_state;
+    vector<float> fir_coef_acc;
+    vector<float> fir_coef_gyro;
     int accel_ptr;
     int gyro_ptr;
     uint32_t order_acc;
     uint32_t order_gyro;
 
-    int init_filter(uint32_t factor, bool is_accel);
+    int initFilter(uint32_t factor, bool is_accel);
 
     /**
-     * set_filter: Sets the filter coefficients to the one provided by the user. 
+     * setFilter: Sets the filter coefficients to the one provided by the user.
      */
-    int set_filter(const std::vector<float> &coef, bool is_accel);
+    int setFilter(const vector<float> &coef, bool is_accel);
 public:
 
 
@@ -105,35 +101,35 @@ public:
     {}
 
     /**
-     * init_filter_acc: Initilizes the FIR coeffients array and sets the default value to moving average for accel
+     * initFilter_acc: Initilizes the FIR coeffients array and sets the default value to moving average for accel
      * @param factor:  Downsampling factor for accel
      * @return int: Returns 0 if success else returns -1
      */
-    int init_filter_acc(uint32_t factor);
+    int initFilter_acc(uint32_t factor);
 
     /**
-     * init_filter_gyro: Initilizes the FIR coeffients array and sets the default value to moving average for gyro
+     * initFilter_gyro: Initilizes the FIR coeffients array and sets the default value to moving average for gyro
      * @param factor:  Downsampling factor for gyro
      * @return int: Returns 0 if success else returns -1
      */
-    int init_filter_gyro(uint32_t factor);
+    int initFilter_gyro(uint32_t factor);
 
     /**
-     * set_filter_acc: Sets the filter coefficients to the one provided by the user for accel.
+     * setFilter_acc: Sets the filter coefficients to the one provided by the user for accel.
      *                 Ensure size of coef is same as used to initilize.
      */
-    int set_filter_acc(const std::vector<float> &coef);
+    int setFilter_acc(const vector<float> &coef);
 
     /**
-     * set_filter_gyro: Sets the filter coefficients to the one provided by the user for gyro.
+     * setFilter_gyro: Sets the filter coefficients to the one provided by the user for gyro.
      *                 Ensure size of coef is same as used to initilize.
      */
-    int set_filter_gyro(const std::vector<float> &coef);
+    int setFilter_gyro(const vector<float> &coef);
 
     /**
      * convl: Generates new sample by convolving the sample with the coefficient array and returns the new sample (x,y,z)
      */
-    std::tuple<float,float,float> convl(std::tuple<float,float,float> sample, bool is_accel);
+    tuple<float,float,float> convl(tuple<float,float,float> sample, bool is_accel);
 
     /**
      * print_coefficients: Prints the filter coefficients, with output prepended with "prefix"
@@ -148,7 +144,7 @@ class SensorHalDaemonClientHandler
 {
 public:
     //Constructor of SensorHalDaemonClientHandler class
-    inline SensorHalDaemonClientHandler(SensorApiService* service, const std::string& clientname, ClientType clientType, int SensorCount) :
+    inline SensorHalDaemonClientHandler(SensorApiService* service, const string& clientname, ClientType clientType, int SensorCount) :
             mService(service),
 	    mName(clientname),
 	    mSensorCount(SensorCount),
@@ -206,7 +202,7 @@ public:
             }
 
 	    //Intialise the client parameters and set to zero
-	    mActivate = new (std::nothrow) int[mSensorCount];
+	    mActivate = new (nothrow) int[mSensorCount];
 	    if (mActivate == nullptr) {
 		return;
 	    }
@@ -227,7 +223,6 @@ public:
     void onSensorTempCb(float temperature);
     bool onCapabilitiesCallback(SensorCapabilitiesMask mask);
     void onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp);
-
     //MLC public APIs
     void onSensorMlcCaseListCb(struct sensor_mlc_case_list *s, int count);
     bool onSensorMlcCaseEventCb(char *case_name, struct mlc_event_data *event);
@@ -265,7 +260,7 @@ public:
     int mBufferRead;
 
     // name of this client
-    const std::string mName;
+    const string mName;
 
     //Filter coeffcients
     FIRFilter filter;
@@ -275,7 +270,7 @@ public:
     int setFIRFilter(float sensor_rate, float client_rate, bool is_accel);
 
     //Queue used to send response message
-    std::queue<ESensorMsgID> mPendingMessages;
+    queue<ESensorMsgID> mPendingMessages;
 
     inline int getServiceId() {return mServiceId;}  // for EAP client
     inline int getInstanceId() {return mInstanceId;} // for EAP client

@@ -25,11 +25,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 #ifndef SENSORAPIMSG_H
@@ -52,7 +51,7 @@
 /******************************************************************************
 Constants
 ******************************************************************************/
-#define BUFFER_EVENT    2048
+#define BUFFER_EVENT    50
 #define SENSOR_REMOTE_API_MSG_VERSION (1)
 
 //Max Batch Count supported by SHD
@@ -65,7 +64,6 @@ Constants
 #define GID_SENSORCLIENT (3011)
 
 #define SOCKET_SENSOR_CLIENT_DIR     "/dev/socket/sensor_client/"
-//#define EAP_SENSOR_CLIENT_DIR        "/dev/socket/sensor_client/"
 #define SOCKET_TO_SENSOR_HAL_DAEMON  "/dev/socket/sensor_client/hal_daemon"
 #define SOCKET_TO_SENSOR_CLIENT_BASE "/dev/socket/sensor_client/toclient"
 #define SOCKET_TO_EXTERANL_AP_SENSOR_CLIENT_BASE "/dev/socket/sensor_client/extap.toclient"

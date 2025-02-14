@@ -24,6 +24,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <SensorHalDaemonIPCReceiver.h>
@@ -32,7 +37,7 @@
 /******************************************************************************
 SensorHalDaemonIPCReceiver - SensorIpc overrids
 ******************************************************************************/
-void SensorHalDaemonIPCReceiver::onReceive(const std::string& data) {
+void SensorHalDaemonIPCReceiver::onReceive(const string& data) {
     mService->processClientMsg(data);
 }
 
@@ -43,7 +48,7 @@ void SensorHalDaemonIPCReceiver::onListenerReady() {
 /******************************************************************************
 SensorHalDaemonQsockReceiver - SensorIpc overrids
 ******************************************************************************/
-void SensorHalDaemonQsockReceiver::onReceive(const std::string& data) {
+void SensorHalDaemonQsockReceiver::onReceive(const string& data) {
     mService->processClientMsg(data);
 }
 
