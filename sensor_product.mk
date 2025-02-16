@@ -6,25 +6,19 @@ PRODUCT_PACKAGES += android.hardware.sensors@2.0-service.rc
 else
 ifeq ($(ENABLE_AIDL_SENSOR),true)
 
-ifeq ($(filter $(TARGET_BOARD_PLATFORM), msmnile),$(TARGET_BOARD_PLATFORM))   #Hana metal -> msmnile_au,  msmnile_gvmq -> makena
-ifneq ($(ENABLE_HYP), true)   #msmnile_gvmq -> makena
-PRODUCT_PACKAGES += android.hardware.sensors@aidl-service.stmicroelectronics
-ENABLE_SENSOR_CONFIGS := true
-endif
-endif
-
 ifeq ($(filter $(TARGET_BOARD_PLATFORM), gen4),$(TARGET_BOARD_PLATFORM)) #gen4_gvm -> lemans, monaco HQX. gen4_au -> lemans metal
 ifneq ($(ENABLE_HYP), false)  #gen4_au -> lemans metal
 PRODUCT_PACKAGES += android.hardware.sensors@aidl-service-qc
 PRODUCT_PACKAGES += vsomeip-sensor_client.json
 PRODUCT_PACKAGES += vsomeip-sensor_test_client.json
 PRODUCT_PACKAGES += SensorInterfaceClient
+PRODUCT_PACKAGES += hal_config
 ENABLE_SENSOR_CONFIGS := true
-endif
 endif
 
 else
 PRODUCT_PACKAGES += android.hardware.sensors-service.example
+endif
 
 else
 PRODUCT_PACKAGES += android.hardware.sensors@1.0-service
