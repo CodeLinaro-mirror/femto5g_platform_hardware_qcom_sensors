@@ -2095,6 +2095,8 @@ SensorApiService - power event handlers
 void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitiesMask mask) {
     std::lock_guard<std::mutex> lock(mMutex);
     bool rc = false;
+    int64_t difference = 0;
+    static int64_t selttest_time_delta = 0;
 
     SENSOR_LOGI(LOG_TAG "--< onPowerEvent %d", powerState);
     mPowerState = powerState;
@@ -2102,10 +2104,15 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
     if(mPowerState == POWER_STATE_SUSPEND || mPowerState == POWER_STATE_SHUTDOWN){
 	SENSOR_LOGI(LOG_TAG "mSensorSelfTest %d\n", mSensorSelfTest);
         if(mSensorSelfTest == 1){
-	    if (mSensorType == 1 || mSensorType == 4) {
-                SENSOR_LOGI(LOG_TAG "powerSelfTest mPowerState %d\n", mPowerState);
-                onPowerEventSelfTest();
-            }
+	    difference = getTimestamp() - selttest_time_delta;
+	    SENSOR_LOGI(LOG_TAG "Time since last voluntary self-test %lld\n", difference);
+	    if(selttest_time_delta == 0 || difference >= SELFTEST_WAIT_TIME){
+	        if (mSensorType == SENSOR_ASM330 || mSensorType == SENSOR_SMI230) {
+                    SENSOR_LOGI(LOG_TAG "Execute Voluntary SelfTest mPowerState %d\n", mPowerState);
+                    onPowerEventSelfTest();
+		    selttest_time_delta = getTimestamp();
+                }
+	    }
         }
 
         for(int i = 0 ; i < mSensorCount; i++)  {

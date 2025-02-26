@@ -76,6 +76,8 @@
 #define SMI230_TEMP_SEARCH         "SMI230ACC"
 #define SMI230_GYR_SEARCH          "SMI230GYRO"
 
+#define SELFTEST_WAIT_TIME 3600000000000LL
+
 #ifdef POWERMANAGER_ENABLED
 #include <PowerEvtHandler.h>
 #endif
