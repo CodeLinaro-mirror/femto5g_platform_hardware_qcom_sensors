@@ -95,7 +95,7 @@ int device_iio_utils::sysfs_write_scale(char *file, float val)
 	if (NULL == fp)
 		return -errno;
 
-	fprintf(fp, "%f", val);
+	fprintf(fp, "%.9f", val);
 	fclose(fp);
 
 	return 0;
