@@ -289,6 +289,23 @@ void workerThread() {
    }
 }
 
+static void onSensorTempReadCb(float tempreature)
+{
+   SENSOR_LOGI(LOG_TAG "tempreature %f \n",tempreature);
+}
+
+void temperatureThread() {
+    int ret = 0;
+    while(1)
+    {
+	ret = pClient->sensor_read_temperature(onSensorTempReadCb);
+	if(ret < 0) {
+		SENSOR_LOGE(LOG_TAG "sensor read temperature failed ret %d \n", ret);
+		break;
+	}
+	(void)sleep(1);
+    }
+}
 static void onSensorDataReadCb(int sensor_id, const sensors_event_t *events, uint32_t count)
 {
     std::vector<sensors_event_t> eventBatch(events, events + count);
@@ -322,11 +339,6 @@ static void onSensorBufferDataReadCb(const sensors_event_t *events, uint32_t cou
     SENSOR_LOGI(LOG_TAG "Sensor ACC/GYRO Buff: buffer read events count %d\n",count);
     for ( i = 0; i < count ; i++)
             dump_buffer_event(&events[i]);
-}
-
-static void onSensorTempReadCb(float tempreature)
-{
-   SENSOR_LOGI(LOG_TAG "tempreature %f \n",tempreature);
 }
 
 static void onSelfTestResultCallback(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp)
@@ -380,6 +392,7 @@ int main(int argc, char *argv[]) {
    static int enable_buffer = 0;
    static int enable_live = 0;
    static int enable_temperature = 0;
+   std::thread temperature;
 
    SelfTestType selfTestType;
 
@@ -454,16 +467,11 @@ int main(int argc, char *argv[]) {
 	   }
      }
     }
+    if (enable_temperature == 1) {
+	SENSOR_LOGI(LOG_TAG "read temperature\n");
+	temperature = std::thread(temperatureThread);
+    }
      while(1) {
-	if (enable_temperature == 1) {
-		SENSOR_LOGI(LOG_TAG "read temperature\n");
-		ret = pClient->sensor_read_temperature(onSensorTempReadCb);
-		if(ret < 0) {
-			SENSOR_LOGE(LOG_TAG "sensor read temperature failed ret %d \n", ret);
-			break;
-		}
-		sleep(1);
-	}
 	/*Enable blocking call to avoid high cpu usage for test app*/
 	char buf[10];
 	memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
@@ -672,6 +680,7 @@ EXIT:
    running = false;
    dataCondition.notify_all();
    worker.join();
+   if (enable_temperature == 1) temperature.join();
    SENSOR_LOGI(LOG_TAG "Done\n");
    exit(0);
 }
