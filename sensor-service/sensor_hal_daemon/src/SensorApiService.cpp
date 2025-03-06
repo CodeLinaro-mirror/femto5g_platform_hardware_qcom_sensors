@@ -1765,7 +1765,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
       case SENSOR_ASM330: {
 	if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
 		float samplingRate[6] = {13, 26, 52, 104, 208, 416};
-		float acc_range[4][2] = { {0.000598,2}, { 0.001196,4}, {0.002392,8}, {0.004785,16}};
+		float acc_range[4][2] = { {0.000598205,2}, {0.001196411,4}, {0.002392822,8}, {0.004785645,16}};
 		float scale_value = 0;
 		int acc_num = -1;
 		char tmp_filaname[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
@@ -1799,7 +1799,7 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
         }
 	if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
 		float samplingRate[6] = {13, 26, 52, 104, 208, 416};
-		float gyro_range[6][2] = {{0.000076,125}, {0.000153,250}, {0.000305,500}, {0.000611,1000}, {0.001222,2000}, {0.002443,4000}};
+		float gyro_range[6][2] = {{0.000076271,125}, {0.000152716,250}, {0.000305432,500}, {0.000610865,1000}, {0.001221729,2000}, {0.002443459,4000}};
 		float scale_value = 0;
 		int gyro_num = -1;
 		char tmp_filaname[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
