@@ -199,8 +199,8 @@ int SensorApiService::readTempASM(float *temperature)
   (*mTempFilePtr.asmTempFile.tOffsetFile) >> toffset;
   if (mTempFilePtr.asmTempFile.tRawDataFile) {
     (*mTempFilePtr.asmTempFile.tRawDataFile) >> trawdata;
-    SENSOR_LOGD(LOG_TAG "Read Raw:%d, Offset: %d, Scale: %f, Temperature: %f\n", trawdata, toffset, tscale, (trawdata + toffset) * tscale);
-    *temperature = (float) (trawdata + toffset) * tscale;
+    SENSOR_LOGD(LOG_TAG "Read Raw:%d, Offset: %d, Scale: %f, Temperature: %f\n", trawdata, toffset, (tscale/1000), (trawdata + toffset) * (tscale/1000));
+    *temperature = (float) (trawdata + toffset) * (tscale/1000);
   }
   return 0;
 }
