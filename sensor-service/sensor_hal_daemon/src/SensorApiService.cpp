@@ -113,6 +113,7 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mAccBuffRange(configParamRead.AccBuffRange),
     mGyroBuffRange(configParamRead.GyroBuffRange),
     mEnableFIR(configParamRead.EnableFIR),
+    mSensorSelfTest(configParamRead.SensorSelfTest),
     mhmi(nullptr),
     mdev(nullptr),
     mpoll_dev_v0(nullptr),
@@ -2093,9 +2094,12 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
     mPowerState = powerState;
 
     if(mPowerState == POWER_STATE_SUSPEND || mPowerState == POWER_STATE_SHUTDOWN){
-	if (mSensorType == 1 || mSensorType == 4) {
-            SENSOR_LOGI(LOG_TAG "powerSelfTest mPowerState %d\n", mPowerState);
-            onPowerEventSelfTest();
+	SENSOR_LOGI(LOG_TAG "mSensorSelfTest %d\n", mSensorSelfTest);
+        if(mSensorSelfTest == 1){
+	    if (mSensorType == 1 || mSensorType == 4) {
+                SENSOR_LOGI(LOG_TAG "powerSelfTest mPowerState %d\n", mPowerState);
+                onPowerEventSelfTest();
+            }
         }
 
         for(int i = 0 ; i < mSensorCount; i++)  {
