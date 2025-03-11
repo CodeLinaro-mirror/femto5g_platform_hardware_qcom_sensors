@@ -19,7 +19,8 @@ libiam20680sensors_la_SOURCES = \
                              ./sensors/MPLSensor.cpp\
                              ./sensors/tools/ml_sysfs_helper.c\
                              ./sensors/tools/inv_sysfs_utils.c\
-                             ./sensors/tools/inv_iio_buffer.c
+                             ./sensors/tools/inv_iio_buffer.c\
+                             ./sensors/PressureSensor.IIO.primary.cpp
 
 library_includedir = $(pkgincludedir)
 
@@ -32,7 +33,7 @@ libiam20680sensors_la_CFLAGS = $(AM_CFLAGS)
 libiam20680sensors_la_LDFLAGS = -lpthread -shared -version-info 1:0:0
 libiam20680sensors_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
-libiam20680sensors_la_LIBADD = -lstdc++
+libiam20680sensors_la_LIBADD = -lstdc++ -lcutils
 
 #Create and Install libraries
 lib_LTLIBRARIES = libiam20680sensors.la
