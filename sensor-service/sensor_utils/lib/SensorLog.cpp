@@ -137,6 +137,7 @@ static int strtok_safe(const char *inp_str, const size_t inp_size, const size_t 
             out_tok[out_idx] = '\0';
             break;
         }
+        if(idx >= inp_size) break;
         out_tok[out_idx] = inp_str[idx];
         idx++;
         out_idx++;
