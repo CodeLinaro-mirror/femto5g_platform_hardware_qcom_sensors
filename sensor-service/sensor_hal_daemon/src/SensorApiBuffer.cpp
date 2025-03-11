@@ -1029,6 +1029,9 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
   events[0].type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
   events[0].timestamp = 0xFFFFFFFF;
   it->second->mBufferRead = false;
+  if(acccount == 0 && gyrocount == 0)
+      mBufferDeleted = true;
+
   rc = it->second->onSensorBufferDataReadCb(&events[0], 1);
   // purge this client if failed
   if (!rc) {
