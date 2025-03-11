@@ -60,15 +60,15 @@ public:
   virtual ~SensorInterfaceStubImpl();
 
   /// This is the method that will be called on remote calls on the method RegisterSensorClient.
-  virtual void RegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> _client, RegisterSensorClientReqReply_t _reply);
+  virtual void RegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> client, RegisterSensorClientReqReply_t reply);
   /// This is the method that will be called on remote calls on the method DeRegisterSensorClient.
-  virtual void DeRegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> _client, DeRegisterSensorClientReqReply_t _reply);
+  virtual void DeRegisterSensorClientReq(const shared_ptr<CommonAPI::ClientId> client, DeRegisterSensorClientReqReply_t reply);
   /// This is the method that will be called on remote calls on the method GetSensorInfoT.
-  virtual void GetSensorListReq(const shared_ptr<CommonAPI::ClientId> _client, GetSensorListReqReply_t _reply);
+  virtual void GetSensorListReq(const shared_ptr<CommonAPI::ClientId> client, GetSensorListReqReply_t reply);
   /// This is the method that will be called on remote calls on the method SensorConfig.
-  virtual void SensorConfigReq(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, float _samplingRate, int32_t _batchCount, SensorConfigReqReply_t _reply);
+  virtual void SensorConfigReq(const shared_ptr<CommonAPI::ClientId> client, int32_t sensorId, float samplingRate, int32_t batchCount, SensorConfigReqReply_t reply);
   /// This is the method that will be called on remote calls on the method SensorControl.
-  virtual void SensorControlReq(const shared_ptr<CommonAPI::ClientId> _client, int32_t _sensorId, SensorInterfaceTypes::SensorStateT _sensorState, SensorControlReqReply_t _reply);
+  virtual void SensorControlReq(const shared_ptr<CommonAPI::ClientId> client, int32_t sensorId, SensorInterfaceTypes::SensorStateT sensorState, SensorControlReqReply_t reply);
 
   SensorInterfaceTypes::SensorServiceStateMaskT  parseSensorServiceStateMaskT(SensorCapabilitiesMask mask);
   SensorInterfaceTypes::SensorReturnT            parseSensorReturnT(int res);

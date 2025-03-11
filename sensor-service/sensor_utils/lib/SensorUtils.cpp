@@ -93,20 +93,32 @@ int init_sensor_rotation_matrix(float (*rot) [3])
 // This API is called to calculate rotational matrix
 int calculate_sensor_rotation_matrix(uint16_t rolld, uint16_t pitchd, uint16_t yawd, float (*rot) [3])
 {
+  // Calculate roll value
   float roll = (rolld / 10.0f) * M_PI / 180.0f;
+  // Calculate pitch value
   float pitch = (pitchd / 10.0f) * M_PI / 180.0f;
+  // Calculate yaw value
   float yaw = (yawd / 10.0f) * M_PI / 180.0f;
 
+  // Calculate index[0][0] of Rotation Matrix
   rot[0][0] = cos(yaw) * cos(roll) + sin(yaw) * sin(pitch) * sin(roll);
+  // Calculate index[0][1] of Rotation Matrix
   rot[0][1] = -sin(yaw) * cos(roll) + cos(yaw) * sin(pitch) * sin(roll);
+  // Calculate index[0][2] of Rotation Matrix
   rot[0][2] = cos(pitch) * sin(roll);
 
+  // Calculate index[1][0] of Rotation Matrix
   rot[1][0] = sin(yaw) * cos(pitch);
+  // Calculate index[1][1] of Rotation Matrix
   rot[1][1] = cos(yaw) * cos(pitch);
+  // Calculate index[1][2] of Rotation Matrix
   rot[1][2] = -sin(pitch);
 
+  // Calculate index[2][0] of Rotation Matrix
   rot[2][0] = -cos(yaw) * sin(roll) + sin(yaw) * sin(pitch) * cos(roll);
+  // Calculate index[2][1] of Rotation Matrix
   rot[2][1] = sin(yaw) * sin(roll) + cos(yaw) * sin(pitch) * cos(roll);
+  // Calculate index[2][2] of Rotation Matrix
   rot[2][2] = cos(pitch) * cos(roll);
 
   SENSOR_LOGD(LOG_TAG "Sensor rotation matrix: \t%5.2f %5.2f %5.2f\t%5.2f %5.2f %5.2f\t%5.2f %5.2f %5.2f\n",
@@ -136,27 +148,27 @@ int read_sensor_rotation_matrix(uint16_t *roll, uint16_t *pitch, uint16_t *yaw)
   }
 
   fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  (void)snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
   fd_config = fopen(file_path_name, "r+");
   if (fd_config == NULL) {
 	  err = -errno;
 	  SENSOR_LOGE(LOG_TAG "Sensor Filed to open %s (errno %d)\n",
 			  file_path_name, err);
-	  goto fail;
   }
-
-  while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {
-	  if(strstr(buffer, "imu_sensor_euler_angles = ")) {
-		  line = strstr(buffer, "[");
-		  if(line != NULL){
-			  size = sscanf(&line[1], "%d,%d,%d", roll, pitch, yaw);
+  else
+  {
+	  while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {
+		  if(strstr(buffer, "imu_sensor_euler_angles = ")) {
+			  line = strstr(buffer, "[");
+			  if(line != NULL){
+				  size = sscanf(&line[1], "%d,%d,%d", roll, pitch, yaw);
+			  }
+			  break;
 		  }
-		  break;
 	  }
   }
 
-fail:
-  fclose(fd_config);
+  if(fd_config) (void)fclose(fd_config);
   free(file_path_name);
   file_path_name = NULL;
 
@@ -193,7 +205,7 @@ int update_sensor_rotation_matrix(uint16_t roll, uint16_t pitch, uint16_t yaw)
   }
 
   fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  (void)snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
   fd_config = fopen(file_path_name, "r+");
   if (!fd_config) {
 	  err = -errno;
@@ -219,7 +231,7 @@ int update_sensor_rotation_matrix(uint16_t roll, uint16_t pitch, uint16_t yaw)
   while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {
 	  if(strstr(buffer, "imu_sensor_euler_angles = ")) {
 		  point = strlen(buffer);
-		  fseek(fd_config, -point, SEEK_CUR);
+		  (void)fseek(fd_config, -point, SEEK_CUR);
 		  len = fwrite(buffer_string, 1, size, fd_config);
 		  if (!len) {
 			  err = -errno;
@@ -233,7 +245,7 @@ int update_sensor_rotation_matrix(uint16_t roll, uint16_t pitch, uint16_t yaw)
 
 err_out:
   if (fd_config) {
-	  fclose(fd_config);
+	  (void)fclose(fd_config);
   }
 
   if (file_path_name) {
@@ -276,7 +288,7 @@ int update_sensor_placement(int16_t x, int16_t y, int16_t z)
   }
 
   fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  (void)snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
   fd_config = fopen(file_path_name, "r+");
   if (!fd_config) {
 	  err = -errno;
@@ -300,7 +312,7 @@ int update_sensor_placement(int16_t x, int16_t y, int16_t z)
   while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
 	  if(strstr(bufferp, "imu_sensor_placement = ")) {
 		  point = strlen(bufferp);
-		  fseek(fd_config, -point, SEEK_CUR);
+		  (void)fseek(fd_config, -point, SEEK_CUR);
 		  len = fwrite(buffer_string, 1, size, fd_config);
 		  if (!len) {
 			  err = -errno;
@@ -313,7 +325,7 @@ int update_sensor_placement(int16_t x, int16_t y, int16_t z)
 
 err_out:
   if (fd_config) {
-	  fclose(fd_config);
+	  (void)fclose(fd_config);
   }
 
   if (file_path_name) {
@@ -354,7 +366,7 @@ int update_sensor_towing_jack_parameters(uint16_t threshold, uint32_t timer)
   }
 
   fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  (void)snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
   fd_config = fopen(file_path_name, "r+");
   if (!fd_config) {
 	  err = -errno;
@@ -378,7 +390,7 @@ int update_sensor_towing_jack_parameters(uint16_t threshold, uint32_t timer)
   while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
 	  if(strstr(bufferp, "algo_towing_jack_delta_th = ")) {
 		  point = strlen(bufferp);
-		  fseek(fd_config, -point, SEEK_CUR);
+		  (void)fseek(fd_config, -point, SEEK_CUR);
 		  len = fwrite(buffer_string, 1, size, fd_config);
 		  if (!len) {
 			  err = -errno;
@@ -397,7 +409,7 @@ int update_sensor_towing_jack_parameters(uint16_t threshold, uint32_t timer)
   while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
 	  if(strstr(bufferp, "algo_towing_jack_min_duration = ")) {
 		  point = strlen(bufferp);
-		  fseek(fd_config, -point, SEEK_CUR);
+		  (void)fseek(fd_config, -point, SEEK_CUR);
 		  len = fwrite(buffer_string, 1, size, fd_config);
 		  if (!len) {
 			  err = -errno;
@@ -410,7 +422,7 @@ int update_sensor_towing_jack_parameters(uint16_t threshold, uint32_t timer)
 
 err_out:
   if (fd_config) {
-	  fclose(fd_config);
+	  (void)fclose(fd_config);
   }
 
   if (file_path_name) {
@@ -452,7 +464,7 @@ int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer)
   }
 
   fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  (void)snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
   fd_config = fopen(file_path_name, "r+");
   if (!fd_config) {
 	  err = -errno;
@@ -476,7 +488,7 @@ int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer)
   while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
 	  if(strstr(bufferp, "algo_crash_impact_th = ")) {
 		  point = strlen(bufferp);
-		  fseek(fd_config, -point, SEEK_CUR);
+		  (void)fseek(fd_config, -point, SEEK_CUR);
 		  len = fwrite(buffer_string, 1, size, fd_config);
 		  if (!len) {
 			  err = -errno;
@@ -495,7 +507,7 @@ int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer)
   while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
 	  if(strstr(bufferp, "algo_crash_min_duration = ")) {
 		  point = strlen(bufferp);
-		  fseek(fd_config, -point, SEEK_CUR);
+		  (void)fseek(fd_config, -point, SEEK_CUR);
 		  len = fwrite(buffer_string, 1, size, fd_config);
 		  if (!len) {
 			  err = -errno;
@@ -508,7 +520,7 @@ int update_sensor_crash_detection_parameters(uint16_t threshold, uint32_t timer)
 
 err_out:
   if (fd_config) {
-	  fclose(fd_config);
+	  (void)fclose(fd_config);
   }
 
   if (file_path_name) {
@@ -550,7 +562,7 @@ int update_ignition_state(uint32_t ign_state)
   }
 
   fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  (void)snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
   fd_config = fopen(file_path_name, "r+");
   if (!fd_config) {
 	  err = -errno;
@@ -574,7 +586,7 @@ int update_ignition_state(uint32_t ign_state)
   while(fgets(bufferp, sizeof(bufferp), fd_config) != NULL) {
 	  if(strstr(bufferp, "ignition_off = ")) {
 		  point = strlen(bufferp);
-		  fseek(fd_config, -point, SEEK_CUR);
+		  (void)fseek(fd_config, -point, SEEK_CUR);
 		  len = fwrite(buffer_string, 1, size, fd_config);
 		  if (!len) {
 			  err = -errno;
@@ -587,7 +599,7 @@ int update_ignition_state(uint32_t ign_state)
 
 err_out:
   if (fd_config) {
-	  fclose(fd_config);
+	  (void)fclose(fd_config);
   }
 
   if (file_path_name) {

@@ -82,13 +82,13 @@ const char *out_fmt, void *out)
                 if (line == nullptr) {
                     continue;
                 }
-                sscanf(&line[1], out_fmt, out);
+                (void)sscanf(&line[1], out_fmt, out);
                 ret = 0;
                 break;
             }
         }
     }
-    fclose(file);
+    (void)fclose(file);
     return ret;
 }
 

@@ -69,7 +69,7 @@ static int find_mlc_iio_device_number(void)
         int i;
 
         for (i = 3; i <=6; i++) {
-                snprintf(iio_device_name, sizeof(iio_device_name),
+                (void)snprintf(iio_device_name, sizeof(iio_device_name),
                         "/sys/bus/iio/devices/iio:device%d/mlc_version",
                         i);
 
@@ -91,7 +91,7 @@ static bool find_mlc_case_iio_device_number(int i)
         char iio_device_name[DEVICE_IIO_MAX_FILENAME_LEN];
         struct stat sb;
 
-        snprintf(iio_device_name, sizeof(iio_device_name),
+        (void)snprintf(iio_device_name, sizeof(iio_device_name),
                         "/sys/bus/iio/devices/iio:device%d/events/in_activity0_thresh_rising_en",
                         i);
         //SENSOR_LOGI(LOG_TAG "iio_device_name %s\n", iio_device_name);
@@ -108,7 +108,7 @@ static int get_mlc_case_name(int i, char *name) {
 	FILE *nameFile;
 	int ret =0;
 
-	snprintf(iio_device_file, sizeof(iio_device_file),
+	(void)snprintf(iio_device_file, sizeof(iio_device_file),
 			"/sys/bus/iio/devices/iio:device%d/name",
 			i);
 
@@ -121,10 +121,10 @@ static int get_mlc_case_name(int i, char *name) {
         ret = fscanf(nameFile, "%s", name);
         if(ret <= 0)
         {
-            fclose(nameFile);
+            (void)fclose(nameFile);
             return false;
         }
-        fclose(nameFile);
+        (void)fclose(nameFile);
 	return true;
 }
 
@@ -175,13 +175,13 @@ static int mlc_info(int iio_device_number)
                 SENSOR_LOGI(LOG_TAG "MLC INFO: %s\n", str);
         }
 
-        memset(str, 0, DEVICE_IIO_MAX_FILENAME_LEN);
+        (void)memset(str, 0, DEVICE_IIO_MAX_FILENAME_LEN);
         if (fgets(str, DEVICE_IIO_MAX_FILENAME_LEN, mlc_version_fd) != NULL) {
                 SENSOR_LOGI(LOG_TAG "MLC VERSION: %s\n", str);
         }
 
-        fclose(mlc_info_fd);
-        fclose(mlc_version_fd);
+        (void)fclose(mlc_info_fd);
+        (void)fclose(mlc_version_fd);
 
         return 0;
 }
@@ -220,7 +220,7 @@ static int mlc_flush(int iio_device_number)
         }
 
         if (sysfs_flush)
-                fclose(sysfs_flush);
+                (void)fclose(sysfs_flush);
 
         return 0;
 }
@@ -250,7 +250,7 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 	//If MLC is not flashed by kernel, flash firmware from user space
 	if (mlc_flash_state == false) {
 		//Flush the MLC
-		mlc_flush(iio_device_number);
+		(void)mlc_flush(iio_device_number);
 
 		mcl_fw = fopen(mcl_fw_name, "r");
 		if (mcl_fw == 0) {
@@ -258,7 +258,7 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 			return false;
 		}
 		if (mcl_fw)
-			fclose(mcl_fw);
+			(void)fclose(mcl_fw);
 
 		//Flash Firmaware to MLC
 		ret = snprintf(mlc_file_name, sizeof(mlc_file_name), "%s%d/%s",
@@ -279,19 +279,19 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 		SENSOR_LOGI(LOG_TAG "Loading MLC.......\n");
 		ret = fprintf(sysfs_load, "1");
 		if (sysfs_load)
-			fclose(sysfs_load);
+			(void)fclose(sysfs_load);
 		if (ret < 0) {
 			SENSOR_LOGE(LOG_TAG "Loading MLC [FAIL]\n");
 			return false;
 		} else {
 			SENSOR_LOGE(LOG_TAG "Loading MLC [DONE]\n");
 		}
-		usleep(3000*1000);
+		(void)usleep(3000*1000);
 	}
 
 	//Print MLC INFO
-	mlc_info(iio_device_number);
-	memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
+	(void)mlc_info(iio_device_number);
+	(void)memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
 	mSesnorMlcCaseList = (struct sensor_mlc_case_list*) malloc(sizeof(struct sensor_mlc_case_list));
 	if (mSesnorMlcCaseList == nullptr) {
 		return false;
@@ -304,8 +304,8 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 				mlc_case_device_start_index = i;
 			mlc_start_index = false;
 			//Create MLC case List to send to all Clients.
-			get_mlc_case_name(i, mlc_file_name);
-			strlcpy(&mSesnorMlcCaseList[mSensorMlcCaseCount].name[0], mlc_file_name, MAX_PATH_SIZE);
+			(void)get_mlc_case_name(i, mlc_file_name);
+			(void)strlcpy(&mSesnorMlcCaseList[mSensorMlcCaseCount].name[0], mlc_file_name, MAX_PATH_SIZE);
 			mSensorMlcCaseCount++;
 			if (mSesnorMlcCaseList == nullptr) {
 				return false;
@@ -313,7 +313,7 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 
 			mSesnorMlcCaseList = (struct sensor_mlc_case_list*) realloc(mSesnorMlcCaseList,
 					(mSensorMlcCaseCount+1) * sizeof(struct sensor_mlc_case_list));
-			memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
+			(void)memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
 		}
 	}
 
@@ -383,10 +383,10 @@ static int ProcessScanData(uint8_t *data,
                         val >>= channels[k].shift;
                         val &= channels[k].mask;
                         if (channels[k].sign) {
-                                sensor_out_data->acceleration.v[k] = ((float)(int32_t)val +
+                                sensor_out_data->acceleration.v[k] = ((float)(int32_t)val + // Calculate Acceleration
                                                 channels[k].offset) * channels[k].scale;
                         } else {
-                                sensor_out_data->acceleration.v[k] = ((float)val +
+                                sensor_out_data->acceleration.v[k] = ((float)val + // Calculate Acceleration
                                                 channels[k].offset) * channels[k].scale;
                         }
                         break;
@@ -399,7 +399,7 @@ static int ProcessScanData(uint8_t *data,
                                 if ((channels[k].scale == 1.0f) && (channels[k].offset == 0.0f)) {
                                         sensor_out_data->timestamp = val;
                                 } else {
-                                        sensor_out_data->acceleration.v[k] = (((float)val +
+                                        sensor_out_data->acceleration.v[k] = (((float)val + // Calculate Acceleration
                                                         channels[k].offset) * channels[k].scale);
                                 }
                         } else {
@@ -451,7 +451,7 @@ void SensorApiService::pollEvents(void) {
         if (mfifo_num < 0)
 		SENSOR_LOGE(LOG_TAG "No %s sensor found into /sys/bus/iio/devices/ folder.\n",IIO_MLC_MFIFO_NAME);
 
-	snprintf(sensor_mfifo_file_name, DEVICE_IIO_MAX_FILENAME_LEN, "/sys/bus/iio/devices/iio:device%d/", mfifo_num);
+	(void)snprintf(sensor_mfifo_file_name, DEVICE_IIO_MAX_FILENAME_LEN, "/sys/bus/iio/devices/iio:device%d/", mfifo_num);
 
 	SENSOR_LOGI(LOG_TAG "sensor_mfifo_file_name %s mfifo_num %d\n", sensor_mfifo_file_name, mfifo_num);
 
@@ -463,14 +463,14 @@ void SensorApiService::pollEvents(void) {
 	}
 
 	for (int index = 0; index < num_channels; index++) {
-		get_sensor_type(&channels[index], sensor_mfifo_file_name, name_channel_acc[index], "in");
+		(void)get_sensor_type(&channels[index], sensor_mfifo_file_name, name_channel_acc[index], "in");
 		channels[index].index = index;
 		channels[index].offset = 0.0f;
 		/* timestamp not support scale */
 		if (index == 3)
 			channels[index].scale = 1.0f;
 		else
-			get_sensor_scale(sensor_mfifo_file_name, &channels[index].scale);
+			(void)get_sensor_scale(sensor_mfifo_file_name, &channels[index].scale);
 	}
 	/**Enbale the channels**/
 	err = enable_sensor_channels(sensor_mfifo_file_name, 1);
@@ -478,14 +478,14 @@ void SensorApiService::pollEvents(void) {
 		SENSOR_LOGE(LOG_TAG "Enable %s channles failed\n",IIO_MLC_MFIFO_NAME);
 
 	/**Write the buffer length**/
-	strlcpy(length_file, sensor_mfifo_file_name, sizeof(sensor_mfifo_file_name));
-	strlcat(length_file, device_iio_buffer_length, sizeof(length_file));
-	sysfs_write_int(length_file, buf_len);
+	(void)strlcpy(length_file, sensor_mfifo_file_name, sizeof(sensor_mfifo_file_name));
+	(void)strlcat(length_file, device_iio_buffer_length, sizeof(length_file));
+	(void)sysfs_write_int(length_file, buf_len);
 
 	/**Enbale the Buffer**/
-	strlcpy(enable_file, sensor_mfifo_file_name, sizeof(sensor_mfifo_file_name));
-        strlcat(enable_file, device_iio_buffer_enable, sizeof(enable_file));
-	sysfs_write_int(enable_file, 1);
+	(void)strlcpy(enable_file, sensor_mfifo_file_name, sizeof(sensor_mfifo_file_name));
+        (void)strlcat(enable_file, device_iio_buffer_enable, sizeof(enable_file));
+	(void)sysfs_write_int(enable_file, 1);
 
 	scan_size = size_from_channelarray(channels, num_channels);
         data = (uint8_t *)malloc(scan_size * buf_len);
@@ -520,7 +520,7 @@ void SensorApiService::pollEvents(void) {
                 }
 
                 ret = ioctl(fd[i], IIO_GET_EVENT_FD_IOCTL, &event_fd[i]);
-                close(fd[i]);
+                (void)close(fd[i]);
                 fd[i] = -1;
 
                 if (ret == -1 || event_fd[i] == -1) {
@@ -557,7 +557,7 @@ void SensorApiService::pollEvents(void) {
 				   }
 			   }
 			   for (i = 0; i < read_size / scan_size; i++) {
-				   ProcessScanData(data + (i * scan_size),
+				   (void)ProcessScanData(data + (i * scan_size),
                                                       channels,
                                                       num_channels,
                                                       &events);
@@ -567,7 +567,8 @@ void SensorApiService::pollEvents(void) {
 						   events.uncalibrated_accelerometer.x_uncalib,
 						   events.uncalibrated_accelerometer.y_uncalib,
 						   events.uncalibrated_accelerometer.z_uncalib,events.timestamp);
-				   for (auto it = mClients.begin(); it != mClients.end();) {
+				   auto it = mClients.begin();
+				   while (it != mClients.end() && it != (std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator)NULL) {
 					   if (it->second && it->second->mMlcEnable == true) {
 						   rc= it->second->onSensorMFifoDataReadCb(&events, count);
 						   // purge this client if failed
@@ -597,8 +598,9 @@ void SensorApiService::pollEvents(void) {
 				   }
 			   }
 			   print_event(i+mlc_case_device_start_index-1, &event);
-			   get_mlc_case_name(i+mlc_case_device_start_index-1, mlc_case_name);
-			   for (auto it = mClients.begin(); it != mClients.end();) {
+			   (void)get_mlc_case_name(i+mlc_case_device_start_index-1, mlc_case_name);
+			   auto it = mClients.begin();
+			   while (it != mClients.end() && it != (std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator)NULL) {
 				   for (int i = 0; i < mSensorMlcCaseCount ; i++) {
 					   if (it->second && it->second->mMlcCaseList != nullptr) {
 						   if ((strcmp(it->second->mMlcCaseList[i].name, mlc_case_name) == 0 )
@@ -609,18 +611,18 @@ void SensorApiService::pollEvents(void) {
 								   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
 								   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
 								   it = deleteClientbyName(it->first.c_str());
-                                                                   mlc_client_delete = 1;
+								   mlc_client_delete = 1;
 								   break;
 							   }
 						   }
 					   }
 				   }
-                                   if(mlc_client_delete != 1){
+				   if(mlc_client_delete != 1){
 				       ++it;
-                                       mlc_client_delete = 0;
-                                   }
+				       mlc_client_delete = 0;
+				   }
 			   }
-			   memset(mlc_case_name, 0 ,sizeof(mlc_case_name));
+			   (void)memset(mlc_case_name, 0 ,sizeof(mlc_case_name));
 		    }
 		}
 	    }
@@ -641,7 +643,7 @@ bool SensorApiService::SensorMlcEnableEvents(char *mlc_case_name, int enable)
 
         find_path(DYN_IIO_TYPE, event_file_enable_name, mlc_case_name, sizeof(event_file_enable_name));
 
-        strlcat(event_file_enable_name, IIO_MLC_EVENT_NAME, sizeof(event_file_enable_name));
+        (void)strlcat(event_file_enable_name, IIO_MLC_EVENT_NAME, sizeof(event_file_enable_name));
 
         SENSOR_LOGI(LOG_TAG "event_file_enable_name %s", event_file_enable_name);
 
@@ -667,7 +669,7 @@ bool SensorApiService::SensorMlcEnableEvents(char *mlc_case_name, int enable)
         else
                 ret = fprintf(event_file_enable, "0");
 
-        fclose(event_file_enable);
+        (void)fclose(event_file_enable);
 
         return true;
 }
@@ -703,7 +705,7 @@ int SensorApiService::SetPowerMode(int sensor_id, int mode)
           }
         }
 
-        strlcat(power_mode_file_name, "power_mode", sizeof(power_mode_file_name));
+        (void)strlcat(power_mode_file_name, "power_mode", sizeof(power_mode_file_name));
         SENSOR_LOGI(LOG_TAG "power mode file name %s\n", power_mode_file_name);
 
         power_mode_fd = fopen(power_mode_file_name, "r+");
@@ -721,7 +723,7 @@ int SensorApiService::SetPowerMode(int sensor_id, int mode)
                 ret = fprintf(power_mode_fd, "0");
         }
 
-        fclose(power_mode_fd);
+        (void)fclose(power_mode_fd);
 
         SENSOR_LOGI(LOG_TAG "Power mode ret %d\n", ret);
 

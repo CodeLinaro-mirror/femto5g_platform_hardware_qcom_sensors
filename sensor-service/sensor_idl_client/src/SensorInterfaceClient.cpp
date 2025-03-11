@@ -57,7 +57,7 @@ uint32_t headingDataSubscription;
 
 static uint64_t getTimestamp() {
     struct timespec ts;
-    clock_gettime(CLOCK_BOOTTIME, &ts);
+    (void)clock_gettime(CLOCK_BOOTTIME, &ts);
     uint64_t system_ts =
 	    ((uint64_t)(ts.tv_sec)) * 1000000000ULL + ((uint64_t)(ts.tv_nsec));
     return system_ts;
@@ -100,7 +100,7 @@ void parseSensorReturnT(SensorInterfaceTypes::SensorReturnT resp) {
 
 void DeInitHandles()
 {
-   CommonAPI::CallStatus callStatus;
+   CommonAPI::CallStatus callStatus = CommonAPI::CallStatus::INVALID_VALUE;
    SensorInterfaceTypes::SensorReturnT resp;
 
    myProxy->getSensorCapabilitiesEvent().unsubscribe(capSubscription);
@@ -130,18 +130,18 @@ void regSigHandler()
    struct sigaction mySigAction = {};
 
    mySigAction.sa_handler = signalHandler;
-   sigemptyset(&mySigAction.sa_mask);
-   sigaction(SIGHUP, &mySigAction, NULL);
-   sigaction(SIGKILL, &mySigAction, NULL);
-   sigaction(SIGTERM, &mySigAction, NULL);
-   sigaction(SIGINT, &mySigAction, NULL);
-   sigaction(SIGPIPE, &mySigAction, NULL);
+   (void)sigemptyset(&mySigAction.sa_mask);
+   (void)sigaction(SIGHUP, &mySigAction, NULL);
+   (void)sigaction(SIGKILL, &mySigAction, NULL);
+   (void)sigaction(SIGTERM, &mySigAction, NULL);
+   (void)sigaction(SIGINT, &mySigAction, NULL);
+   (void)sigaction(SIGPIPE, &mySigAction, NULL);
 }
 
 static void onCapabilitiesCb(SensorInterfaceTypes::SensorServiceStateMaskT mask) {
     switch (mask) {
       case SensorInterfaceTypes::SensorServiceStateMaskT::SENSOR_SERVICE_STATE_MASK_READY:
-	      printf( "Sensor Hal daemon is Ready to commnunicate\n");
+	      (void)printf( "Sensor Hal daemon is Ready to commnunicate\n");
 	      break;
     }
 }
@@ -152,12 +152,12 @@ static void dump_live_event(SensorInterfaceTypes::SensorImuEventT *e)  {
     static int AccCount = 0, GyroCount = 0;
     uint64_t currPTPtime = 0;
 
-    gptpGetCurPtpTime(&currPTPtime);
+    (void)gptpGetCurPtpTime(&currPTPtime);
 
     if((e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED ) ||
 		    (e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED ) ) {
 	    const SensorInterfaceTypes::SensorUncalibratedEventT & data = e->getData();
-	    printf("Accel Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n", 
+	    (void)printf("Accel Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n", 
 				   AccCount++, 
 				   data.getXUncalib(), data.getYUncalib(), data.getZUncalib(),
 				   data.getXBias(), data.getYBias(), data.getZBias(),
@@ -169,7 +169,7 @@ static void dump_live_event(SensorInterfaceTypes::SensorImuEventT *e)  {
     else if((e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_GYROSCOPE_UNCALIBRATED ) ||
 		    (e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_GYROSCOPE ) ) {
 	    const SensorInterfaceTypes::SensorUncalibratedEventT & data = e->getData();
-	    printf("Gyro Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n", 
+	    (void)printf("Gyro Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n", 
                                     GyroCount++,
 				    data.getXUncalib(), data.getYUncalib(), data.getZUncalib(),
 				    data.getXBias(), data.getYBias(), data.getZBias(),
@@ -180,7 +180,7 @@ static void dump_live_event(SensorInterfaceTypes::SensorImuEventT *e)  {
 	    gyro_ts = e->getGptpTimestamp();
     }
     else {
-	    printf( "Sensor Live unknown sensor_id events %d\n", e->getType());
+	    (void)printf( "Sensor Live unknown sensor_id events %d\n", e->getType());
     }
 }
 
@@ -189,19 +189,19 @@ static void  onSensorImuDataReadCb(vector<SensorInterfaceTypes::SensorImuEventT>
     int i =0;
     static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_cur = 0;
     static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0;
-    gptpGetCurPtpTime(&ts_cur);
+    (void)gptpGetCurPtpTime(&ts_cur);
 
     int sensor_id = events[0].getSensorId();
 
     if (sensor_id == ACCEL_UNCALIBRATED_SENSOR_ID) {
 	    acc_sensor_ts = events[count-1].getGptpTimestamp();
-	    printf( "Sensor ACC Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
+	    (void)printf( "Sensor ACC Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			    sensor_id, count, (ts_cur - ts_prv_acc)/1000000, ts_cur, (ts_cur - acc_sensor_ts)/1000000);
 	    ts_prv_acc = ts_cur;
     }
     if (sensor_id == GYRO_UNCALIBRATED_SENSOR_ID) {
 	    gyro_sensor_ts = events[count-1].getGptpTimestamp();
-	    printf( "Sensor GYRO Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
+	    (void)printf( "Sensor GYRO Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			    sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, ts_cur, (ts_cur - gyro_sensor_ts)/1000000);
 	    ts_prv_gyro = ts_cur;
     }
@@ -217,20 +217,20 @@ static void  onSensorHeadingDataReadCb(vector<SensorInterfaceTypes::SensorHeadEv
     static uint64_t head_sensor_ts = 0;
     static int64_t head_ts = 0;
     static int HeadCount = 0;
-    gptpGetCurPtpTime(&ts_cur);
+    (void)gptpGetCurPtpTime(&ts_cur);
 
     int sensor_id = events[0].getSensorId();
 
     if (sensor_id == HEADING_SENSOR_ID) {
 	 head_sensor_ts = events[count-1].getGptpTimestamp();
-	 printf( "Sensor HEAD Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
+	 (void)printf( "Sensor HEAD Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
 			 sensor_id, count, (ts_cur - ts_prv_head)/1000000, ts_cur, (ts_cur - head_sensor_ts)/1000000);
 	 ts_prv_head = ts_cur;
     }
     for ( i = 0; i < count ; i++) {
 	 if(events[i].getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_HEADING ) { 
 		 const SensorInterfaceTypes::SensorHeadingEventT & head = events[i].getData();
-		 printf("Head Live event:%d heading and accuracy<%f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
+		 (void)printf("Head Live event:%d heading and accuracy<%f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
 				 HeadCount++,
 				 head.getHeading(), head.getAccuracy(),
 				  events[i].getTimestamp(), events[i].getGptpTimestamp(),
@@ -247,27 +247,27 @@ static void PrintSensorInfoT(vector<SensorInterfaceTypes::SensorInfoT> sensor, i
     for (int i=0 ; i< sensor_count ; i++) {
 	   cout << "Name:" << sensor[i].getName() << endl;
 	   cout << "\tvendor: " << sensor[i].getVendor() << endl;
-	   printf( "\tversion: %d\n",sensor[i].getSensorVersion());
-	   printf( "\tresolution: %f\n",sensor[i].getResolution());
-	   printf( "\tmaxRange %f\n",sensor[i].getMaxRange());
-	   printf( "\tsensor_id: %d\n",sensor[i].getSensorId());
-	   printf( "\ttype: %d\n",sensor[i].getType());
-	   printf( "\tmaxSamplingRate: %f\n",sensor[i].getMaxSamplingRate());
-	   printf( "\tminBatchCount: %d\n",sensor[i].getMinBatchCount());
-	   printf( "\tmaxBatchCount: %d\n",sensor[i].getMaxBatchCount());
+	   (void)printf( "\tversion: %d\n",sensor[i].getSensorVersion());
+	   (void)printf( "\tresolution: %f\n",sensor[i].getResolution());
+	   (void)printf( "\tmaxRange %f\n",sensor[i].getMaxRange());
+	   (void)printf( "\tsensor_id: %d\n",sensor[i].getSensorId());
+	   (void)printf( "\ttype: %d\n",sensor[i].getType());
+	   (void)printf( "\tmaxSamplingRate: %f\n",sensor[i].getMaxSamplingRate());
+	   (void)printf( "\tminBatchCount: %d\n",sensor[i].getMinBatchCount());
+	   (void)printf( "\tmaxBatchCount: %d\n",sensor[i].getMaxBatchCount());
 	   vector<float>odr = sensor[i].getOdr();
-	   printf( "\todr rate: %fHZ %fHZ %fHZ %fHZ %fHZ %fHZ\n",
+	   (void)printf( "\todr rate: %fHZ %fHZ %fHZ %fHZ %fHZ %fHZ\n",
 			       odr[0], odr[1],odr[2],odr[3],odr[4],odr[5]);
     }
 }
 
 static void printHelp() {
-    printf( "\n************* options *************\n");
-    printf( "h: help\n");
-    printf( "g: Get Sensor list\n");
-    printf( "c: configure Sensor sampling and batch count\n");
-    printf( "a: Activate/Deactivate the Sensor\n");
-    printf( "q: Quit\n");
+    (void)printf( "\n************* options *************\n");
+    (void)printf( "h: help\n");
+    (void)printf( "g: Get Sensor list\n");
+    (void)printf( "c: configure Sensor sampling and batch count\n");
+    (void)printf( "a: Activate/Deactivate the Sensor\n");
+    (void)printf( "q: Quit\n");
 }
 
 int main() {
@@ -302,13 +302,13 @@ int main() {
     // check if this process started by root
     if (0 == getuid()) { 
         // started as root.
-        printf("!!! sensor idl client started as root change to sensors group\n");
+        (void)printf("!!! sensor idl client started as root change to sensors group\n");
         // Set the group id first and then set the effective userid, to sensors.
         if(-1 == setgid(GID_SENSORCLIENT)) {
-            printf("Error: setgid to sensor failed. %s\n", strerror(errno));
+            (void)printf("Error: setgid to sensor failed. %s\n", strerror(errno));
         }
         if(-1 == setgid(GID_TELAFCLIENT)) {
-            printf("Error: setgid to telaf failed. %s\n", strerror(errno));
+            (void)printf("Error: setgid to telaf failed. %s\n", strerror(errno));
         }
     }
 
@@ -328,7 +328,7 @@ int main() {
 
     cout << "Checking Sensor Service availability !!" << endl;
     while (!myProxy->isAvailable())
-	    usleep(10);
+	    (void)usleep(10);
     cout << "Sensor Service is now available !!" << endl;
 
     if (gptpInit())
@@ -336,7 +336,7 @@ int main() {
     else 
 	    cout << " gptpinit failed" << endl;
 
-    myProxy->getProxyStatusEvent().subscribe([&] (const CommonAPI::AvailabilityStatus status) {
+    (void)myProxy->getProxyStatusEvent().subscribe([&] (const CommonAPI::AvailabilityStatus status) {
       switch (status) {
 	case CommonAPI::AvailabilityStatus::UNKNOWN:
 	cout << "Sensor Service Unknown" << endl;
@@ -397,25 +397,29 @@ int main() {
 	    cout << "SensorClient() Remote call failed! callStatus " << (int)callStatus << endl;
     }
     parseSensorReturnT(resp);
-    sleep(1);
+    (void)sleep(1);
 
     cout << "==== Calling GetSensorListReq ====>> " << endl;
     myProxy->GetSensorListReq(callStatus, sensor, sensor_count, &info);
     if (callStatus != CommonAPI::CallStatus::SUCCESS) {
-	    printf( "sensor get list ret %d \n", (int)callStatus);
+	    (void)printf( "sensor get list ret %d \n", (int)callStatus);
 	    return;
     }
     PrintSensorInfoT(sensor, sensor_count);
     mSensorTrackingOption = new (std::nothrow) struct SensorTrackingOption[sensor_count];
+    if(!mSensorTrackingOption) {
+	    cout << "new failed" << endl;
+	    exit(1);
+    }
 
-    sleep(1);
+    (void)sleep(1);
 
     printHelp();
 
     while (true) {
       char buf[10];
-      memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
-      fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
+      (void)memset (buf, 0, sizeof(buf)/sizeof(buf[0]));
+      (void)fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
       int command = buf[0];
 
       switch(command) {
@@ -423,7 +427,7 @@ int main() {
 	    cout << "==== Calling GetSensorListReq ====>> " << endl;
 	    myProxy->GetSensorListReq(callStatus, sensor, sensor_count, &info);
 	    if (callStatus != CommonAPI::CallStatus::SUCCESS) {
-		    printf( "sensor get list ret %d \n", (int)callStatus);
+		    (void)printf( "sensor get list ret %d \n", (int)callStatus);
 	    }
 	    PrintSensorInfoT(sensor,sensor_count);
 	    break;
@@ -431,19 +435,19 @@ int main() {
 	    cout << "==== Calling SensorConfigReq ====>> " << endl;
 	    for(int i=0; i < sensor_count; i++) {
 		vector<float>mODR = sensor[i].getOdr();
-	        printf("Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n", mODR[0],mODR[1],mODR[2],mODR[3],mODR[4],mODR[5]);
-	        memset (odr, 0, sizeof(odr)/sizeof(odr[0]));
-		memset (batchcount, 0, sizeof(batchcount)/sizeof(batchcount[0]));
-		printf( "Enter sampling rate: ");
-		fgets(odr, sizeof(odr)/sizeof(odr[0]), stdin);
+	        (void)printf("Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n", mODR[0],mODR[1],mODR[2],mODR[3],mODR[4],mODR[5]);
+	        (void)memset (odr, 0, sizeof(odr)/sizeof(odr[0]));
+		(void)memset (batchcount, 0, sizeof(batchcount)/sizeof(batchcount[0]));
+		(void)printf( "Enter sampling rate: ");
+		(void)fgets(odr, sizeof(odr)/sizeof(odr[0]), stdin);
 		j=strtol(odr,&stopstring,10);
-		printf( "Enter batch set: ");
-		fgets(batchcount, sizeof(batchcount)/sizeof(batchcount[0]), stdin);
+		(void)printf( "Enter batch set: ");
+		(void)fgets(batchcount, sizeof(batchcount)/sizeof(batchcount[0]), stdin);
 		batch_count=strtol(batchcount,&stopstring,10);
-		printf("\nConfig sensor_id %d  sampling %fHZ and batch %d\n", sensor[i].getSensorId(), mODR[j], batch_count);
+		(void)printf("\nConfig sensor_id %d  sampling %fHZ and batch %d\n", sensor[i].getSensorId(), mODR[j], batch_count);
 		myProxy->SensorConfigReq(sensor[i].getSensorId(), mODR[j], batch_count, callStatus, resp, &info);
 		if (callStatus != CommonAPI::CallStatus::SUCCESS) {
-			printf( "sensor config  failed sensor[i].sensor_id %d ret %d \n", sensor[i].getSensorId(), (int)callStatus);
+			(void)printf( "sensor config  failed sensor[i].sensor_id %d ret %d \n", sensor[i].getSensorId(), (int)callStatus);
 		}
 		else {
 			parseSensorReturnT(resp);
@@ -456,8 +460,8 @@ int main() {
 	  case 'a':
 	    cout << "==== Calling SensorControlReq ====>>" <<  endl;
 	    for(int i=0; i < sensor_count; i++) {
-		printf( "Enable/Disable the sensor id %d\n",sensor[i].getSensorId());
-		memset(enable, 0, sizeof(enable));
+		(void)printf( "Enable/Disable the sensor id %d\n",sensor[i].getSensorId());
+		(void)memset(enable, 0, sizeof(enable));
 		if (fgets(enable, sizeof(enable)/sizeof(enable[0]), stdin) != NULL){
 		Enable=strtol(enable,&stopstring,10);
 		if ( Enable == 1)
@@ -467,7 +471,7 @@ int main() {
 		cout << "sensor id:" << sensor[i].getSensorId() << " with contol value: " << (SensorInterfaceTypes::SensorStateT)state << endl;
 		myProxy->SensorControlReq(sensor[i].getSensorId(), state, callStatus, resp, &info);
 		if (callStatus != CommonAPI::CallStatus::SUCCESS) {
-			printf( "sensor control failed sensor[i].sensor_id %d ret %d \n", sensor[i].getSensorId(), (int)callStatus);
+			(void)printf( "sensor control failed sensor[i].sensor_id %d ret %d \n", sensor[i].getSensorId(), (int)callStatus);
 		}
 		else {
 			parseSensorReturnT(resp);
@@ -475,7 +479,7 @@ int main() {
 		 }
 	        }
 		else{
-			printf("No input received for sensor id %d, skipping...\n", sensor[i].getSensorId());
+			(void)printf("No input received for sensor id %d, skipping...\n", sensor[i].getSensorId());
 		}
 	    }
 	    break;
@@ -486,15 +490,15 @@ int main() {
 	    goto EXIT;
 	    break;
 	  default:
-	    printf("unknown command %s\n", buf);
+	    (void)printf("unknown command %s\n", buf);
 	    break;
       }//end of switch
 
     }//while(1)
 
 EXIT:
-    printf("Done\n");
-    usleep(5000);
+    (void)printf("Done\n");
+    (void)usleep(5000);
     DeInitHandles();
     if (myProxy) {
        myProxy.reset();

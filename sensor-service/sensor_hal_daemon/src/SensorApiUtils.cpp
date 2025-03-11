@@ -41,6 +41,7 @@
 #include <dlfcn.h>
 #include <memory>
 #include <algorithm>
+#include <stack>
 #include <SensorApiService.h>
 
 using namespace std;
@@ -48,61 +49,54 @@ using namespace std;
 //Search for Path
 void search_in_path(char* parentDir,  char* subFileRead, string contentVerified, int maxLevel,char* outputPath)
 {
-  if ( NULL == parentDir || NULL == subFileRead || NULL == outputPath )
-  {
-    return;
-  }
-  if ( 0 == maxLevel || strlen(outputPath) !=0 )
-  {
-    return;
-  }
-
-  DIR *dir = opendir(parentDir);
-  struct dirent *entry = NULL;
-  if (dir != NULL)
-  {
-    entry = readdir(dir);
-  }
-  SENSOR_LOGD(LOG_TAG "Current directory: %s\n",parentDir);
-  while (entry != NULL)
-  {
-    if ( (entry->d_type == DT_DIR || entry->d_type == DT_LNK) &&
-         (strcmp(entry->d_name,"..") != 0) && (strcmp(entry->d_name,".") !=0 ))
+    if ( NULL == parentDir || NULL == subFileRead || NULL == outputPath )
     {
-      char newParent[SEARCH_PATH_SIZE];
-      snprintf(newParent,sizeof(newParent),"%s/%s/",parentDir,entry->d_name);
-      search_in_path(newParent, subFileRead, contentVerified, maxLevel-1, outputPath);
+        return;
     }
-    else if ( strstr( entry->d_name, subFileRead ) != NULL )
+    if ( 0 == maxLevel || strlen(outputPath) !=0 )
     {
-      char fullFilePath[SEARCH_PATH_SIZE];
-      snprintf(fullFilePath,sizeof(fullFilePath),"%s/%s",parentDir,entry->d_name);
-      string content;
-      ifstream fin(fullFilePath);
-      if ( fin.is_open() && fin.peek() != EOF )
-      {
-        fin>>content;
-        if ( (0 == contentVerified.length() && strlen(entry->d_name) == strlen(subFileRead))
-              || contentVerified == content )
-        {
-          strlcpy(outputPath, parentDir, SEARCH_PATH_SIZE);
+        return;
+    }
+    std::stack<std::pair<std::string, int>> dirs;
+    dirs.push({parentDir, 0});
+
+    while (!dirs.empty()) {
+        auto [currentDir, level] = dirs.top();
+        dirs.pop();
+
+        if (level > maxLevel) continue;
+
+        DIR *dir = opendir(currentDir.c_str());
+        if (dir == NULL) continue;
+
+        struct dirent *entry = readdir(dir);
+	SENSOR_LOGD(LOG_TAG "Current directory: %s\n", currentDir.c_str());
+
+        while (entry != NULL) {
+            if ((entry->d_type == DT_DIR || entry->d_type == DT_LNK) &&
+                std::string(entry->d_name) != ".." && std::string(entry->d_name) != ".") {
+                std::string newParent = currentDir + "/" + entry->d_name;
+                dirs.push({newParent, level + 1});
+            } else if (std::string(entry->d_name).find(subFileRead) != std::string::npos) {
+                std::string fullFilePath = currentDir + "/" + entry->d_name;
+                std::ifstream fin(fullFilePath);
+                std::string content;
+                if (fin.is_open() && fin.peek() != EOF) {
+                    fin >> content;
+                    if ((contentVerified.empty() && std::string(entry->d_name).length() == std::string(subFileRead).length()) ||
+                        contentVerified == content) {
+			(void)snprintf(outputPath, SEARCH_PATH_SIZE, "%s\/", currentDir.c_str());
+                        (void)closedir(dir);
+			fin.close();
+                        return;
+                    }
+                }
+                fin.close();
+            }
+            entry = readdir(dir);
         }
-        }
-      fin.close();
+        (void)closedir(dir);
     }
-    if (strlen(outputPath) != 0)
-    {
-      break;
-    }
-    entry = readdir(dir);
-
-  }
-
-  if (dir != NULL)
-  {
-    closedir(dir);
-  }
-  return;
 }
 
 /**
@@ -145,8 +139,8 @@ int sysfs_read_scale(char *file, float *val)
         if (NULL == fp)
                 return -errno;
 
-        fscanf(fp, "%f", val);
-        fclose(fp);
+        (void)fscanf(fp, "%f", val);
+        (void)fclose(fp);
 
         return 0;
 }
@@ -159,8 +153,8 @@ int sysfs_write_int(char *file, int val)
         if (NULL == fp)
                 return -errno;
 
-        fprintf(fp, "%d", val);
-        fclose(fp);
+        (void)fprintf(fp, "%d", val);
+        (void)fclose(fp);
 
         return 0;
 }
@@ -175,7 +169,7 @@ int sysfs_read_int(char *file, int *val)
 		return -errno;
 
 	ret = fscanf(fp, "%d\n", val);
-	fclose(fp);
+	(void)fclose(fp);
 
 	return ret;
 }
@@ -203,7 +197,7 @@ int get_sensor_device_by_name(const char *name)
         if (NULL == dp)
                 return -ENODEV;
 
-        for (ent = readdir(dp); ent; ent = readdir(dp)) {
+        for (ent = readdir(dp); ent != 0; ent = readdir(dp)) {
                 if (strlen(ent->d_name) <= strlen(device_iio_device_name) ||
                     !strcmp(ent->d_name, ".") ||
                     !strcmp(ent->d_name, ".."))
@@ -218,7 +212,7 @@ int get_sensor_device_by_name(const char *name)
                                    strlen(device_iio_device_name);
                         if (fnamelen > DEVICE_IIO_MAX_FILENAME_LEN)
                                 continue;
-                        snprintf(dfilename, DEVICE_IIO_MAX_FILENAME_LEN,
+                        (void)snprintf(dfilename, DEVICE_IIO_MAX_FILENAME_LEN,
                                 "%s%s%d/name",
                                 device_iio_dir,
                                 device_iio_device_name,
@@ -229,23 +223,23 @@ int get_sensor_device_by_name(const char *name)
 
                         ret = fscanf(devilceFile, "%s", dname);
                         if (ret <= 0) {
-                                fclose(devilceFile);
+                                (void)fclose(devilceFile);
                                 break;
                         }
 
                         if (strncmp(name, dname, strlen(dname)) == 0 &&
                             /* check if asm330lhh and asm330lhhx */
                             strlen(name) == strlen(dname)) {
-                                fclose(devilceFile);
-                                closedir(dp);
+                                (void)fclose(devilceFile);
+                                (void)closedir(dp);
                                 return number;
                         }
 
-                fclose(devilceFile);
+                (void)fclose(devilceFile);
                 }
         }
 
-        closedir(dp);
+        (void)closedir(dp);
 
         return -ENODEV;
 }
@@ -278,9 +272,9 @@ int get_sensor_type(struct device_iio_info_channel *channel,
             strlen("_type") + 1 > DEVICE_IIO_MAX_FILENAME_LEN)
                 return -1;
 
-        snprintf(dir, DEVICE_IIO_MAX_FILENAME_LEN, "%s/scan_elements", device_dir);
-        snprintf(type_name, DEVICE_IIO_MAX_FILENAME_LEN, "%s_type", name);
-        snprintf(name_post, DEVICE_IIO_MAX_FILENAME_LEN, "%s_type", post);
+        (void)snprintf(dir, DEVICE_IIO_MAX_FILENAME_LEN, "%s/scan_elements", device_dir);
+        (void)snprintf(type_name, DEVICE_IIO_MAX_FILENAME_LEN, "%s_type", name);
+        (void)snprintf(name_post, DEVICE_IIO_MAX_FILENAME_LEN, "%s_type", post);
 
         dp = opendir(dir);
         if (dp == NULL)
@@ -289,7 +283,7 @@ int get_sensor_type(struct device_iio_info_channel *channel,
         while (ent = readdir(dp), ent != NULL) {
                 if ((strcmp(type_name, ent->d_name) == 0) ||
                     (strcmp(name_post, ent->d_name) == 0)) {
-                        snprintf(filename, DEVICE_IIO_MAX_FILENAME_LEN, "%s/%s", dir, ent->d_name);
+                        (void)snprintf(filename, DEVICE_IIO_MAX_FILENAME_LEN, "%s/%s", dir, ent->d_name);
                         sysfsfp = fopen(filename, "r");
                         if (sysfsfp == NULL)
                                 continue;
@@ -313,11 +307,11 @@ int get_sensor_type(struct device_iio_info_channel *channel,
                         else
                                 channel->mask = (1 << channel->bits_used) - 1;
 
-                        fclose(sysfsfp);
+                        (void)fclose(sysfsfp);
                 }
         }
 
-        closedir(dp);
+        (void)closedir(dp);
 
         return 0;
 }
@@ -349,7 +343,7 @@ int enable_sensor_channels(const char *device_dir, bool enable)
                 strlen("scan_elements") + 1 > DEVICE_IIO_MAX_FILENAME_LEN)
                 return -1;
 
-        snprintf(dir, DEVICE_IIO_MAX_FILENAME_LEN, "%s/scan_elements", device_dir);
+        (void)snprintf(dir, DEVICE_IIO_MAX_FILENAME_LEN, "%s/scan_elements", device_dir);
         dp = opendir(dir);
         if (!dp)
                 return -errno;
@@ -361,19 +355,19 @@ int enable_sensor_channels(const char *device_dir, bool enable)
 
                 if (!strcmp(ent->d_name + strlen(ent->d_name) - strlen("_en"),
                             "_en")) {
-                        snprintf(filename, DEVICE_IIO_MAX_FILENAME_LEN, "%s/%s", dir, ent->d_name);
+                        (void)snprintf(filename, DEVICE_IIO_MAX_FILENAME_LEN, "%s/%s", dir, ent->d_name);
                         sysfsfp = fopen(filename, "r+");
                         if (!sysfsfp) {
-                                closedir(dp);
+                                (void)closedir(dp);
                                 return -errno;
                         }
 
-                        fprintf(sysfsfp, "%d", enable);
-                        fclose(sysfsfp);
+                        (void)fprintf(sysfsfp, "%d", enable);
+                        (void)fclose(sysfsfp);
                 }
         }
 
-        closedir(dp);
+        (void)closedir(dp);
 
         return 0;
 }
@@ -433,7 +427,7 @@ float process_2byte_received(int input,
                 res = (float)((uint16_t)val);
         }
 
-        return ((res + info->offset) * info->scale);
+        return ((res + info->offset) * info->scale); // Calculate scaled value 
 }
 
 /**
@@ -462,7 +456,7 @@ float process_3byte_received(int input,
                 res = (float)((uint32_t)val);
         }
 
-        return ((res + info->offset) * info->scale);
+        return ((res + info->offset) * info->scale); // Calculate scaled value 
 }
 
 //To Dump the Senor Events.
