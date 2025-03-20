@@ -467,7 +467,7 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
    }
 
    for(int i= 0; i< mSensorCount; i++) {
-     if (s[i].type == SENSOR_TYPE_ACCELEROMETER) {
+     if (s[i].type == SENSOR_TYPE_ACCELEROMETER || s[i].type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
 	     (void)strlcpy(&mSensorList[i].name[0], configParamRead.AccelName, MAX_PATH_SIZE);
 	     mSensorList[i].type = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
      }
