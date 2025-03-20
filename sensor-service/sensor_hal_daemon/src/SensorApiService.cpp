@@ -1859,11 +1859,32 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 
       //Check for IAM20680 sensor
       case SENSOR_IAM20680: {
+        int dev_num = -1;
+        float scale_value = 0;
+        dev_num = get_sensor_device_by_name("iam20680");
         if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
                 float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
                 int acc_range[4] = {2, 4, 8, 16};
+                char tmp_filaname[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
                 (void)memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-                s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
+                s->range = -1;
+                if(dev_num >= 0)
+                {
+                    /* save path to acc. iio device in sysfs */
+                    (void)snprintf(tmp_filaname, DEVICE_IIO_MAX_FILENAME_LEN,
+                            "/sys/bus/iio/devices/iio:device%d/in_accel_scale",
+                            dev_num);
+                    SENSOR_LOGI(LOG_TAG "Acc tmp_filaname %s dev_num %d\n", tmp_filaname, dev_num);
+                    if(0 == sysfs_read_scale(tmp_filaname, &scale_value)) {
+                        SENSOR_LOGI(LOG_TAG "Acc scale_value %f\n", scale_value);
+                        s->range = scale_value;
+                    }
+                }
+                else
+                {
+                    SENSOR_LOGE(LOG_TAG "Failed to get dev_num : %d\n", dev_num);
+                    s->range = (mAccRange >= 0 && mAccRange <= 3 ) ? acc_range[mAccRange] : acc_range[3];
+                }
                 mMaxAccSampleRate  = NearBySamplingRate(samplingRate, mMaxAccSampleRate);
                 s->maxSamplingRate = mMaxAccSampleRate;
                 if (mMinAccBatchCount >= MAX_BATCH_COUNT)
@@ -1875,8 +1896,26 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
         if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
                 float samplingRate[6] = {6.25, 12.5, 25, 50, 100, 200};
                 int gyro_range[4] = {250, 500, 1000, 2000};
+                char tmp_filaname[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
                 (void)memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
-                s->range = (mGyroRange >= 0 && mGyroRange <= 3 ) ? gyro_range[mGyroRange] : gyro_range[3];
+                s->range = -1;
+                if(dev_num >= 0)
+                {
+                    /* save path to acc. iio device in sysfs */
+                    (void)snprintf(tmp_filaname, DEVICE_IIO_MAX_FILENAME_LEN,
+                            "/sys/bus/iio/devices/iio:device%d/in_anglvel_scale",
+                            dev_num);
+                    SENSOR_LOGI(LOG_TAG "Gyro tmp_filaname %s dev_num %d\n", tmp_filaname, dev_num);
+                    if(0 == sysfs_read_scale(tmp_filaname, &scale_value)) {
+                        SENSOR_LOGI(LOG_TAG "Gyro scale_value %f\n", scale_value);
+                        s->range = scale_value;
+                    }
+                }
+                else
+                {
+                    SENSOR_LOGE(LOG_TAG "Failed to get dev_num : %d\n", dev_num);
+                    s->range = (mGyroRange >= 0 && mGyroRange <= 3 ) ? gyro_range[mGyroRange] : gyro_range[3];
+                }
                 mMaxGyroSampleRate = NearBySamplingRate(samplingRate, mMaxGyroSampleRate);
                 s->maxSamplingRate = mMaxGyroSampleRate;
                 if (mMinGyroBatchCount >= MAX_BATCH_COUNT)
