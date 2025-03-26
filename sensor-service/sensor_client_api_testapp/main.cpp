@@ -76,7 +76,7 @@
 #include <atomic>
 #include <vector>
 
-#define CMD_OPTIONS     "l:s:b:n:e:t:"
+#define CMD_OPTIONS     "l:s:b:n:e:t:r:"
 
 #undef LOG_TAG
 #define LOG_TAG "Sensor-Test-App:"
@@ -109,8 +109,8 @@ std::atomic<bool> running(true);
 
 void Usage(void)
 {
-  SENSOR_LOGI(LOG_TAG "\nUsage:\nsensor_client_api_testapp --live <enable> --sampling <> --batch <> --count <> --temperature <enbale> --buffer <enable>\n");
-  SENSOR_LOGI(LOG_TAG "Ex: sensor_client_api_testapp -l 1 -s 104 -b 10 -n 10 -e 1 -t 1\n");
+  SENSOR_LOGI(LOG_TAG "\nUsage:\nsensor_client_api_testapp --live <enable> --sampling <> --batch <> --count <> --temperature <enbale> --buffer <enable> --rotate <enable>\n");
+  SENSOR_LOGI(LOG_TAG "Ex: sensor_client_api_testapp -l 1 -s 104 -b 10 -n 10 -e 1 -t 1 -r 1\n");
   return;
 }
 
@@ -430,13 +430,17 @@ int main(int argc, char *argv[]) {
 			   break;
 		   case 't':
 			   enable_temperature = strtol(optarg, &stopstring, 10);
+			   break;
+		   case 'r':
+			   Rotate = (bool)strtol(optarg, &stopstring, 10);
+			   break;
 		   default:
 			   Usage();
 			   break;
 	   }
      }
-     SENSOR_LOGI(LOG_TAG "Sensor enable_live %d sampling rate %f batch count %d live_count %d enable_buffer %d enable_temperature %d\n",
-		     enable_live, odr_rate, batch_count, live_count, enable_buffer, enable_temperature);
+     SENSOR_LOGI(LOG_TAG "Sensor enable_live %d sampling rate %f batch count %d live_count %d enable_buffer %d enable_temperature %d rotate %d\n",
+		     enable_live, odr_rate, batch_count, live_count, enable_buffer, enable_temperature, Rotate);
 
      if(enable_buffer == 1){
 	ret = pClient->sensor_read_buffer_data(1, onSensorBufferDataReadCb);
