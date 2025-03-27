@@ -68,7 +68,7 @@ using namespace std;
 
 /*SMI130  temperature*/
 #define SMI_TEMP_SEARCH         "smi130_acc"
-#define SMI_TEMP_NAME           "temperature"
+#define SMI_TEMP_NAME           "temp"
 #define SMI_GYR_SEARCH          "smi130_gyro"
 #define SMI_ACC_RESL            (0.97656f)
 #define SMI_CONVERT_ACC         (0.0098) //library output is in mg = 0.0098 m/s^2
