@@ -946,7 +946,7 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
         {
                 PDEBUG("shutdown gyro");
 
-                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_SUSPEND);
+                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_DEEP_SUSPEND);
         }else
         {
                 PDEBUG("set gyro active");
@@ -2187,7 +2187,7 @@ static int32_t ap_hwcntl_init_GYRO()
                 break;
         }
 	if (pwr_cfg_read != SENSOR_GYRO_PM_NORMAL)
-		ret += wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_SUSPEND);
+		ret += wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_DEEP_SUSPEND);
 
         if (ret < 0)
         {
