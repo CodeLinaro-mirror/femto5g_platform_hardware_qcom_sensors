@@ -496,3 +496,31 @@ void dump_sensor_event(const struct sensors_event_t *e)
         break;
     }
 }
+
+/*API for boot kpi marker prints
+ * on Success : return 0
+ * on Failure : return -1 */
+int sensor_boot_kpi_marker(const char * pFmt, ...)
+{
+    int result = -1;
+    int32_t errRet = -1;
+    struct stat nodeStat;
+
+    // Check if the KPI node exists exists
+    errRet = stat(BOOT_KPI_FILE, &nodeStat);
+    if (errRet == 0) {
+        char buf[MAX_COMMAND_STR_LEN] = {};
+        va_list ap;
+        va_start(ap, pFmt);
+        vsnprintf(&buf[0], sizeof(buf), pFmt, ap);
+        int fd = 0;
+        fd = open(BOOT_KPI_FILE, O_WRONLY);
+        if (fd > 0) {
+            write(fd, buf, strlen(buf));
+            close(fd);
+	    result = 0;
+        }
+        va_end(ap);
+    }
+    return result;
+}

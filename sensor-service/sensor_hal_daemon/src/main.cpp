@@ -205,6 +205,7 @@ int main(int argc, char *argv[])
     configParamRead.EnableFIR = 0; //By default, use moving average
 
     SENSOR_LOGI(LOG_TAG "sensor_hal_daemon - ver %s\n", HAL_DAEMON_VERSION);
+    sensor_boot_kpi_marker("S - SHD probe start");
 
     // read configuration file
     SENSOR_READ_CONF(SENSOR_CONF_PATH, &configParamRead);

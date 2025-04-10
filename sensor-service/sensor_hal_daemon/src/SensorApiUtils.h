@@ -64,6 +64,8 @@
 #define NS_TO_FREQUENCY(x)                      (1E9 / x)
 #define FREQUENCY_TO_NS(x)                      (1E9 / x)
 #define FREQUENCY_TO_US(x)                      (1E6 / x)
+#define MAX_COMMAND_STR_LEN (255)
+#define BOOT_KPI_FILE "/sys/kernel/boot_kpi/kpi_values"
 
 //Type of devices based on sensor driver sysfs path mount.
 typedef enum
@@ -119,5 +121,6 @@ float process_3byte_received(int input,
 int sysfs_read_scale(char *file, float *val);
 int sysfs_write_int(char *file, int val);
 int sysfs_read_int(char *file, int *val);
+int sensor_boot_kpi_marker(const char * pFmt, ...);
 
 #endif //SENSORUTILS_H
