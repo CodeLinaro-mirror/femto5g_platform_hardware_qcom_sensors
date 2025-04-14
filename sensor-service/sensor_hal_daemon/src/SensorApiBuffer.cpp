@@ -809,13 +809,13 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
   if ((mfdBuffAccelE = fopen(mAccBootSample.c_str(), "w")) == NULL) {
 	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
 			  mAccBootSample.c_str(), errno, strerror(errno));
-	  return false;
+	  goto fail;
   }
 
   if ((mfdBuffGyroE = fopen(mGyroBootSample.c_str(), "w")) == NULL) {
 	  SENSOR_LOGE(LOG_TAG "failed to open %s errno %d, (%s)\n",
 			  mGyroBootSample.c_str(), errno, strerror(errno));
-	  return false;
+	  goto fail;
   }
 
   if (enable == true) {
@@ -832,14 +832,14 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
       if (fwrite("1", 1, 1, mfdBuffAccelE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)\n",
 			      mAccBootSample.c_str(), errno, strerror(errno));
-	      return false;
+	      goto fail;
       } else {
 	      (void)fflush(mfdBuffAccelE);
       }
       if (fwrite("1", 1, 1, mfdBuffGyroE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)\n",
 			      mGyroBootSample.c_str(), errno, strerror(errno));
-	      return false;
+	      goto fail;
       } else {
 	      (void)fflush(mfdBuffGyroE);
       }
@@ -849,14 +849,14 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
       if ((fwrite("0", 1, 1, mfdBuffAccelE) != 1)) {
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)",
 			      mAccBootSample.c_str(), errno, strerror(errno));
-	      return false;
+	      goto fail;
       } else {
 	      (void)fflush(mfdBuffAccelE);
       }
       if (fwrite("0", 1, 1, mfdBuffGyroE) != 1){
 	      SENSOR_LOGE(LOG_TAG "failed to write data into %s, errno = %d (%s)",
 			      mGyroBootSample.c_str(), errno, strerror(errno));
-	      return false;
+	      goto fail;
       } else {
 	      (void)fflush(mfdBuffGyroE);
       }
@@ -868,6 +868,8 @@ bool SensorApiService::WritetoBufferFile(bool enable) {
 fail:
   CLOSE_FILE_HANDLE(mfdBuffAccel);
   CLOSE_FILE_HANDLE(mfdBuffGyro);
+  CLOSE_FILE_HANDLE(mfdBuffAccelE);
+  CLOSE_FILE_HANDLE(mfdBuffGyroE);
   return false;
 }
 /**
