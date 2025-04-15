@@ -168,6 +168,7 @@ static int mlc_info(int iio_device_number)
         mlc_info_fd = fopen(mlc_info_file_name, "r");
         if (!mlc_info_fd) {
                 SENSOR_LOGE(LOG_TAG "MLC: open mlc_info_file_name %s failed\n", mlc_info_file_name);
+		(void)fclose(mlc_version_fd);
                 return -1;
         }
 
