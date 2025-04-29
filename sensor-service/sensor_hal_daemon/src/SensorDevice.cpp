@@ -42,7 +42,7 @@
 #ifdef LOG_TAG
 #undef LOG_TAG
 #endif
-#define LOG_TAG "SensorDevice:"
+#define LOG_TAG "SensorSvc_Device:"
 
 SensorDevice::SensorInfo initASM330() {
    SensorDevice::SensorInfo sensor = {
@@ -54,6 +54,9 @@ SensorDevice::SensorInfo initASM330() {
 	   "in_anglvel_x_scale",
 	   "selftest",
 	   {},
+	   {},
+	   {31,1968,38,116,26,26},
+	   {0,0,26},
 	   "/usr/lib/libasm330sensors.so.1.0.0",
 	   {13, 26, 52, 104, 208, 416},
 	   {13, 26, 52, 104, 208, 416},
@@ -62,11 +65,18 @@ SensorDevice::SensorInfo initASM330() {
 	   4,
 	   125,
 	   3,
+	   -1,
+	   -1,
 	   false
    };
    sensor.temp_files.push_back(SensorDevice::tempPtr("in_temp_scale"));
    sensor.temp_files.push_back(SensorDevice::tempPtr("in_temp_offset"));
    sensor.temp_files.push_back(SensorDevice::tempPtr("in_temp_raw"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("enable_wakeup"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("events/in_accel0_thresh_rising_en"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("events/in_accel0_thresh_rising_value"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("events/in_accel0_thresh_rising_period"));
+
    return sensor;
 }
 
@@ -80,6 +90,9 @@ SensorDevice::SensorInfo initIAM20680() {
 	   "in_anglvel_x_scale",
 	   "misc_self_test",
 	   {},
+	   {},
+	   {4,1020,0,0,4,500},
+	   {0,0,0},
 	   "/usr/lib/libiam20680sensors.so.1.0.0",
 	   {6.25, 12.5, 25, 50, 100, 200},
 	   {6.25, 12.5, 25, 50, 100, 200},
@@ -88,9 +101,15 @@ SensorDevice::SensorInfo initIAM20680() {
 	   4,
 	   250,
 	   1,
+	   -1,
+	   -1,
 	   false
    };
    sensor.temp_files.push_back(SensorDevice::tempPtr("out_temperature"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("in_accel_wake_rate"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("events/in_accel_x|y|z_thresh_rising_en"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("events/in_accel_x|y|z_thresh_rising_value"));
+
    return sensor;
 }
 
@@ -104,6 +123,9 @@ SensorDevice::SensorInfo initSMI230() {
 	    "range",
 	    "self_test",
 	    {},
+	    {},
+	    {83,1000,100,163820,12.5,12.5},
+	    {0,0,12.5},
 	    "/usr/lib/libsmi230sensors.so.1.0.0",
 	    {12.5, 25, 50, 100, 200, 400},
 	    {100, 200, 400},
@@ -112,9 +134,18 @@ SensorDevice::SensorInfo initSMI230() {
 	    4,
 	    125,
 	    1,
+	   -1,
+	   -1,
 	    true
    };
    sensor.temp_files.push_back(SensorDevice::tempPtr("temp"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("anymotion_threshold"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("anymotion_duration"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("anymotion_x_enable"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("anymotion_y_enable"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("anymotion_z_enable"));
+   sensor.wakeup_files.push_back(SensorDevice::wakeupPtr("anymotion_enable"));
+
    return sensor;
 }
 
@@ -139,6 +170,12 @@ SensorDevice::~SensorDevice() {
 	       if (tempfilePtr.tempfile) {
 		       delete tempfilePtr.tempfile;
 		       tempfilePtr.tempfile = nullptr;
+	       }
+	   }
+	   for (auto& wakeupfilePtr : sensorInfo.wakeup_files) {
+	       if (wakeupfilePtr.wakeupfile) {
+		       delete wakeupfilePtr.wakeupfile;
+		       wakeupfilePtr.wakeupfile = nullptr;
 	       }
 	   }
 	}
@@ -188,7 +225,11 @@ bool SensorDevice::openSensorDevice(string *libname) {
 		     mGyro %s \n \
 		     mTemp %s\n",
 		     mSensorType, sensor.lib_name, mAccel.c_str(), mGyro.c_str(), mTemp.c_str());
-	 return true;
+	//Create a thread for the sensorWakeupThread member function
+	initSensorWakeUp(false);
+	std::thread wakeupThread(&SensorDevice::sensorWakeupThread, this);
+	wakeupThread.detach(); // Detach the thread if you don't need to join it
+	return true;
      }
     }
    }
@@ -281,8 +322,10 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
   if (sensor != mSensorInfo.end()) {
      if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
 	 fill(s->odr, s->odr + MAX_ODR, 0);
-	 copy(sensor->second[0].accel_odr.begin(), sensor->second[0].accel_odr.begin() + min(sensor->second[0].accel_odr.size(), static_cast<size_t>(MAX_ODR)), s->odr);
+	 copy(sensor->second[0].accel_odr.begin(), sensor->second[0].accel_odr.begin() + min(sensor->second[0].accel_odr.size(),
+				 static_cast<size_t>(MAX_ODR)), s->odr);
          mService->mMaxAccSampleRate  = mService->nearBySamplingRate(s->odr, mService->mMaxAccSampleRate);
+	 sensor->second[0].accel_id = s->sensor_id;
 	 if (mService->mMinAccBatchCount >= MAX_BATCH_COUNT)
 		 mService->mMinAccBatchCount = MAX_BATCH_COUNT;
 	 else if (mService->mMinAccBatchCount <= 0)
@@ -305,8 +348,10 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
      }
      if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
 	 fill(s->odr, s->odr + MAX_ODR, 0);
-	 copy(sensor->second[0].gyro_odr.begin(), sensor->second[0].gyro_odr.begin() + min(sensor->second[0].gyro_odr.size(), static_cast<size_t>(MAX_ODR)), s->odr);
+	 copy(sensor->second[0].gyro_odr.begin(), sensor->second[0].gyro_odr.begin() + min(sensor->second[0].gyro_odr.size(),
+				 static_cast<size_t>(MAX_ODR)), s->odr);
 	 mService->mMaxGyroSampleRate = mService->nearBySamplingRate(s->odr, mService->mMaxGyroSampleRate);
+	 sensor->second[0].gyro_id = s->sensor_id;
 	 if (mService->mMinGyroBatchCount >= MAX_BATCH_COUNT)
 		 mService->mMinGyroBatchCount = MAX_BATCH_COUNT;
 	 else if (mService->mMinGyroBatchCount <= 0)
@@ -330,6 +375,8 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
      }
      mService->mBatchConst =  sensor->second[0].batch_const;
   }
+  updateSensorWakeupConfig();
+  return;
 }
 
 bool SensorDevice::getSensorBufferFile(string *acc_name, string *gyro_name) {
@@ -625,4 +672,351 @@ int SensorDevice::getDefaultFIRCoeff(bool is_accel, int sensor_rate, int client_
       }
    }
    return -1;
+}
+
+void SensorDevice::sensorWakeupThread() {
+  bool rc = false;
+  char buf[8];
+  int device_num;
+  const char device[64];
+  struct iio_event_data event;
+  int event_fd = { -1 };
+  SENSOR_LOGI(LOG_TAG "Sensor wakeup thread is running\n");
+  auto sensor = mSensorInfo.find(mSensorType);
+  if (sensor == mSensorInfo.end()) {
+	  SENSOR_LOGE(LOG_TAG "Unsupported sensor type\n");
+	  return false;
+  }
+
+  if (mSensorType == SENSOR_SMI230) {
+	  string wakeupfile = mAccel + "/" + "anymotion_status";
+	  int fd = open(wakeupfile.c_str(), O_RDONLY);
+	  if (fd < 0) {
+		  SENSOR_LOGE(LOG_TAG "Failed to open wakeup_status file %s\n", wakeupfile.c_str());
+		  return 1;
+	  }
+	  SENSOR_LOGI(LOG_TAG "open wakeup_status file %s\n", wakeupfile.c_str());
+	  struct pollfd pfd = {
+		  .fd = fd,
+		  .events = POLLPRI,
+	  };
+	  while (1) {
+		  SENSOR_LOGI(LOG_TAG "waiting for wakeup_status file %s update\n", wakeupfile.c_str());
+		  int ret = poll(&pfd, 1, -1);
+		  if (ret > 0 && (pfd.revents & POLLPRI)) {
+			  lseek(fd, 0, SEEK_SET);
+			  read(fd, buf, sizeof(buf));
+
+			  event.id = ((uint64_t)IIO_EV_TYPE_THRESH << 56) |
+				     ((uint64_t)IIO_EV_DIR_RISING << 48) |
+				     ((uint64_t)IIO_MOD_X_OR_Y_OR_Z << 40) |
+				     ((uint64_t)IIO_ACCEL << 32);
+			  event.timestamp = get_timestamp();
+			  SENSOR_LOGI(LOG_TAG "Wakeup status changed: buf %s id: %lld  ts: %lld\n",
+					  buf, (long long)event.id, (long long)event.timestamp);
+		  }
+		  auto it = mService->mClients.begin();
+		  while (it != mService->mClients.end() &&
+				  it != (unordered_map<string, SensorHalDaemonClientHandler*>::iterator)NULL) {
+			  if (it->second && it->second->mWakeupEnable == true) {
+				  rc= it->second->onSensorEventCb(sensor->second[0].accel_id, event);
+				  // purge this client if failed
+				  if (!rc) {
+					  SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+					  lock_guard<mutex> lock(mService->mMutex);
+					  it = mService->deleteClientbyName(it->first.c_str());
+				  }
+				  else
+					  ++it;
+			  }
+			  else {
+				  ++it;
+			  }
+		  }
+	  }
+	  close(fd);
+  }
+  else {
+	  sscanf(mAccel.c_str(), "/sys/bus/iio/devices/iio:device%d", &device_num);
+	  snprintf(device, sizeof(device), "/dev/iio:device%d", device_num);
+
+	  SENSOR_LOGI(LOG_TAG "open IIO device %s\n", device);
+	  int dev_fd = open(device, O_RDONLY | O_NONBLOCK);
+	  if (dev_fd < 0) {
+	  SENSOR_LOGE(LOG_TAG "Failed to open IIO device %s\n", device);
+	  return 1;
+	  }
+
+	  // Get event file descriptor
+	  int ret = ioctl(dev_fd, IIO_GET_EVENT_FD_IOCTL, &event_fd);
+	  close(dev_fd);
+	  if (ret < 0 || event_fd == -1) {
+		  SENSOR_LOGE(LOG_TAG "Failed to get event FD\n");
+		  return 1;
+	  }
+	  struct pollfd pfd = {
+		  .fd = event_fd,
+		  .events = POLLIN,
+	  };
+
+	  while (1) {
+		  SENSOR_LOGI(LOG_TAG "Waiting for IIO event ...\n");
+		  int ret = poll(&pfd, 1, -1);
+		  if (ret > 0 && (pfd.revents & POLLIN)) {
+			  if (read(event_fd, &event, sizeof(event)) == sizeof(event)) {
+				  SENSOR_LOGI(LOG_TAG "Event code: %lld ts:%lld\n", (unsigned long long)event.id,
+						  (unsigned long long)event.timestamp);
+			  }
+		  }
+		  auto it = mService->mClients.begin();
+		  while (it != mService->mClients.end() &&
+				  it != (unordered_map<string, SensorHalDaemonClientHandler*>::iterator)NULL) {
+			  if (it->second && it->second->mWakeupEnable == true) {
+				  rc= it->second->onSensorEventCb(sensor->second[0].accel_id, event);
+				  // purge this client if failed
+				  if (!rc) {
+					  SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+					  lock_guard<mutex> lock(mService->mMutex);
+					  it = mService->deleteClientbyName(it->first.c_str());
+				  }
+				  else
+					  ++it;
+			  }
+			  else {
+				  ++it;
+			  }
+		  }
+	  }
+	  close(event_fd);
+	  close(dev_fd);
+  }
+  return 0;
+}
+
+bool SensorDevice::initSensorWakeUp(bool enable) {
+  SENSOR_LOGI(LOG_TAG "initSensorWakeUp enable %d\n", enable);
+  auto sensor = mSensorInfo.find(mSensorType);
+  if (sensor == mSensorInfo.end()) {
+	  SENSOR_LOGE(LOG_TAG "Unsupported sensor type\n");
+	  return false;
+  }
+  auto& sensorInfoVector = sensor->second;
+  for (auto& sensorinfo : sensorInfoVector) {
+	  for (auto& wakeupPtr : sensorinfo.wakeup_files) {
+		  string wakeupfile = mAccel + "/" + wakeupPtr.wakeupfilePath;
+		  SENSOR_LOGI(LOG_TAG "wakeup file %s\n", wakeupfile.c_str());
+		  wakeupPtr.wakeupfile = new ofstream(wakeupfile);
+		  if (!wakeupPtr.wakeupfile->is_open()) {
+			  SENSOR_LOGE(LOG_TAG "Failed to open wakeup file: %s\n", wakeupfile.c_str());
+			  delete wakeupPtr.wakeupfile;
+			  wakeupPtr.wakeupfile = nullptr;
+			  return false;
+		  }
+		  if (mSensorType == SENSOR_ASM330) {
+			  if (wakeupPtr.wakeupfilePath == "enable_wakeup") {
+				  wakeupPtr.wakeupfile->clear(); // Clear any error flags
+				  wakeupPtr.wakeupfile->seekp(0); // Reset file pointer to the beginning
+				  *wakeupPtr.wakeupfile << enable;
+			  }
+		  }
+		  if (mSensorType == SENSOR_IAM20680) {
+			  if (wakeupPtr.wakeupfilePath == "events/in_accel_x|y|z_thresh_rising_en") {
+				  wakeupPtr.wakeupfile->clear(); // Clear any error flags
+				  wakeupPtr.wakeupfile->seekp(0); // Reset file pointer to the beginning
+				  *wakeupPtr.wakeupfile << enable;
+			  }
+		  }
+		  if (mSensorType == SENSOR_SMI230) {
+			  if (wakeupPtr.wakeupfilePath == "anymotion_enable") {
+				  wakeupPtr.wakeupfile->clear(); // Clear any error flags
+				  wakeupPtr.wakeupfile->seekp(0); // Reset file pointer to the beginning
+				  *wakeupPtr.wakeupfile << enable;
+			  }
+		  }
+		  // Close the file
+		  wakeupPtr.wakeupfile->close();
+		  delete wakeupPtr.wakeupfile;
+		  wakeupPtr.wakeupfile = nullptr;
+	  }
+  }
+  return true;
+}
+
+int SensorDevice::updateSensorWakeupConfig() {
+  auto sensor = mSensorInfo.find(mSensorType);
+  if (sensor != mSensorInfo.end()) {
+    if (mSensorType == SENSOR_ASM330) {
+	  if( mService->mAccRange == 2) {
+		  struct wakeup_config_info asm330_wakeup_info = {31,1968,38,116,26,26};
+		  sensor->second[0].wakeup_info = asm330_wakeup_info;
+	  }
+	  else if( mService->mAccRange == 4) {
+		  struct wakeup_config_info asm330_wakeup_info = {62,3937,38,116,26,26};
+		  sensor->second[0].wakeup_info = asm330_wakeup_info;
+	  }
+	  else if( mService->mAccRange == 8) {
+		  struct wakeup_config_info asm330_wakeup_info = {125,7875,38,116,26,26};
+		  sensor->second[0].wakeup_info = asm330_wakeup_info;
+	  }
+	  else if( mService->mAccRange == 16) {
+		  struct wakeup_config_info asm330_wakeup_info = {250,15750,38,116,26,26};
+		  sensor->second[0].wakeup_info = asm330_wakeup_info;
+	  }
+    }
+    SENSOR_LOGI(LOG_TAG "Sensor ID:%d Threshold: min=%.2f, max=%.2f Duration: min=%d, max=%d ODR: min=%f, max=%f\n",
+		    sensor->second[0].wakeup_info.minThreshold, sensor->second[0].wakeup_info.maxThreshold,
+		    sensor->second[0].wakeup_info.minDuration, sensor->second[0].wakeup_info.maxDuration,
+		    sensor->second[0].wakeup_info.minOdr, sensor->second[0].wakeup_info.maxOdr);
+  }
+  return 0;
+}
+
+int SensorDevice::getSensorWakeupConfig(int sensor_id, struct wakeup_config_info *wakeup_info) {
+  auto sensor = mSensorInfo.find(mSensorType);
+  if (sensor != mSensorInfo.end()) {
+     *wakeup_info = sensor->second[0].wakeup_info;
+     return SENSOR_RESPONSE_SUCCESS;
+  }
+  return SENSOR_ERROR_NOT_SUPPORTED;
+}
+
+int SensorDevice::sensorWakeupEnable(int sensor_id, struct wakeup_config wakeup, bool enable) {
+  SENSOR_LOGI(LOG_TAG "sensorWakeupEnable\n");
+  auto sensor = mSensorInfo.find(mSensorType);
+  if (sensor == mSensorInfo.end()) {
+	  SENSOR_LOGE(LOG_TAG "Unsupported sensor type\n");
+	  return SENSOR_ERROR_NOT_SUPPORTED;
+  }
+  auto& sensorInfoVector = sensor->second;
+  //check input config parameter
+  if (enable == true) {
+	  if (wakeup.threshold < sensor->second[0].wakeup_info.minThreshold ||
+			  wakeup.threshold > sensor->second[0].wakeup_info.maxThreshold) {
+		  return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+	  }
+	  if (wakeup.duration < sensor->second[0].wakeup_info.minDuration ||
+			  wakeup.duration > sensor->second[0].wakeup_info.maxDuration) {
+		  return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+	  }
+	  if (wakeup.odr < sensor->second[0].wakeup_info.minOdr ||
+			  wakeup.odr > sensor->second[0].wakeup_info.maxOdr) {
+		  return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+	  }
+  }
+
+  for (auto& sensorinfo : sensorInfoVector) {
+      for (auto& wakeupPtr : sensorinfo.wakeup_files) {
+	   string wakeupfile = mAccel + "/" + wakeupPtr.wakeupfilePath;
+	   SENSOR_LOGI(LOG_TAG "wakeup file %s\n", wakeupfile.c_str());
+	   wakeupPtr.wakeupfile = new ofstream(wakeupfile);
+	   if (!wakeupPtr.wakeupfile->is_open()) {
+		   SENSOR_LOGE(LOG_TAG "Failed to open wakeup file: %s\n", wakeupfile.c_str());
+		   delete wakeupPtr.wakeupfile;
+		   wakeupPtr.wakeupfile = nullptr;
+		   return SENSOR_ERROR_NOT_SUPPORTED;
+	   }
+	   wakeupPtr.wakeupfile->clear(); // Clear any error flags
+	   wakeupPtr.wakeupfile->seekp(0); // Reset file pointer to the beginning
+	   if (mSensorType == SENSOR_ASM330) {
+		  if (wakeupPtr.wakeupfilePath == "events/in_accel0_thresh_rising_value") {
+			  *wakeupPtr.wakeupfile << wakeup.threshold;
+			  wakeupPtr.wakeupfile->flush();
+
+			  // Read back using ifstream
+			  ifstream readback(wakeupfile);
+			  if (readback.is_open()) {
+				  readback >> sensorinfo.wakeup.threshold;
+				  readback.close();
+			  }
+			  SENSOR_LOGI(LOG_TAG "writing threshold value %f to sysfs %s read value %f\n",
+					  wakeup.threshold, wakeupfile.c_str(), sensorinfo.wakeup.threshold);
+		  } else if (wakeupPtr.wakeupfilePath == "events/in_accel0_thresh_rising_period") {
+			  *wakeupPtr.wakeupfile << wakeup.duration;
+			  wakeupPtr.wakeupfile->flush();
+
+			  // Read back using ifstream
+			  ifstream readback(wakeupfile);
+			  if (readback.is_open()) {
+				  readback >> sensorinfo.wakeup.duration;
+				  readback.close();
+			  }
+			  SENSOR_LOGI(LOG_TAG "writing duration value %d to sysfs %s read value %d\n",
+					  wakeup.duration, wakeupfile.c_str(), sensorinfo.wakeup.duration);
+		  } else if (wakeupPtr.wakeupfilePath == "events/in_accel0_thresh_rising_en") {
+			  *wakeupPtr.wakeupfile << enable;
+		  } else if (wakeupPtr.wakeupfilePath == "enable_wakeup") {
+			  *wakeupPtr.wakeupfile << enable;
+		  }
+	  }
+	  if (mSensorType == SENSOR_IAM20680) {
+		  if (wakeupPtr.wakeupfilePath == "in_accel_wake_rate") {
+			  *wakeupPtr.wakeupfile << wakeup.odr;
+			  wakeupPtr.wakeupfile->flush();
+
+			  // Read back using ifstream
+			  ifstream readback(wakeupfile);
+			  if (readback.is_open()) {
+				  readback >> sensorinfo.wakeup.odr;
+				  readback.close();
+			  }
+			  SENSOR_LOGI(LOG_TAG "writing odr value %f to sysfs %s read value %f\n",
+					  wakeup.duration, wakeupfile.c_str(), sensorinfo.wakeup.odr);
+		  } else if (wakeupPtr.wakeupfilePath == "events/in_accel_x|y|z_thresh_rising_value") {
+			  wakeup.threshold = (float)wakeup.threshold/1000;
+			  *wakeupPtr.wakeupfile << wakeup.threshold;
+			  wakeupPtr.wakeupfile->flush();
+
+			  // Read back using ifstream
+			  ifstream readback(wakeupfile);
+			  if (readback.is_open()) {
+				  readback >> sensorinfo.wakeup.threshold;
+				  readback.close();
+			  }
+			  sensorinfo.wakeup.threshold  = (float)(sensorinfo.wakeup.threshold * 1000);
+			  SENSOR_LOGI(LOG_TAG "writing threshold value %f to sysfs %s read value %f\n",
+					  wakeup.threshold, wakeupfile.c_str(), sensorinfo.wakeup.threshold);
+		  } else if (wakeupPtr.wakeupfilePath == "events/in_accel_x|y|z_thresh_rising_en") {
+			  *wakeupPtr.wakeupfile << enable;
+		  }
+	  }
+	  if (mSensorType == SENSOR_SMI230) {
+		  if (wakeupPtr.wakeupfilePath == "anymotion_threshold") {
+			  SENSOR_LOGI(LOG_TAG "writing threshold value %f to sysfs %s\n", wakeup.threshold, wakeupfile.c_str());
+			  int threshold_int = (int)(wakeup.threshold / 0.488); //conver mg to reg value 1LSB = 0.488mg
+			  SENSOR_LOGI(LOG_TAG "writing threshold value %d to sysfs %s\n", threshold_int, wakeupfile.c_str());
+			  *wakeupPtr.wakeupfile << threshold_int;
+			  sensorinfo.wakeup.threshold = wakeup.threshold;
+		  } else if (wakeupPtr.wakeupfilePath == "anymotion_duration") {
+			  int duration = int(wakeup.duration / 20);
+			  SENSOR_LOGI(LOG_TAG "writing duration value %d to sysfs %s\n", duration, wakeupfile.c_str());
+			  *wakeupPtr.wakeupfile << wakeup.duration;
+			  sensorinfo.wakeup.duration = wakeup.duration;
+		  } else if (wakeupPtr.wakeupfilePath == "anymotion_x_enable") {
+			  *wakeupPtr.wakeupfile << enable;
+		  } else if (wakeupPtr.wakeupfilePath == "anymotion_y_enable") {
+			  *wakeupPtr.wakeupfile << enable;
+		  } else if (wakeupPtr.wakeupfilePath == "anymotion_z_enable") {
+			  *wakeupPtr.wakeupfile << enable;
+		  } else if (wakeupPtr.wakeupfilePath == "anymotion_enable") {
+			  *wakeupPtr.wakeupfile << enable;
+		  }
+	  }
+	  // Close the file
+	  wakeupPtr.wakeupfile->close();
+	  delete wakeupPtr.wakeupfile;
+	  wakeupPtr.wakeupfile = nullptr;
+      }
+  }
+  return SENSOR_RESPONSE_SUCCESS;
+}
+
+int SensorDevice::getSensorWakeupConfigInfo(int sensor_id, struct wakeup_config *wakeup) {
+  auto sensor = mSensorInfo.find(mSensorType);
+  if (sensor != mSensorInfo.end()) {
+	  *wakeup = sensor->second[0].wakeup;
+	  SENSOR_LOGI(LOG_TAG ">>> id: %d wakeup threshold %f duration %d odr %f \n",
+			 sensor_id, wakeup->threshold, wakeup->duration, wakeup->odr);
+	  return 0;
+  }
+  return SENSOR_ERROR_NOT_SUPPORTED;
 }

@@ -92,6 +92,8 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
         mSensorMLCEventCbs(nullptr),
 	mSensormFifoReadCb(nullptr),
 	mSelfTestResultCb(nullptr),
+	mSensorEventCb(nullptr),
+	mSensorWakeupCb(nullptr),
 	mSensorCount(0),
 	mShdRestarted(false),
 	mSensorMlcCaseCount(0)
@@ -568,7 +570,7 @@ int SensorClientImpl::selfTest(int sensor_id, SelfTestType selfTestType, int req
 
     //Check about Client registered to daemon
     if (!mHalRegistered) {
-            SENSOR_LOGE(LOG_TAG ">>> startBatching - Not registered yet\n");
+            SENSOR_LOGE(LOG_TAG ">>> selfTest - Not registered yet\n");
             return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
     }
 
@@ -590,8 +592,8 @@ int SensorClientImpl::selfTest(int sensor_id, SelfTestType selfTestType, int req
 	}
     }
     else{
-      return SENSOR_ERROR_NO_SENSORS_FOUND;
-	}
+	    return SENSOR_ERROR_NO_SENSORS_FOUND;
+    }
 
     if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
       (void)pthread_mutex_lock (&mSensorLibMutex);
@@ -629,7 +631,7 @@ int SensorClientImpl::setEulerAngles(uint16_t rolld, uint16_t pitchd, uint16_t y
 
     //Check about Client registered to daemon
     if (!mHalRegistered) {
-            SENSOR_LOGE(LOG_TAG ">>> startBatching - Not registered yet\n");
+            SENSOR_LOGE(LOG_TAG ">>> setEulerAngles - Not registered yet\n");
             return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
     }
 
@@ -640,6 +642,156 @@ int SensorClientImpl::setEulerAngles(uint16_t rolld, uint16_t pitchd, uint16_t y
     if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
 	    (void)pthread_mutex_lock (&mSensorLibMutex);
 	    SensorAPIEulerAnglesReqMsg msg(mSocketName, rolld, pitchd, yawd);
+	    bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+			    sizeof(msg));
+	    if (true != rc) {
+		    (void)pthread_mutex_unlock (&mSensorLibMutex);
+		    return SENSOR_ERROR_IPC_FAILED;
+	    }
+	    mTimeout = timeout(3);
+	    ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
+	    (void)pthread_mutex_unlock (&mSensorLibMutex);
+	    if (ret == ETIMEDOUT)
+		    return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
+	    else
+		    return mRespReturn;
+    }
+    else
+	    return SENSOR_ERROR_INVALID_CLIENT;
+}
+/******************************************************************************************************
+SensorClientImpl - getSensorWakeupConfInfoLimits
+******************************************************************************************************/
+int SensorClientImpl::getSensorWakeupConfInfoLimits(int sensor_id, struct wakeup_config_info *wakeup_info) {
+    SENSOR_LOGI(LOG_TAG ">>> getSensorWakeupConfInfoLimits ID:%d \n", sensor_id);
+
+    int ret = 0;
+    bool SensorId = false;
+    lock_guard<mutex> lock(mMutex);
+
+    //Check about Client registered to daemon
+    if (!mHalRegistered) {
+            SENSOR_LOGE(LOG_TAG ">>> getSensorWakeupConfInfoLimits - Not registered yet\n");
+            return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+    }
+    //Input parameter check
+    if (mSensorCount != 0) {
+      for (int i=0; i < mSensorCount; i++) {
+         if (mSensorList[i].sensor_id == sensor_id) {
+	    SensorId = true;
+	    break;
+         }
+      }
+      if (SensorId != true )
+         return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+    }
+    else
+      return SENSOR_ERROR_NO_SENSORS_FOUND;
+
+    if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
+	    (void)pthread_mutex_lock (&mSensorLibMutex);
+	    SensorAPIWakeupConfigReqMsg msg(mSocketName, sensor_id);
+	    bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+			    sizeof(msg));
+	    if (true != rc) {
+		    (void)pthread_mutex_unlock (&mSensorLibMutex);
+		    return SENSOR_ERROR_IPC_FAILED;
+	    }
+	    mTimeout = timeout(3);
+	    ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
+	    (void)pthread_mutex_unlock (&mSensorLibMutex);
+	    if (ret == ETIMEDOUT)
+		    ret = SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
+	    else
+		    ret = mRespReturn;
+    }
+    else
+	    ret = SENSOR_ERROR_INVALID_CLIENT;
+
+    if (ret == SENSOR_RESPONSE_SUCCESS)
+	    *wakeup_info = mSensorWakeupConfigInfo;
+
+    return ret;
+}
+
+/******************************************************************************************************
+SensorClientImpl - getSensorWakeupConfUpdate
+******************************************************************************************************/
+int SensorClientImpl::getSensorWakeupConfUpdate(int sensor_id, SensorWakeupConfigUpdateCb sensorWakeupCallback) {
+    SENSOR_LOGI(LOG_TAG ">>> getSensorWakeupConfUpdate ID:%d \n", sensor_id);
+
+    int ret = 0;
+    bool SensorId = false;
+    lock_guard<mutex> lock(mMutex);
+
+    //Check about Client registered to daemon
+    if (!mHalRegistered) {
+            SENSOR_LOGE(LOG_TAG ">>> getSensorWakeupConfUpdate - Not registered yet\n");
+            return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+    }
+    //Input parameter check
+    if (mSensorCount != 0) {
+      for (int i=0; i < mSensorCount; i++) {
+         if (mSensorList[i].sensor_id == sensor_id) {
+	    SensorId = true;
+	    break;
+         }
+      }
+      if (SensorId != true )
+         return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+    }
+    else
+      return SENSOR_ERROR_NO_SENSORS_FOUND;
+
+    mSensorWakeupCb = sensorWakeupCallback;
+
+    if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
+	    (void)pthread_mutex_lock (&mSensorLibMutex);
+	    SensorAPIWakeupConfigUpdateReqMsg msg(mSocketName, sensor_id);
+	    bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+			    sizeof(msg));
+	    if (true != rc) {
+		    (void)pthread_mutex_unlock (&mSensorLibMutex);
+		    return SENSOR_ERROR_IPC_FAILED;
+	    }
+	    mTimeout = timeout(3);
+	    ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
+	    (void)pthread_mutex_unlock (&mSensorLibMutex);
+	    if (ret == ETIMEDOUT)
+		    ret = SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
+	    else
+		    ret = mRespReturn;
+    }
+    else
+	    ret = SENSOR_ERROR_INVALID_CLIENT;
+
+    return ret;
+}
+
+/******************************************************************************************************
+SensorClientImpl - sensorWakeupEnable
+******************************************************************************************************/
+int SensorClientImpl::sensorWakeupEnable(int sensor_id, struct wakeup_config wakeup, bool enable,
+		SensorWakeupConfigUpdateCb sensorWakeupCallback, SensorEventCb sensorEventCallback) {
+    SENSOR_LOGI(LOG_TAG ">>> sensorWakeupEnable ID: %d wakeup threshold %f duration %d odr %f enable: %d\n",
+		    sensor_id, wakeup.threshold, wakeup.duration, wakeup.odr, enable);
+
+    int ret = 0;
+    bool SensorId = false;
+    lock_guard<mutex> lock(mMutex);
+
+    //Check about Client registered to daemon
+    if (!mHalRegistered) {
+            SENSOR_LOGE(LOG_TAG ">>> sensorWakeupEnable - Not registered yet\n");
+            return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+    }
+
+    mSensorEventCb = sensorEventCallback;
+    mSensorWakeupCb = sensorWakeupCallback;
+
+    if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
+	    (void)pthread_mutex_lock (&mSensorLibMutex);
+	    SensorAPIWakeupEnableReqMsg msg(mSocketName, sensor_id, wakeup, enable);
 	    bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
 			    sizeof(msg));
 	    if (true != rc) {
@@ -682,6 +834,12 @@ bool SensorClientImpl::SensorReconfigure(bool enable) {
 					mSensorTrackingOption[i].state);
 			rc = sendMessage(reinterpret_cast<uint8_t*>(&Enablemsg),
 					sizeof(Enablemsg));
+		}
+		if (mSensorTrackingOption[i].wakeup_enable == true) {
+			SensorAPIWakeupEnableReqMsg msg(mSocketName, mSensorTrackingOption[i].sensor_id, mSensorTrackingOption[i].wakeup,
+					mSensorTrackingOption[i].wakeup_enable);
+			bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+					sizeof(msg));
 		}
 	}
 	for (int i = 0 ; i < mSensorMlcCaseCount ; i++) {
@@ -1045,7 +1203,7 @@ void SensorClientImpl::onReceive(const string& data) {
           }
           break;
        }
-       //Received Sensor MLC case enable/disable Resp from SHD(SENSOR HAL DAEMON)
+       //Received sensor self test request response from SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_SENSOR_SELFTEST_REQ_MSG_ID:
        {
            if (sizeof(SensorAPIGenericRespMsg) != length) {
@@ -1071,20 +1229,70 @@ void SensorClientImpl::onReceive(const string& data) {
           }
           break;
        }
-       //Received Sensor Euler angle set Resp from SHD(SENSOR HAL DAEMON)
+       //Received sensor Euler angle set Resp from SHD(SENSOR HAL DAEMON)
        case E_SENSORAPI_SENSOR_EULER_ANGLES_REQ_MSG_ID:
        {
-           if (sizeof(SensorAPIGenericRespMsg) != length) {
+          if (sizeof(SensorAPIGenericRespMsg) != length) {
                    SENSOR_LOGE(LOG_TAG "payload size does not match for message with id: %d\n",
                                    pMsg->msgId);
-           }
+          }
 
-           const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
-           (void)pthread_mutex_lock (&mSensorLibMutex);
-           mRespReturn = pRespMsg->ret;
-           (void)pthread_cond_signal (&mSensorLibCond);
-           (void)pthread_mutex_unlock (&mSensorLibMutex);
-           break;
+          const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
+	  (void)pthread_mutex_lock (&mSensorLibMutex);
+	  mRespReturn = pRespMsg->ret;
+	  (void)pthread_cond_signal (&mSensorLibCond);
+	  (void)pthread_mutex_unlock (&mSensorLibMutex);
+	  break;
+       }
+       //Received sensor wake up config info Resp from SHD(SENSOR HAL DAEMON)
+       case E_SENSORAPI_SENSOR_WAKEUP_CONFIG_IND_MSG_ID:
+       {
+          if (mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) {
+		const SensorAPIWakeupConfigIndMsg* pWakeupMsg = (SensorAPIWakeupConfigIndMsg*) (pMsg);
+		mSensorWakeupConfigInfo = pWakeupMsg->wakeup_info;
+          }
+	  break;
+       }
+       //Received sensor wake up config req or enable req response from SHD(SENSOR HAL DAEMON)
+       case E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID:
+       case E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID:
+       {
+          if (sizeof(SensorAPIGenericRespMsg) != length) {
+                   SENSOR_LOGE(LOG_TAG "payload size does not match for message with id: %d\n",
+                                   pMsg->msgId);
+          }
+
+          const SensorAPIGenericRespMsg* pRespMsg = (SensorAPIGenericRespMsg*)(pMsg);
+	  (void)pthread_mutex_lock (&mSensorLibMutex);
+	  mRespReturn = pRespMsg->ret;
+	  (void)pthread_cond_signal (&mSensorLibCond);
+	  (void)pthread_mutex_unlock (&mSensorLibMutex);
+	  break;
+       }
+       //Received sensor wake up report staus/result from SHD(SENSOR HAL DAEMON)
+       case E_SENSORAPI_SENSOR_WAKEUP_ENABLE_IND_MSG_ID:
+       {
+          if((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSensorEventCb) {
+                  const SensorAPIWakeupEnableIndMsg* pWakeupMsg = (SensorAPIWakeupEnableIndMsg*) (pMsg);
+                  mSensorEventCb(pWakeupMsg->sensor_id, pWakeupMsg->event);
+          }
+	  break;
+       }
+       //Received sensor wake up config infor from SHD(SENSOR HAL DAEMON)
+       case E_SENSORAPI_SENSOR_WAKEUP_UPDATE_IND_MSG_ID:
+       {
+          if((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSensorWakeupCb) {
+                  const SensorAPIWakeupConfigUpdateIndMsg* pWakeupMsg = (SensorAPIWakeupConfigUpdateIndMsg*) (pMsg);
+                  mSensorWakeupCb(pWakeupMsg->sensor_id, pWakeupMsg->wakeup);
+		  //copy enable config to re-enable once SHD restart
+		  for (int i = 0; i < mSensorCount; i++) {
+			  if(mSensorTrackingOption[i].sensor_id == pWakeupMsg->sensor_id) {
+				  memcpy(&mSensorTrackingOption[i].wakeup, &pWakeupMsg->wakeup, sizeof(struct wakeup_config));
+				  mSensorTrackingOption[i].wakeup_enable = true;
+			  }
+		  }
+          }
+	  break;
        }
        //Received unknown message from SHD(SENSOR HAL DAEMON)
        default:

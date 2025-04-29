@@ -160,6 +160,7 @@ public:
 	    mGyroEvents(nullptr),
 	    mMlcCaseList(nullptr),
 	    mMlcEnable(false),
+	    mWakeupEnable(false),
 	    mAccFactor(0),
 	    mGyroFactor(0),
 	    mAccCount(0),
@@ -223,6 +224,9 @@ public:
     void onSensorTempCb(float temperature);
     bool onCapabilitiesCallback(SensorCapabilitiesMask mask);
     void onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp);
+    bool onSensorWakeupConfigRequestCb(struct wakeup_config_info wakeup_info);
+    bool onSensorWakeupConfigUpdateCb(int sensor_id, struct wakeup_config wakeup);
+    bool onSensorEventCb(int sensor_id, struct iio_event_data event);
     //MLC public APIs
     void onSensorMlcCaseListCb(struct sensor_mlc_case_list *s, int count);
     bool onSensorMlcCaseEventCb(char *case_name, struct mlc_event_data *event);
@@ -255,7 +259,8 @@ public:
     //MLC LIST for clients
     struct mlc_case_list *mMlcCaseList;
     bool mMlcEnable;
-
+    //wakeup enable
+    bool mWakeupEnable;
     //To Check Buffer read or delete status
     int mBufferRead;
 

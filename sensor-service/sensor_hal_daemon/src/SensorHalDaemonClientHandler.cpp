@@ -260,6 +260,7 @@ void SensorHalDaemonClientHandler::cleanup() {
    mAccTracking = false;
    mGyroTracking = false;
    mMlcEnable = false;
+   mWakeupEnable = false;
 }
 
 /******************************************************************************
@@ -339,6 +340,24 @@ void SensorHalDaemonClientHandler::onResponseCb(int ret, ESensorMsgID id) {
      case E_SENSORAPI_SENSOR_EULER_ANGLES_REQ_MSG_ID: {
 	SENSOR_LOGI(LOG_TAG "<-- start upadte rotation matrix resp ret=%d id=%u pending=%u\n", ret, id, pendingMsgId);
 	SensorAPIGenericRespMsg msg(SERVICE_NAME, E_SENSORAPI_SENSOR_EULER_ANGLES_REQ_MSG_ID, ret);
+        rc = sendMessage(msg);
+        break;
+     }
+     case E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID: {
+	SENSOR_LOGI(LOG_TAG "<-- start sensor wakeup config get ret=%d id=%u pending=%u\n", ret, id, pendingMsgId);
+	SensorAPIGenericRespMsg msg(SERVICE_NAME, E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID, ret);
+        rc = sendMessage(msg);
+        break;
+     }
+     case E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID: {
+	SENSOR_LOGI(LOG_TAG "<-- start sensor wakeup update get ret=%d id=%u pending=%u\n", ret, id, pendingMsgId);
+	SensorAPIGenericRespMsg msg(SERVICE_NAME, E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID, ret);
+        rc = sendMessage(msg);
+        break;
+     }
+     case E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID: {
+	SENSOR_LOGI(LOG_TAG "<-- start sensor wakeup enable/disable resp ret=%d id=%u pending=%u\n", ret, id, pendingMsgId);
+	SensorAPIGenericRespMsg msg(SERVICE_NAME, E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID, ret);
         rc = sendMessage(msg);
         break;
      }
@@ -735,4 +754,52 @@ void SensorHalDaemonClientHandler::onSensorSelfTestResultCb(int sensor_id, int r
                    (void)mService->deleteClientbyName(mName);
            }
    }
+}
+/**************************************************************************************
+SensorHalDaemonClientHandler - onSensorEventCb to nofiy client with wake up status
+**************************************************************************************/
+bool SensorHalDaemonClientHandler::onSensorWakeupConfigRequestCb(struct wakeup_config_info wakeup_info) {
+   // please do not attempt to hold the lock, as the caller of this function
+   // already holds the lock
+   SENSOR_LOGI(LOG_TAG "--< onSensorWakeupConfigRequestCb\n");
+   if (nullptr != mIpcSender) {
+           SensorAPIWakeupConfigIndMsg msg (SERVICE_NAME, wakeup_info);
+           bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+                           sizeof(msg));
+	   return rc;
+   }
+   return true;
+}
+
+/**************************************************************************************
+SensorHalDaemonClientHandler - onSensorEventCb to nofiy client with wake up status
+**************************************************************************************/
+bool SensorHalDaemonClientHandler::onSensorWakeupConfigUpdateCb(int sensor_id, struct wakeup_config wakeup) {
+   // please do not attempt to hold the lock, as the caller of this function
+   // already holds the lock
+   SENSOR_LOGI(LOG_TAG "--< onSensorWakeupConfigUpdateCb\n");
+
+   if (nullptr != mIpcSender) {
+           SensorAPIWakeupConfigUpdateIndMsg msg (SERVICE_NAME, sensor_id, wakeup);
+           bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+                           sizeof(msg));
+	   return rc;
+   }
+   return true;
+}
+
+/**************************************************************************************
+SensorHalDaemonClientHandler - onSensorEventCb to nofiy client with wake up status
+**************************************************************************************/
+bool SensorHalDaemonClientHandler::onSensorEventCb(int sensor_id, struct iio_event_data event) {
+   lock_guard<mutex> lock(SensorApiService::mMutex);
+   SENSOR_LOGI(LOG_TAG "--< onSensorEventCb\n");
+
+   if (nullptr != mIpcSender) {
+           SensorAPIWakeupEnableIndMsg msg (SERVICE_NAME, sensor_id, event);
+           bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+                           sizeof(msg));
+	   return rc;
+   }
+   return true;
 }

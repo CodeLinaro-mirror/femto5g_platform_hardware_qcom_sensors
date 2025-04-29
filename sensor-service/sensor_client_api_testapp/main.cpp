@@ -376,6 +376,18 @@ static void onSelfTestResultCallback(int sensor_id, int request_id, SelfTestResu
 		   sensor_id, request_id, getSelfTestResultName(result), getSelfTestResultTypeName(resultType), timestamp);
 }
 
+static void onSensorWakeupConfigUpdateCb(int sensor_id, struct wakeup_config wakeup)
+{
+   SENSOR_LOGI(LOG_TAG ">>> id: %d wakeup threshold %f duration %d odr %f \n",
+		   sensor_id, wakeup.threshold, wakeup.duration, wakeup.odr);
+}
+
+static void onSensorEventCallback(int sensor_id, struct iio_event_data event)
+{
+   SENSOR_LOGI(LOG_TAG "onSensorEventCallback sensor ID: %d event id: %lld ts: %lld\n",
+		   sensor_id, event.id, (unsigned long long)event.timestamp);
+}
+
 static void printHelp() {
     SENSOR_LOGI(LOG_TAG "\n************* options *************\n");
     SENSOR_LOGI(LOG_TAG "h: help\n");
@@ -390,6 +402,8 @@ static void printHelp() {
     SENSOR_LOGI(LOG_TAG "e: enable/disable mlc case event\n");
     SENSOR_LOGI(LOG_TAG "r: set sensor rotation matrix\n");
     SENSOR_LOGI(LOG_TAG "s: sensor self test\n");
+    SENSOR_LOGI(LOG_TAG "d: get sensor wakeup config\n");
+    SENSOR_LOGI(LOG_TAG "w: set sensor wakeup config\n");
     SENSOR_LOGI(LOG_TAG "q: Quit\n");
 }
 
@@ -402,6 +416,7 @@ int main(int argc, char *argv[]) {
    char enable[10];
    char batchcount[10];
    char rm[10];
+   char console[10];
    char rotate[10];
    bool Rotate = 0;
    int batch_count = 0;
@@ -422,6 +437,9 @@ int main(int argc, char *argv[]) {
    static int enable_temperature = 0;
    static int enable_selftest = 0;
    std::thread temperature;
+   struct wakeup_config wakeup;
+   bool wakeup_enable;
+   struct wakeup_config_info wakeup_info;
 
    SelfTestType selfTestType;
 
@@ -718,6 +736,57 @@ int main(int argc, char *argv[]) {
 		if(ret < 0) {
 			SENSOR_LOGE(LOG_TAG "sensor set Euler angles failed ret %d \n", ret);
 			break;
+		}
+	}
+        break;
+     case 'd':
+        if (pClient) {
+		for(int i=0; i < sensor_count; i++) {
+		  SENSOR_LOGI(LOG_TAG "get Sensor wake up config for sensor[i].sensor_id %d\n",sensor[i].sensor_id);
+		  ret = pClient->sensor_get_wakeup_config_limits(sensor[i].sensor_id, &wakeup_info);
+		  if(ret < 0) {
+			  SENSOR_LOGE(LOG_TAG "sensor wakeup config limits failed id: %d ret %d \n", sensor[i].sensor_id, ret);
+		  } else {
+			  SENSOR_LOGI(LOG_TAG "Sensor ID:%d Threshold: min=%.2f, max=%.2f Duration: min=%d, max=%d ODR: min=%f, max=%f\n",
+				       sensor[i].sensor_id,
+				       wakeup_info.minThreshold, wakeup_info.maxThreshold,
+				       wakeup_info.minDuration, wakeup_info.maxDuration,
+				       wakeup_info.minOdr, wakeup_info.maxOdr);
+		  }
+		  ret = pClient->sensor_get_wakeup_config_update(sensor[i].sensor_id, onSensorWakeupConfigUpdateCb);
+		  if(ret < 0)
+			  SENSOR_LOGE(LOG_TAG "sensor wakeup update req failed id: %d ret %d \n", sensor[i].sensor_id, ret);
+		}
+	}
+        break;
+     case 'w':
+        if (pClient) {
+		for(int i=0; i < sensor_count; i++) {
+		  SENSOR_LOGI(LOG_TAG "Enable/Disable wake up config for the sensor sensor[i].sensor_id %d\n",sensor[i].sensor_id);
+		  SENSOR_LOGI(LOG_TAG "\nEnter wakeup enable:");
+		  (void)memset(console, 0, sizeof(console)/sizeof(console[0]));
+		  (void)fgets(console, sizeof(console)/sizeof(console[0]), stdin);
+		  wakeup_enable=strtol(console,&stopstring,10);
+		  if (wakeup_enable == 1) {
+			  SENSOR_LOGI(LOG_TAG "\nEnter wakeup threshold:");
+			  (void)memset(console, 0, sizeof(console)/sizeof(console[0]));
+			  (void)fgets(console, sizeof(console)/sizeof(console[0]), stdin);
+			  wakeup.threshold=strtof(console,&stopstring);
+
+			  SENSOR_LOGI(LOG_TAG "\nEnter wakeup duration:");
+			  (void)memset(console, 0, sizeof(console)/sizeof(console[0]));
+			  (void)fgets(console, sizeof(console)/sizeof(console[0]), stdin);
+			  wakeup.duration=strtol(console,&stopstring,10);
+
+			  SENSOR_LOGI(LOG_TAG "\nEnter wakeup odr:");
+			  (void)memset(console, 0, sizeof(console)/sizeof(console[0]));
+			  (void)fgets(console, sizeof(console)/sizeof(console[0]), stdin);
+			  wakeup.odr=strtof(console,&stopstring);
+		  }
+		  ret = pClient->sensor_enable_wakeup_config(sensor[i].sensor_id, wakeup, wakeup_enable, onSensorWakeupConfigUpdateCb, onSensorEventCallback);
+		  if(ret < 0) {
+			  SENSOR_LOGE(LOG_TAG "sensor wakeup enable failed ret id:%d ret: %d \n", sensor[i].sensor_id, ret);
+		  }
 		}
 	}
         break;

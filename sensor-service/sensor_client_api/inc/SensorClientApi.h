@@ -155,6 +155,25 @@ typedef std::function<void(
 int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resulttype, uint64_t timestamp
 )> SelfTestResultCallback;
 
+/** @brief
+    SensorEventCb is for returning wake up status.
+
+    @param[out] sensor_id: sensor identifier.
+    @param[out] iio_event_data: sensor event id along with timestamp
+*/
+typedef std::function<void(
+int sensor_id, struct iio_event_data event
+)> SensorEventCb;
+
+/** @brief
+    SensorWakeupConfigUpdateCb notify the updated  wakeup configurion info.
+
+    @param[out] sensor_id: sensor identifier.
+    @param[out] wakeup_config: wakeup config information
+*/
+typedef std::function<void(
+int sensor_id, struct wakeup_config wakeup
+)> SensorWakeupConfigUpdateCb;
 
 class SensorClientImpl;
 class SensorClient
@@ -483,6 +502,57 @@ public:
                 SENSOR_ERROR_INVALID_INPUT_PARAMETERS : invalid input of sensor_id or enable.
     **/
     int sensor_update_rotation_matrix(uint16_t rolld, uint16_t pitchd, uint16_t yawd);
+    /* ============================== Sensor Wakeup Configuration limits Info ============================== */
+     /* @brief Retrieve wakeup configuration parameters limit for a given sensor.
+     *
+     *  This API is used to obtain the minimum, maximum, and default values for
+     *  wakeup-related configuration parameters such as duration, threshold, and ODR (Output Data Rate).
+     *
+     *  It should be called once during initialization to fetch the required configuration limits.
+     *
+     *  @param[in]  sensor_id    Sensor identifier.
+     *  @param[out] wakeup_info  Pointer to a structure that will be populated with
+     *                           min, max, and default values for duration, threshold, and ODR.
+     *
+     *  @return     SensorRet           Status code indicating success or failure.
+     * */
+    int sensor_get_wakeup_config_limits(int sensor_id, struct wakeup_config_info *wakeup_info);
+    /* ============================== Sensor Wakeup Configuration update ============================== */
+     /* @brief Retrieve wakeup configuration of a given sensor.
+     *
+     *  This API is used to obtain the configured values of sensors which are duration, threshold,
+     *  and ODR (Output Data Rate). this will return updated config via callback only if wakeup enabled
+     *  else return error code.
+     *
+     *  @param[in] sensor_id              Sensor identifier.
+     *  @param[in] sensorWakeupCallback   Callback to receive configuration update status.
+     *
+     *  @return     SensorRet           Status code indicating success or failure.
+     * */
+    int sensor_get_wakeup_config_update(int sensor_id, SensorWakeupConfigUpdateCb sensorWakeupCallback);
+    /* ============================== Sensor Wakeup Enable/Disable ============================== */
+    /*
+     *  @brief Enable or disable the sensor's wakeup feature.
+     *
+     *  This API is used to configure and control the sensor's wakeup functionality.
+     *  it accepts a wakeup configuration structure as input, which includes parameters
+     *  such as duration (in ms), threshold (in mg), and ODR (in Hz).
+     *
+     *  This function should be called once with the desired configuration. If motion is detected,
+     *  the status will be reported to the application via the provided SensorEventCb callback,
+     *  along with the corresponding wakeup status.
+     *
+     *  @param[in] sensor_id              Sensor identifier.
+     *  @param[in] wakeup_config          Wakeup configuration parameters (duration, threshold, ODR).
+     *  @param[in] enable                 Flag to enable or disable the wakeup feature.
+     *  @param[in] sensorWakeupCallback   Callback to receive configuration update status.
+     *  @param[in] sensorEventCallback    Callback to receive wakeup event notifications.
+     *
+     *  @return     SensorRet             Status code indicating success or failure.
+     */
+    int sensor_enable_wakeup_config(int sensor_id, struct wakeup_config wakeup, bool enable,
+		    SensorWakeupConfigUpdateCb sensorWakeupCallback,
+		    SensorEventCb sensorEventCallback);
 private:
     /** Internal implementation for SensorClient */
     SensorClientImpl* mApiImpl;

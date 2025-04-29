@@ -8,12 +8,17 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <fstream>
+#include <thread>
 #include <linux/input.h>
+#include <sys/ioctl.h>
+#include <linux/iio/events.h>
+#include <linux/iio/types.h>
 #include <vector>
 #include <string>
 #include <functional>
 #include <memory>
 #include <map>
+#include <inttypes.h>
 #include <variant>
 #include <sensors.h>
 #include <SensorApiUtils.h>
@@ -68,12 +73,26 @@ public:
 	int  setPowerMode(int handle, int mode);
 	void pollEvents(void);
 	static void* mlcPollEvents(void *arg);
+	//wakeup API
+	int  getSensorWakeupConfig(int sensor_id, struct wakeup_config_info *wakeup_info);
+	int  getSensorWakeupConfigInfo(int sensor_id, struct wakeup_config *wakeup);
+	int  sensorWakeupEnable(int sensor_id, struct wakeup_config wakeup, bool enable);
+	void sensorWakeupThread();
+	bool initSensorWakeUp(bool enable);
+	int  updateSensorWakeupConfig();
 	//temp files
 	struct tempPtr {
 		ifstream *tempfile;
 		string tempfilePath;
 		tempPtr() : tempfile(nullptr) {}
 		tempPtr(const string& path) : tempfile(nullptr), tempfilePath(path) {}
+	};
+	//wakeup files
+	struct wakeupPtr {
+		ofstream *wakeupfile;
+		string wakeupfilePath;
+		wakeupPtr() : wakeupfile(nullptr) {}
+		wakeupPtr(const string& path) : wakeupfile(nullptr), wakeupfilePath(path) {}
 	};
 	struct SensorInfo {
 		const char*     chip_name;
@@ -84,6 +103,9 @@ public:
 		const char*     gyro_range_name;
 		const char*     selftest_name;
 		vector<tempPtr> temp_files;
+		vector<wakeupPtr> wakeup_files;
+		struct wakeup_config_info wakeup_info;
+		struct wakeup_config wakeup;
 		const char*     lib_name;
 		vector<float>   accel_odr;
 		vector<float>   gyro_odr;
@@ -92,6 +114,8 @@ public:
 		float           accel_buff_range;
 		float           gyro_buff_range;
 		int             batch_const;
+		int             accel_id;
+		int             gyro_id;
 		bool            is_input;
 	};
 protected:

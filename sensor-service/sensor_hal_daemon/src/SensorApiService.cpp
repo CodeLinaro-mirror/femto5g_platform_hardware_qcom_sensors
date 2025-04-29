@@ -689,6 +689,33 @@ void SensorApiService::processClientMsg(const string& data) {
             setEulerAngles(reinterpret_cast<SensorAPIEulerAnglesReqMsg*>(pMsg));
             break;
         }
+        case E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID: {
+            // Sensor wakeup config request
+            if (sizeof(SensorAPIWakeupConfigReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            getsensorWakeupConfInfoLimits(reinterpret_cast<SensorAPIWakeupConfigReqMsg*>(pMsg));
+            break;
+        }
+        case E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID: {
+            // Sensor wakeup config request
+            if (sizeof(SensorAPIWakeupConfigUpdateReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            getsensorWakeupConfUpdate(reinterpret_cast<SensorAPIWakeupConfigReqMsg*>(pMsg));
+            break;
+        }
+        case E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID: {
+            // Sensor wakeup enable request
+            if (sizeof(SensorAPIWakeupEnableReqMsg) != length) {
+                SENSOR_LOGE(LOG_TAG "invalid message\n");
+                break;
+            }
+            sensorWakeupEnable(reinterpret_cast<SensorAPIWakeupEnableReqMsg*>(pMsg));
+            break;
+        }
         default: {
             SENSOR_LOGV(LOG_TAG "Unknown message with id: %d\n", pMsg->msgId);
             break;
@@ -1345,11 +1372,191 @@ void SensorApiService::setEulerAngles(SensorAPIEulerAnglesReqMsg*  pMsg) {
 }
 
 /******************************************************************************
-SensorApiService - implementation - :nearByBatchCount to check nearby batch
-count, return batch count which is multiplication of min batch count defined for
-each sensor in /etc/sensors.conf file and should be less than or equal to
-ReqBatchCount
-******************************************************************************/
+SensorApiService - implementation - get sensor wakeup config information limits
+*****************************************************************************/
+void SensorApiService::getsensorWakeupConfInfoLimits(SensorAPIWakeupConfigReqMsg*  pMsg) {
+    lock_guard<mutex> lock(mMutex);
+    bool SensorId = false;
+    int sensor_id =  pMsg->sensor_id;
+    int ret = 0;
+    struct wakeup_config_info wakeup_info;
+
+    SENSOR_LOGI(LOG_TAG ">-- getsensorWakeupConfInfoLimits ID=%d\n", pMsg->sensor_id);
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+    if (!pClient) {
+	    SENSOR_LOGE(LOG_TAG ">-- getsensorWakeupConfInfoLimits invlalid client=%s\n", pMsg->mSocketName);
+	    ret = SENSOR_ERROR_INVALID_CLIENT;
+	    goto fail;
+    }
+    //Input parameter check
+    if (mSensorCount != 0) {
+	   for (int i=0; i < mSensorCount; i++) {
+		   if (mSensorList[i].sensor_id == pMsg->sensor_id) {
+			   if (mSensorList[i].type != SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+				   ret = SENSOR_ERROR_NOT_SUPPORTED;
+				   goto fail;
+			   }
+			   SensorId = true;
+			   break;
+		   }
+	    }
+	    if (SensorId != true ) {
+		    ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+		    goto fail;
+	    }
+    }
+    else {
+	   ret = SENSOR_ERROR_NO_SENSORS_FOUND;
+	   goto fail;
+    }
+
+    ret = mSensorDevice->getSensorWakeupConfig(sensor_id, &wakeup_info);
+    if(ret == SENSOR_RESPONSE_SUCCESS)
+	    pClient->onSensorWakeupConfigRequestCb(wakeup_info);
+fail:
+    //send response back to client
+    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID);
+    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID);
+}
+
+/******************************************************************************
+SensorApiService - implementation - get sensor wakeup config updated info
+*****************************************************************************/
+void SensorApiService::getsensorWakeupConfUpdate(SensorAPIWakeupConfigReqMsg*  pMsg) {
+    lock_guard<mutex> lock(mMutex);
+    bool SensorId = false;
+    int sensor_id =  pMsg->sensor_id;
+    int ret = 0;
+    bool anyClientEnabled = false;
+    struct wakeup_config wakeup;
+
+    SENSOR_LOGI(LOG_TAG ">-- getsensorWakeupConfUpdate ID=%d\n", pMsg->sensor_id);
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+    if (!pClient) {
+	    SENSOR_LOGE(LOG_TAG ">-- getsensorWakeupConfUpdate invlalid client=%s\n", pMsg->mSocketName);
+	    ret = SENSOR_ERROR_INVALID_CLIENT;
+	    goto fail;
+    }
+    //Input parameter check
+    if (mSensorCount != 0) {
+	   for (int i=0; i < mSensorCount; i++) {
+		   if (mSensorList[i].sensor_id == pMsg->sensor_id) {
+			   if (mSensorList[i].type != SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+				   ret = SENSOR_ERROR_NOT_SUPPORTED;
+				   goto fail;
+			   }
+			   SensorId = true;
+			   break;
+		   }
+	    }
+	    if (SensorId != true ) {
+		    ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+		    goto fail;
+	    }
+    }
+    else {
+	   ret = SENSOR_ERROR_NO_SENSORS_FOUND;
+	   goto fail;
+    }
+    //Check the enable request of all clients
+    for (auto each : mClients) {
+	    anyClientEnabled = max(anyClientEnabled, each.second->mWakeupEnable);
+	    SENSOR_LOGD(LOG_TAG "<-- enable %d each.second->mWakeupEnable %d \n", anyClientEnabled, each.second->mWakeupEnable);
+    }
+    //notify configure value to clients
+    if (anyClientEnabled == true) {
+	    mSensorDevice->getSensorWakeupConfigInfo(pMsg->sensor_id, &wakeup);
+	    SENSOR_LOGI(LOG_TAG ">>> id: %d wakeup threshold %f duration %d odr %f \n",
+			 pMsg->sensor_id, wakeup.threshold, wakeup.duration, wakeup.odr);
+	    pClient->onSensorWakeupConfigUpdateCb(pMsg->sensor_id, wakeup);
+    } else {
+           ret = SENSOR_ERROR_WAKEUP_NOT_ENABLED;
+    }
+fail:
+    //send response back to client
+    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID);
+    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID);
+}
+
+/******************************************************************************
+SensorApiService - implementation - enable sensor wakeup feature
+*****************************************************************************/
+void SensorApiService::sensorWakeupEnable(SensorAPIWakeupEnableReqMsg*  pMsg) {
+    lock_guard<mutex> lock(mMutex);
+    int ret = 0;
+    bool SensorId = false;
+    int sensor_id =  pMsg->sensor_id;
+    static bool mWakeupActive = false;
+    bool anyClientEnabled = false;
+    struct wakeup_config wakeup;
+
+    SENSOR_LOGI(LOG_TAG ">>> sensorWakeupEnable id: %d wakeup threshold %f duration %d odr %f enable: %d\n",
+		    pMsg->sensor_id, pMsg->wakeup.threshold, pMsg->wakeup.duration, pMsg->wakeup.odr, pMsg->enable);
+
+    SensorHalDaemonClientHandler* pClient = getClient(pMsg->mSocketName);
+    if (!pClient) {
+	    SENSOR_LOGE(LOG_TAG ">-- sensorWakeupEnable invlalid client=%s\n", pMsg->mSocketName);
+	    return;
+    }
+    //Input parameter check
+    if (pMsg->enable != true && pMsg->enable != false) {
+            ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+            goto fail;
+    }
+    if (mSensorCount != 0) {
+	   for (int i=0; i < mSensorCount; i++) {
+		   if (mSensorList[i].sensor_id == pMsg->sensor_id) {
+			   if (mSensorList[i].type != SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+				   ret = SENSOR_ERROR_NOT_SUPPORTED;
+				   goto fail;
+			   }
+			   SensorId = true;
+			   break;
+		   }
+	   }
+	   if (SensorId != true ) {
+		   ret = SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+		   goto fail;
+	   }
+    }
+    else {
+	   ret = SENSOR_ERROR_NO_SENSORS_FOUND;
+	   goto fail;
+    }
+
+    pClient->mWakeupEnable = pMsg->enable;
+    //Check the enable request of all clients
+    for (auto each : mClients) {
+	    anyClientEnabled = max(anyClientEnabled, each.second->mWakeupEnable);
+	    SENSOR_LOGD(LOG_TAG "<-- enable %d each.second->mWakeupEnable %d \n", anyClientEnabled, each.second->mWakeupEnable);
+    }
+    if (anyClientEnabled != mWakeupActive) {
+	    ret = mSensorDevice->sensorWakeupEnable(pMsg->sensor_id, pMsg->wakeup, anyClientEnabled);
+	    if (ret == SENSOR_RESPONSE_SUCCESS)
+		    mWakeupActive = anyClientEnabled;
+    }
+    else {
+	   ret = SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
+    }
+    //notify configure value to clients
+    if (pMsg->enable == true) {
+	    mSensorDevice->getSensorWakeupConfigInfo(pMsg->sensor_id, &wakeup);
+	    SENSOR_LOGI(LOG_TAG ">>> id: %d wakeup threshold %f duration %d odr %f \n",
+			 pMsg->sensor_id, wakeup.threshold, wakeup.duration, wakeup.odr);
+	    pClient->onSensorWakeupConfigUpdateCb(pMsg->sensor_id, wakeup);
+    }
+fail:
+    //send response back to client
+    pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID);
+    pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID);
+}
+
+/******************************************************************************
+  SensorApiService - implementation - :nearByBatchCount to check nearby batch
+  count, return batch count which is multiplication of min batch count defined for
+  each sensor in /etc/sensors.conf file and should be less than or equal to
+  ReqBatchCount
+ ******************************************************************************/
 int SensorApiService::nearByBatchCount(int minBatchCount, int ReqBatchCount, float input_rate, float output_rate, int factor) {
    int count = 0;
    int supported_batches[MAX_BATCH_COUNT] = {0};

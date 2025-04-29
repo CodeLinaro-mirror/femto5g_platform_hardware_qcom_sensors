@@ -40,6 +40,8 @@
 #include <glib.h>
 #include <stdint.h>
 #include <functional>
+#include <linux/iio/events.h>
+#include <linux/iio/types.h>
 #include <sensors.h>
 
 #define MAX_PATH_SIZE 100
@@ -105,7 +107,11 @@ typedef enum {
         SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT = -16,
         /**Sensor selftest is not supported**/
         SENSOR_ERROR_SELFTEST_NOT_SUPPORTED = -17,
-        SENSOR_SELFTEST_NOT_SUPPORTED = -18,
+	/** Sensor already in requested state (enabled or disabled) **/
+	SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE = -18,
+	/** Sensor wakeup not enabled **/
+	SENSOR_ERROR_WAKEUP_NOT_ENABLED = -19,
+	SENSOR_SELFTEST_NOT_SUPPORTED = -33,
 }SensorRet;
 
 typedef enum {
@@ -205,6 +211,33 @@ struct sensor_mlc_case_list {
 struct mlc_event_data {
     uint64_t id;
     int64_t  timestamp;
+};
+
+/**
+ *  struct wakeup_config_limits - Limits and defaults for wakeup_config
+ *  @threshold: min and max range for threshold in mg
+ *  @duration:  min and max range for duration in ms
+ *  @odr:       min and max range for output data rate in HZ
+ */
+struct wakeup_config_info {
+    float    minThreshold;
+    float    maxThreshold;
+    int      minDuration;
+    int      maxDuration;
+    float    minOdr;
+    float    maxOdr;
+};
+
+/**
+ * struct wakeup_config - The wakeup config enable structure
+ * @threshold:  wakeup threshold value in mg
+ * @duration:   wakeup threshold duration in ms
+ * @odr: 	sensor odr config during wakeup enable in HZ
+ */
+struct wakeup_config {
+    float threshold;
+    int duration;
+    float odr;
 };
 
 #endif //SENSORLIST_H

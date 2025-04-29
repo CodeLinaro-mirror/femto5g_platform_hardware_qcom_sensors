@@ -259,6 +259,9 @@ private:
 		    int sensor_id, SelfTestType selfTestType, int request_id);
     int   sensorSelfTest(int sensor_id, SelfTestType selfTestType, SelfTestResult &SelfTestResult,
 		    SelfTestResultType &resultType, int &AccelTest, int &GyroTest, bool voluntary);
+    void  getsensorWakeupConfInfoLimits(SensorAPIWakeupConfigReqMsg*);
+    void  getsensorWakeupConfUpdate(SensorAPIWakeupConfigReqMsg*);
+    void  sensorWakeupEnable(SensorAPIWakeupEnableReqMsg*);
     //threads
     static void* sendSensorDataToClients(void *arg);
     static void* bufferDataprocessTask(void *arg);
