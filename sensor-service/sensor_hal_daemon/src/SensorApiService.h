@@ -70,6 +70,8 @@
 #include <SensorDiagLog.h>
 #include <SensorDevice.h>
 
+#define SELFTEST_WAIT_TIME 3600000000000LL
+
 #ifdef POWERMANAGER_ENABLED
 #include <PowerEvtHandler.h>
 #endif
