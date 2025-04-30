@@ -83,7 +83,8 @@ cc_defaults {
         "-Wno-attributes",
         "-Wno-unused-variable",
         "-Wno-unused-parameter",
-        "-Wno-overloaded-virtual"
+        "-Wno-overloaded-virtual",
+        "-Wno-missing-template-arg-list-after-template-kw"
     ],
     shared_libs: [
         "libvsomeip",
