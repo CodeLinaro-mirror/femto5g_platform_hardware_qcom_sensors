@@ -25,11 +25,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 #ifndef SENSORUTILS_H
@@ -43,14 +42,8 @@
 #include <functional>
 #include <sensors.h>
 
-#define SEARCH_PATH_SIZE            100
-#define NAME_FILE                   "name"
-
-#define DEVICE_IIO_MAX_FILENAME_LEN             256
-#define DEVICE_IIO_MAX_NAME_LENGTH              32
-
-#define IIO_PATH                "/sys/bus/iio/devices/"
-#define INPUT_PATH              "/sys/devices/virtual/input/"
+#define DEVICE_MAX_FILENAME_LEN             256
+#define DEVICE_MAX_NAME_LENGTH              32
 
 #define CLOSE_FILE_HANDLE(fd) do {  \
   if (fd) {                         \
@@ -60,19 +53,15 @@
   }                                 \
 } while(0)
 
-#define NS_TO_MS(x)                             (x / 1E6)
+#define NS_TO_MS(x)                             (x / 1000000)
 #define NS_TO_FREQUENCY(x)                      (1E9 / x)
 #define FREQUENCY_TO_NS(x)                      (1E9 / x)
 #define FREQUENCY_TO_US(x)                      (1E6 / x)
 #define MAX_COMMAND_STR_LEN (255)
 #define BOOT_KPI_FILE "/sys/kernel/boot_kpi/kpi_values"
 
-//Type of devices based on sensor driver sysfs path mount.
-typedef enum
-{
-  DYN_IIO_TYPE,
-  DYN_INPUT_TYPE
-} dynDeviceType;
+static const char *device_input_dir = "/sys/devices/virtual/input/";
+static const char *device_input_device_name = "input";
 
 static const char *device_iio_dir = "/sys/bus/iio/devices/";
 static const char *device_iio_device_name = "iio:device";
@@ -95,32 +84,25 @@ struct device_iio_info_channel {
         unsigned int location;
 };
 
-// Monotonic boot time
-static uint64_t getTimestamp() {
-        struct timespec ts;
-        clock_gettime(CLOCK_BOOTTIME, &ts);
-        uint64_t system_ts =
-                ((uint64_t)(ts.tv_sec)) * 1000000000ULL + ((uint64_t)(ts.tv_nsec));
-        return system_ts;
-}
-
-int  enable_sensor_channels(const char *device_dir, bool enable);
-void find_path(dynDeviceType aeType, char *aPath, std::string aKey, int aLength);
-int  get_sensor_device_by_name(const char *name);
-int  get_sensor_type(struct device_iio_info_channel *channel,
+uint64_t get_timestamp();
+int sysfs_write_scale(char *file, float val);
+int sysfs_read_scale(char *file, float *val);
+int sysfs_write_int(char *file, int val);
+int sysfs_read_int(char *file, int *val);
+int get_iio_sensor_device_by_name(const char *name);
+int get_input_sensor_device_by_name(const char *name);
+int get_sensor_type(struct device_iio_info_channel *channel,
 		const char *device_dir, const char *name,
 		const char *post);
-int  get_sensor_scale(const char *device_dir, float *value);
+int get_sensor_scale(const char *device_dir, float *value);
 void dump_sensor_event(const struct sensors_event_t *e);
-int  size_from_channelarray(struct device_iio_info_channel *channels,
+int size_from_channelarray(struct device_iio_info_channel *channels,
 		int num_channels);
 float process_2byte_received(int input,
 		struct device_iio_info_channel *info);
 float process_3byte_received(int input,
 		struct device_iio_info_channel *info);
-int sysfs_read_scale(char *file, float *val);
-int sysfs_write_int(char *file, int val);
-int sysfs_read_int(char *file, int *val);
 int sensor_boot_kpi_marker(const char * pFmt, ...);
+int enable_sensor_channels(const char *device_dir, bool enable);
 
 #endif //SENSORUTILS_H

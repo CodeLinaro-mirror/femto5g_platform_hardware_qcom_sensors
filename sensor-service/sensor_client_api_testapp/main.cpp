@@ -58,6 +58,11 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <stdio.h>
@@ -213,37 +218,34 @@ static void dump_buffer_event(const struct sensors_event_t *e)
 
 static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
     SENSOR_LOGI(LOG_TAG "<<< Recieved onCapabilitiesCb mask=%d\n", mask);
-    switch (mask) {
-	case SHD_READY:
-		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is Ready to commnunicate\n");
-		break;
-	case SHD_RESTARTED:
-		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is Restarted\n");
-		break;
-	case SHD_NOT_RUNNING:
-		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is not available\n");
-		break;
-	case DEVICE_SUSPEND:
-		SENSOR_LOGI(LOG_TAG "Device is about go to suspend state\n");
-		break;
-	case DEVICE_RESUME:
-		SENSOR_LOGI(LOG_TAG "Device is resumed\n");
-		break;
-	case DEVICE_SHUTDOWN:
-		SENSOR_LOGI(LOG_TAG "Device is about go to shutdown\n");
-		break;
-	case ACCEL_SELFTEST_FAIL:
-		SENSOR_LOGI(LOG_TAG "Accel self-test fail\n");
-                break;
-	case GYRO_SELFTEST_FAIL:
-		SENSOR_LOGI(LOG_TAG "Gyro self-test fail\n");
-                break;
-	case ACCEL_GYRO_BOTH_SELFTEST_FAIL:
-		SENSOR_LOGI(LOG_TAG "Accel and Gyro self-test both failed\n");
-                break;
-	defult:
-		SENSOR_LOGI(LOG_TAG "Unknown mask\n");
-		break;
+    if (mask & SHD_READY) {
+	    SENSOR_LOGI(LOG_TAG "Sensor HAL daemon is Ready to communicate\n");
+    }
+    if (mask & SHD_RESTARTED) {
+	    SENSOR_LOGI(LOG_TAG "Sensor HAL daemon is Restarted\n");
+    }
+    if (mask & SHD_NOT_RUNNING) {
+	    SENSOR_LOGI(LOG_TAG "Sensor HAL daemon is not available\n");
+    }
+    if (mask & DEVICE_SUSPEND) {
+	    SENSOR_LOGI(LOG_TAG "Device is about to go to suspend state\n");
+    }
+    if (mask & DEVICE_RESUME) {
+	    SENSOR_LOGI(LOG_TAG "Device is resumed\n");
+    }
+    if (mask & DEVICE_SHUTDOWN) {
+	    SENSOR_LOGI(LOG_TAG "Device is about to go to shutdown\n");
+    }
+    if (mask & ACCEL_SELFTEST_FAIL) {
+	    SENSOR_LOGI(LOG_TAG "Accel self-test fail\n");
+    }
+    if (mask & GYRO_SELFTEST_FAIL) {
+	    SENSOR_LOGI(LOG_TAG "Gyro self-test fail\n");
+    }
+    if (!(mask & (SHD_READY | SHD_RESTARTED | SHD_NOT_RUNNING | 
+				    DEVICE_SUSPEND | DEVICE_RESUME | DEVICE_SHUTDOWN | 
+				    ACCEL_SELFTEST_FAIL | GYRO_SELFTEST_FAIL))) {
+	    SENSOR_LOGI(LOG_TAG "Unknown mask\n");
     }
 }
 
@@ -341,12 +343,37 @@ static void onSensorBufferDataReadCb(const sensors_event_t *events, uint32_t cou
             dump_buffer_event(&events[i]);
 }
 
+const char* getSelfTestResultTypeName(SelfTestResultType type) {
+   switch (type) {
+	   case SENSOR_BUSY:
+		   return "SENSOR_BUSY";
+	   case SENSOR_IDLE:
+		   return "SENSOR_IDLE";
+	   default:
+		   return "Unknown";
+   }
+}
+
+const char* getSelfTestResultName(SelfTestResult result) {
+   switch (result) {
+	   case Passed:
+		   return "Passed";
+	   case Failed:
+		   return "Failed";
+	   case NotAvailable:
+		   return "NotAvailable";
+	   default:
+		   return "Unknown";
+   }
+}
+
 static void onSelfTestResultCallback(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp)
 {
    end_time = getTimestamp();
    selftest_time = (end_time - start_time);
    SENSOR_LOGI(LOG_TAG "\nselftest time taken = %lldms\n", selftest_time/1000000);
-   SENSOR_LOGI(LOG_TAG "self_test- sensor_id %d request_id %d result %d resultType %d timestamp %lld\n",sensor_id, request_id, result, resultType, timestamp);
+   SENSOR_LOGI(LOG_TAG "self_test - sensor_id:%d request_id:%d result:%s resultType:%s timestamp:%lld\n",
+		   sensor_id, request_id, getSelfTestResultName(result), getSelfTestResultTypeName(resultType), timestamp);
 }
 
 static void printHelp() {
@@ -362,6 +389,7 @@ static void printHelp() {
     SENSOR_LOGI(LOG_TAG "m: get mlc case list\n");
     SENSOR_LOGI(LOG_TAG "e: enable/disable mlc case event\n");
     SENSOR_LOGI(LOG_TAG "r: set sensor rotation matrix\n");
+    SENSOR_LOGI(LOG_TAG "s: sensor self test\n");
     SENSOR_LOGI(LOG_TAG "q: Quit\n");
 }
 

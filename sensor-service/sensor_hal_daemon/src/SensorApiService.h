@@ -25,11 +25,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 #ifndef SENSORAPISERVICE_H
@@ -69,12 +68,7 @@
 #include <SensorInterfaceStubImpl.hpp>
 #endif
 #include <SensorDiagLog.h>
-
-#define ASM330LHHX_ACC_SEARCH   "asm330lhhx_accel"
-#define ASM330LHHX_GYRO_SEARCH  "asm330lhhx_gyro"
-
-#define SMI230_TEMP_SEARCH         "SMI230ACC"
-#define SMI230_GYR_SEARCH          "SMI230GYRO"
+#include <SensorDevice.h>
 
 #ifdef POWERMANAGER_ENABLED
 #include <PowerEvtHandler.h>
@@ -101,8 +95,6 @@
 
 //Config file
 #define SENSOR_CONF_PATH "/etc/sensors.conf"
-//MLC bin path
-#define PATH_MLC_BINARY  "/lib/firmware/st_asm330lhhx_mlc.bin"
 
 #ifdef SENSOR_IVSS_ENABLED
 using namespace std;
@@ -120,19 +112,14 @@ enum PowerStateType {
 };
 
 typedef struct {
-    int   SensorType;
-    char  SensorHalLibPath[100];
     char  AccelName[100];
     char  GyroName[100];
-    int   DynamicConfigEnabled;
     float MaxAccSampleRate;
     float MaxGyroSampleRate;
     int   MinAccBatchCount;
     int   MinGyroBatchCount;
     int   AccRange;
     int   GyroRange;
-    int   AccBuffRange;
-    int   GyroBuffRange;
     int   DebugLevel;
     int   EnableFIR;
     int   SensorSelfTest;
@@ -146,23 +133,14 @@ typedef struct {
    int   Activate;
    int   BatchCount;
    float SamplingRate;
+   SelfTestResult selfTest;
+   uint64_t selfTestTS;
 } SensorConfig;
-
-//To check sensor type defined in config file
-typedef enum
-{
-  SENSOR_UNKN = 0,
-  SENSOR_ASM330,
-  SENSOR_IAM20680,
-  SENSOR_SMI130,
-  SENSOR_SMI230,
-  SENSOR_BMI160
-} sensorType;
 
 typedef struct {
     // this stores the client name and the command type that client requests
     // the info will be used to send back command response
-    std::string clientName;
+    string clientName;
     ESensorMsgID   configMsgId;
 } ConfigReqClientData;
 
@@ -173,14 +151,7 @@ class SensorHalDaemonQsockReceiver;
 class SensorInterfaceStubImpl;
 #endif
 class SensorHalDaemonClientHandler;
-
-/**
- * set_buff_scaling_factor: Sets the scaling factor based on dynamic range for buffer data
- * @param sensorType: Sensor id (1:asm, 2:iam, 3:smi130, 4:smi230)
- * @param accRange: Range of accel to set
- * @param gyroRange: Range of gyro o set
- */
-void set_buff_scaling_factor(int sensorType, int accRange, int gyroRange);
+class SensorDevice;
 
 /******************************************************************************
 SensorApiService
@@ -188,11 +159,9 @@ SensorApiService
 class SensorApiService
 {
 public:
-
     // singleton instance
     SensorApiService(const SensorApiService&) = delete;
     SensorApiService& operator = (const SensorApiService&) = delete;
-
     static SensorApiService* getInstance(
             const configParamToRead & configParamRead) {
         if (nullptr == mInstance) {
@@ -200,151 +169,49 @@ public:
         }
         return mInstance;
     }
-
     static void destroy() {
         if (nullptr != mInstance) {
             delete mInstance;
             mInstance = nullptr;
         }
     }
-
     SensorApiService(const configParamToRead & configParamRead);
     virtual ~SensorApiService();
-
     // APIs can be invoked by IPC
-    void processClientMsg(const std::string& data);
-
+    void processClientMsg(const string& data);
     // from IPC receiver
     void onListenerReady();
     void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender);
-
+    //API to Sensor Lib
+    bool openSensor(const configParamToRead & configParamRead);
+    int  getSensorListDevice(const struct sensor_t **s);
+    int  sensorActivate(int sensor_id , int enable);
+    int  sensorSetBatch(int sensor_id, int64_t delay, int64_t latency);
     // other APIs
-    std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator deleteClientbyName(const std::string clientname);
-    void deleteEapClientByIds(int id1, int id2);
-
-#ifdef POWERMANAGER_ENABLED
-    void onPowerEvent(PowerStateType powerState, SensorCapabilitiesMask mask);
-#endif
-
-    bool open_sensor(const configParamToRead & configParamRead);
-    int get_sensor_list(const struct sensor_t **s);
-    int sensor_activate(int sensor_id , int enable);
-    int sensor_set_batch(int sensor_id, int64_t delay, int64_t latency);
-    static void* send_sensor_data_to_clients(void *arg);
-    static void* bufferDataprocessTask(void *arg);
-    static std::mutex mMutex;
-    pthread_t mSensorThreadtid;
-    pthread_t mBufferThreadtid;
-    pthread_t mMlcThreadtid;
-    // Client propery database
-    std::unordered_map<std::string, SensorHalDaemonClientHandler*> mClients;
-    std::unordered_map<uint32_t, ConfigReqClientData> mConfigReqs;
     int  newClient(SensorAPIClientRegisterReqMsg*);
-    void  deleteClient(SensorAPIClientDeregisterReqMsg*);
+    void deleteClient(SensorAPIClientDeregisterReqMsg*);
     int  startTracking(SensorAPIStartTrackingReqMsg*);
     int  startBatching(SensorAPIStartBatchingReqMsg*);
     int  activateSensor(SensorAPIEnableReqMsg*);
-    void  getSensorList(SensorAPIListReqMsg*);
+    void deleteEapClientByIds(int id1, int id2);
+    unordered_map<string, SensorHalDaemonClientHandler*>::iterator deleteClientbyName(const string clientname);
+#ifdef POWERMANAGER_ENABLED
+    void onPowerEvent(PowerStateType powerState, SensorCapabilitiesMask mask);
+#endif
+    static mutex mMutex;
+    pthread_t mSensorThreadtid;
+    pthread_t mBufferThreadtid;
+    // Client propery database
+    unordered_map<string, SensorHalDaemonClientHandler*> mClients;
+    unordered_map<uint32_t, ConfigReqClientData> mConfigReqs;
     struct sensor_list *mSensorList;
     int mSensorCount;
     SensorConfig *mSensor;
-    bool GptpInitialized;
-#ifdef SENSOR_IVSS_ENABLED
-    std::shared_ptr<SensorInterfaceStubImpl> myService;
-#endif
-    float rot[3][3];
-#ifdef SENSOR_HEAD_TYPE_SUPPORT
-    void EnableHeadingSensor();
-    void DisableHeadingSensor();
-#endif
-private:
-    void  getSensorTemp(SensorAPITempReqMsg*);
-    void  getSensorBufferData(SensorAPIBufferDataReqMsg*);
-    int   SensorCofig(SensorAPIStartBatchingReqMsg*);
-    void  sensorSelfTest(SensorAPISelfTestReqMsg*);
-    void  setEulerAngles(SensorAPIEulerAnglesReqMsg*);
-    void  onSelfTestRequest(SensorHalDaemonClientHandler*,
-		    int sensor_id, SelfTestType selfTestType, int request_id);
-    int   SensorSelfTest(int sensor_id, SelfTestType selfTestType, SelfTestResult &SelfTestResult,
-		    SelfTestResultType &resultType, int &AccelTest, int &GyroTest, bool voluntary);
-    void  onPowerEventSelfTest();
-    void  GetSupportedSamplingRateAndRange(struct sensor_list *s);
-    int   NearByBatchCount(int minBatchCount, int ReqBatchCount, float input_rate, float output_rate, int factor);
-    float NearBySamplingRate(float input_rates[], float target_rate);
-
-    //MLC API's
-    bool LoadMLC(const char *mcl_fw_name);
-    void SensorEnableMLCCase(SensorAPIMLCCaseEnableMsg*);
-    int  SetPowerMode(int handle, int mode);
-    bool SensorMlcEnableEvents(char *mlc_case_name, int enable);
-    static void* mlcPollEvents(void *arg);
-    void pollEvents(void);
-
-    /* Self-Test Variables */
-    int SelfTestResultAccel;
-    int SelfTestResultGyro;
-    uint64_t Acceltimestamp;
-    uint64_t Gyrotimestamp;
-    uint64_t timestamp;
-
-    //Temperature API's
-    int  tempSensorDataPollTask(float* temperature);
-    bool tempSensorDataInit();
-    int  readTempASM(float* temperature);
-    int  readTempBMI(float* temperature);
-    int  readTempIAM(float* temperature);
-    int  readTempSMI(float* temperature);
-    int  readTempSMI230(float* temperature);
-
-    //Buffer API's
-    bool CheckBufferReadFile();
-    void SensorBuffread();
-    bool ReadSensorBufferData(const std::string clientname);
-    void bufferDataScaling(int SensorType, sensors_event_t *event);
-    bool getBufferedSample(int SensorType,  FILE* fd, sensors_event_t *event);
-    bool WritetoBufferFile(bool enable);
-    // private utilities
-    inline SensorHalDaemonClientHandler* getClient(const std::string& clientname) {
-	    // find client from property db
-	    auto client = mClients.find(clientname);
-	    if (client == std::end(mClients)) {
-		    SENSOR_LOGE(LOG_TAG "Failed to find client %s\n", clientname.c_str());
-		    return nullptr;
-	    }
-	    return client->second;
-    }
-
-    inline SensorHalDaemonClientHandler* getClient(const char* socketName) {
-	    std::string clientname(socketName);
-	    return getClient(clientname);
-    }
-    const char* getClientNameByIds(int id1, int id2);
-
-
-    // singleton instance
-    static SensorApiService *mInstance;
-    // IPC interface
-    SensorHalDaemonIPCReceiver* mIpcReceiver;
-    // QSocket interface
-    SensorHalDaemonQsockReceiver* mQsockReceiver;
-
     uint32_t mSensorClient;
-    int mSensorType;
     struct sensors_module_t *mhmi;
     struct hw_device_t *mdev;
     struct sensors_poll_device_t *mpoll_dev_v0;
     struct sensors_poll_device_1 *mpoll_dev;
-
-#ifdef POWERMANAGER_ENABLED
-    // power event observer
-    PowerEvtHandler* mPowerEventObserver;
-#endif
-    PowerStateType  mPowerState;
-
-    //Mlc sesnros list
-    struct sensor_mlc_case_list *mSesnorMlcCaseList;
-    int mSensorMlcCaseCount;
-
     // Configration
     float mMaxAccSampleRate;
     float mMaxGyroSampleRate;
@@ -352,55 +219,88 @@ private:
     int   mMinGyroBatchCount;
     int   mAccRange;
     int   mGyroRange;
-    int   mAccBuffRange;
-    int   mGyroBuffRange;
     bool  mBufferSupported;
     bool  mBufferDeleted;
     bool  mTempSupported;
     bool  mMlcSupported;
     int   mBatchConst;
-    int   mDynamicConfigEnabled;
+    int   mEnableFIR;
+    float rot[3][3];
     uint16_t roll;
     uint16_t pitch;
     uint16_t yaw;
-    int   mEnableFIR;
-    int   mSensorSelfTest;
-    SensorDiagLog mDiagLogger;
-
-
-
-    //Temperature file pointers
-    struct asmFilePtr
-    {
-      std::ifstream *tScaleFile;
-      std::ifstream *tOffsetFile;
-      std::ifstream *tRawDataFile;
-    };
-    struct smiFilePtr
-    {
-      std::ifstream *tempFile;
-    };
-    struct bmiFilePtr
-    {
-      std::ifstream *tTempFile;
-    };
-    struct iamFilePtr
-    {
-     std::ifstream *dataFile;
-    };
-    union tempFilePtr
-    {
-      asmFilePtr asmTempFile;
-      smiFilePtr smiTempFile;
-      bmiFilePtr bmiTempFile;
-      iamFilePtr iamTempFile;
-    };
-    tempFilePtr mTempFilePtr;
-
+    //Mlc sesnros list
+    struct sensor_mlc_case_list *mSensorMlcCaseList;
+    int mSensorMlcCaseCount;
+    //SensorDevice
+    SensorDevice *mSensorDevice;
+#ifdef PTP_SUPPORTED
+    bool mGptpInitialized;
+#endif
+#ifdef SENSOR_IVSS_ENABLED
+    shared_ptr<SensorInterfaceStubImpl> myService;
+#endif
+#ifdef SENSOR_HEAD_TYPE_SUPPORT
+    void enableHeadingSensor();
+    void disableHeadingSensor();
+#endif
+    float nearBySamplingRate(float input_rates[], float target_rate);
+    int   nearByBatchCount(int minBatchCount, int ReqBatchCount, float input_rate, float output_rate, int factor);
+private:
+    //API to SHD
+    void  getSensorList(SensorAPIListReqMsg*);
+    void  getSensorTemp(SensorAPITempReqMsg*);
+    void  getSensorBufferData(SensorAPIBufferDataReqMsg*);
+    int   sensorCofig(SensorAPIStartBatchingReqMsg*);
+    void  sensorSelfTest(SensorAPISelfTestReqMsg*);
+    void  setEulerAngles(SensorAPIEulerAnglesReqMsg*);
+    void  onSelfTestRequest(SensorHalDaemonClientHandler*,
+		    int sensor_id, SelfTestType selfTestType, int request_id);
+    int   sensorSelfTest(int sensor_id, SelfTestType selfTestType, SelfTestResult &SelfTestResult,
+		    SelfTestResultType &resultType, int &AccelTest, int &GyroTest, bool voluntary);
+    //threads
+    static void* sendSensorDataToClients(void *arg);
+    static void* bufferDataprocessTask(void *arg);
+    //MLC API's
+    void sensorEnableMLCCase(SensorAPIMLCCaseEnableMsg*);
+    //Buffer API's
+    bool checkSensorBufferSupport();
+    void sensorBufferReadThread();
+    bool readSensorBufferData(const string clientname);
+    void bufferDataScaling(int type, sensors_event_t *event);
+    bool getBufferedSample(int type,  FILE* fd, sensors_event_t *event);
+    bool writeToBufferFile(bool enable);
+    // private utilities
+    inline SensorHalDaemonClientHandler* getClient(const string& clientname) {
+	    // find client from property db
+	    auto client = mClients.find(clientname);
+	    if (client == end(mClients)) {
+		    SENSOR_LOGE(LOG_TAG "Failed to find client %s\n", clientname.c_str());
+		    return nullptr;
+	    }
+	    return client->second;
+    }
+    inline SensorHalDaemonClientHandler* getClient(const char* socketName) {
+	    string clientname(socketName);
+	    return getClient(clientname);
+    }
+    const char* getClientNameByIds(int id1, int id2);
+    // singleton instance
+    static SensorApiService *mInstance;
+    // IPC interface
+    SensorHalDaemonIPCReceiver* mIpcReceiver;
+    // QSocket interface
+    SensorHalDaemonQsockReceiver* mQsockReceiver;
+#ifdef POWERMANAGER_ENABLED
+    // power event observer
+    PowerEvtHandler* mPowerEventObserver;
+#endif
+    PowerStateType  mPowerState;
     //To Store Buffer file paths
-    std::string mAccBootSample;
-    std::string mGyroBootSample;
-
+    string mAccBootSample;
+    string mGyroBootSample;
+    //To send diag logs
+    SensorDiagLog mDiagLogger;
     //To wake up Buffer Thread
     pthread_mutex_t mHalBuffMutex;
     pthread_cond_t mHalBuffCond;

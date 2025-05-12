@@ -32,6 +32,7 @@ h_sources = \
     src/SensorHalDaemonIPCSender.h \
     src/SensorApiUtils.h \
     src/SensorList.h \
+    src/SensorDevice.h \
     src/SensorInterfaceStubImpl.hpp
 
 c_sources = \
@@ -43,6 +44,7 @@ c_sources = \
     src/SensorHalDaemonIPCReceiver.cpp \
     src/SensorHalDaemonIPCSender.cpp \
     src/SensorApiUtils.cpp \
+    src/SensorDevice.cpp \
     src/SensorInterfaceStubImpl.cpp
 
 if POWERMANAGER_ENABLED

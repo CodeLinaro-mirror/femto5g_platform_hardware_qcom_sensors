@@ -25,11 +25,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 #ifndef SENSORLIST_H
@@ -66,7 +65,6 @@ typedef enum {
 	ACCEL_SELFTEST_FAIL = (1<<6),
 	/*Gyro self_test fail*/
 	GYRO_SELFTEST_FAIL = (1<<7),
-	/*Both Accel & Gyro self_test fail*/
 	ACCEL_GYRO_BOTH_SELFTEST_FAIL = (1<<8),
 }SensorCapabilitiesMask;
 
@@ -106,7 +104,8 @@ typedef enum {
         /**Sensor No response from SHD timeout happens*/
         SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT = -16,
         /**Sensor selftest is not supported**/
-        SENSOR_SELFTEST_NOT_SUPPORTED = -17,
+        SENSOR_ERROR_SELFTEST_NOT_SUPPORTED = -17,
+        SENSOR_SELFTEST_NOT_SUPPORTED = -18,
 }SensorRet;
 
 typedef enum {
@@ -184,9 +183,9 @@ struct sensor_list {
     /**Range of sensor**/
     int range;
     /* smallest difference between two values reported by this sensor */
-    float           resolution;
+    float resolution;
     /* maximum range of this sensor's value in SI units */
-    float           maxRange;
+    float maxRange;
 };
 
 struct sensor_mlc_case_list;
@@ -204,8 +203,8 @@ struct sensor_mlc_case_list {
  *              the interrupt handler)
  */
 struct mlc_event_data {
-        uint64_t id;
-        int64_t  timestamp;
+    uint64_t id;
+    int64_t  timestamp;
 };
 
 #endif //SENSORLIST_H
