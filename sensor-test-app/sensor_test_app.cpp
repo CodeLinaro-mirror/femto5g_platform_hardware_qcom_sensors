@@ -471,8 +471,10 @@ int main(int argc, char **argv)
 				deactivate_sensors();
 			else if (state == 3)
 				break;
-			else
+			else{
 				SENSOR_LOGE(LOG_TAG "Wrong Input\n");
+				SENSOR_LOGE(LOG_TAG "1: Activate Sensors  2: Deactivate Sensors  3: Quit testapp\n");
+			}
 		}
 	}
 	SENSOR_LOGI(LOG_TAG "Exiting main app\n");
