@@ -114,7 +114,7 @@ SensorDevice::SensorInfo initSMI230() {
 	    1,
 	    true
    };
-   sensor.temp_files.push_back(SensorDevice::tempPtr("temperature"));
+   sensor.temp_files.push_back(SensorDevice::tempPtr("temp"));
    return sensor;
 }
 
