@@ -143,11 +143,6 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
                  if(line) (void)sscanf(&line[1], "%d", &configParamRead->EnableFIR);
                  break;
          }
-	 else if(strstr(buffer, "SELF_TEST=")) {
-                 line = strstr(buffer, "=");
-                 if(line) (void)sscanf(&line[1], "%d", &configParamRead->SensorSelfTest);
-                 break;
-         }
        }
     }
     (void)fclose(file);
@@ -159,7 +154,7 @@ void PrintSensorConfigParameters(configParamToRead configParamRead)
    SENSOR_LOGI(LOG_TAG "\n \
 	\tAccelName %s: AccSamplingRate :%f AccBatchcount :%d AccRange :%d \n \
 	\tGyroName  %s: GyroSamplingRate:%f GyroBatchcount:%d GyroRange:%d \n \
-	\tDebugLevel:%d EnableFIR:%d Self_Test=%d \n",
+	\tDebugLevel:%d EnableFIR:%d\n",
 	configParamRead.AccelName,
 	configParamRead.MaxAccSampleRate,
 	configParamRead.MinAccBatchCount,
@@ -169,8 +164,7 @@ void PrintSensorConfigParameters(configParamToRead configParamRead)
 	configParamRead.MinGyroBatchCount,
 	configParamRead.GyroRange,
 	configParamRead.DebugLevel,
-	configParamRead.EnableFIR,
-	configParamRead.SensorSelfTest);
+	configParamRead.EnableFIR);
 }
 
 //MAIN

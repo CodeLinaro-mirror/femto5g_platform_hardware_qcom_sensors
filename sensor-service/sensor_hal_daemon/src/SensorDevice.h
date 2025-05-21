@@ -59,7 +59,7 @@ public:
 	int  readSensorTemperature(float *temperature);
 	void setDefaultFIRCoeff();
 	int getDefaultFIRCoeff(bool is_accel, int sensor_rate, int client_rate, vector<float> &out_coef);
-	bool  sensorDevSelfTest(int sensor_id, int type, SelfTestType selfTestType, SelfTestResult *selfTest, uint64_t *selfTestTs, bool onDemand);
+	bool  sensorDevSelfTest(int sensor_id, int type, SelfTestType selfTestType, SelfTestResult *selfTest, uint64_t *selfTestTs);
 	int  initMaxRange(int, int);
         void getSupportedSamplingRateAndRange(struct sensor_list *s);
 	//MLC API

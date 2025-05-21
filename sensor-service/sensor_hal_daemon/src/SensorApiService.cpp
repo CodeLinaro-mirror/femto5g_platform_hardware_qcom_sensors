@@ -77,7 +77,6 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mAccRange(configParamRead.AccRange),
     mGyroRange(configParamRead.GyroRange),
     mEnableFIR(configParamRead.EnableFIR),
-    mSensorSelfTest(configParamRead.SensorSelfTest),
     mhmi(nullptr),
     mdev(nullptr),
     mpoll_dev_v0(nullptr),
@@ -1256,13 +1255,12 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
     //send real live result if  sensor is idle else last known result
     for(int i = 0 ; i < mSensorCount; i++)  {
         if (sensor_id == mSensor[i].sensor_id) {
-	   if (mSensor[i].Activate != SENSOR_ENABLE){
+	   if (mSensor[i].Activate != SENSOR_ENABLE || POWER_STATE_SUSPEND == mPowerState) {
+	      sensorState = SelfTestResultType::SENSOR_IDLE;
 	      result = mSensorDevice->sensorDevSelfTest(mSensor[i].sensor_id, mSensor[i].type, selfTestType,
-			     &mSensor[i].selfTest, &mSensor[i].selfTestTS, onDemand);
-	      if(result == true)
-                 sensorState = SelfTestResultType::SENSOR_IDLE;
-              else
-                 sensorState = SelfTestResultType::SENSOR_BUSY;
+			     &mSensor[i].selfTest, &mSensor[i].selfTestTS);
+	      if(!result)
+		      sensorState = SelfTestResultType::SENSOR_BUSY;
 	   }
 	   SENSOR_LOGI(LOG_TAG "sensor_id = %d request_id = %d sensorState %d result %d timestamp %lld\n",
 			   sensor_id, request_id, sensorState, mSensor[i].selfTest, mSensor[i].selfTestTS);
@@ -1441,22 +1439,9 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
     switch(mPowerState) {
 	case POWER_STATE_SUSPEND:
              POWER_STATE_SHUTDOWN: {
-	         SENSOR_LOGI(LOG_TAG "mSensorSelfTest %d\n", mSensorSelfTest);
-		 if(mSensorSelfTest == 1) {
-		    difference = get_timestamp() - selttest_time_delta;
-		    SENSOR_LOGI(LOG_TAG "Time since last voluntary self-test %lld\n", difference);
-		    if(selttest_time_delta == 0 || difference >= SELFTEST_WAIT_TIME){
-		       for(int i = 0 ; i < mSensorCount; i++)  {
-			    SENSOR_LOGI(LOG_TAG ">-- on Suspend/Shutdown Disable the sensor mSensor[i].sensor_id %d\n",
-					    mSensor[i].sensor_id);
-			    (void)mSensorDevice->sensorDevSelfTest(mSensor[i].sensor_id, mSensor[i].type,
-					    SelfTestType::All, &mSensor[i].selfTest, &mSensor[i].selfTestTS, onDemand);
-			    selttest_time_delta = get_timestamp();
-		       }
-		    }
-		 }
-		 for(int i = 0 ; i < mSensorCount; i++) {
-	             SENSOR_LOGI(LOG_TAG ">-- Deactivating the sensors sensor_id %d\n", mSensor[i].sensor_id);
+		 for(int i = 0 ; i < mSensorCount; i++)  {
+		     SENSOR_LOGI(LOG_TAG ">-- on Suspend/Shutdown Disable the sensor mSensor[i].sensor_id %d\n",
+				     mSensor[i].sensor_id);
 		     sensorActivate(mSensor[i].sensor_id, SENSOR_DISABLE);
 		 }
 		 break;

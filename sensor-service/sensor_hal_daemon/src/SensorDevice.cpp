@@ -443,7 +443,7 @@ int SensorDevice::readSensorTemperature(float *temperature) {
 }
 
 bool SensorDevice::sensorDevSelfTest(int sensor_id, int type, SelfTestType selfTestType,
-		SelfTestResult *selfTest, uint64_t *selfTestTS, bool onDemand) {
+		SelfTestResult *selfTest, uint64_t *selfTestTS) {
    FILE *self_test_fd = NULL;
    uint64_t selftest_time = 0 , elapsed_time = 0;
    char buffer_string[DEVICE_MAX_FILENAME_LEN] = {'\0'};
@@ -536,37 +536,34 @@ bool SensorDevice::sensorDevSelfTest(int sensor_id, int type, SelfTestType selfT
 		break;
 	}
         case SENSOR_IAM20680: {
-		if(onDemand == 1){
-                   for(int i = 0 ; i < mService->mSensorCount; i++)  {
-                       if (mService->mSensor[i].Activate == SENSOR_ENABLE)
-                           return false;
-                   }
-               }
                 selftest_time = get_timestamp();
-               SENSOR_LOGI(LOG_TAG "self_test file name %s\n", self_test_file_name.c_str());
+		for(int i = 0 ; i < mService->mSensorCount; i++)  {
+			if (mService->mSensor[i].Activate == SENSOR_ENABLE)
+				return false;
+		}
+                SENSOR_LOGI(LOG_TAG "self_test file name %s\n", self_test_file_name.c_str());
                 FILE *self_test_fd = fopen(self_test_file_name.c_str(), "r");
-               if (self_test_fd == NULL) {
+                if (self_test_fd == NULL) {
                         SENSOR_LOGE(LOG_TAG "NULL");
                         result = Failed;
                 }
                 rewind(self_test_fd);
-               if(fgets(buffer_string, sizeof(buffer_string), self_test_fd) != NULL){
-                   if(type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED && strstr(buffer_string, "3") || strstr(buffer_string, "2")){
-                            SENSOR_LOGI(LOG_TAG "IAM20680 Accel self test is passed buffer_string:%s\n", buffer_string);
-                            result = Passed;
-                    } else if (type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED && strstr(buffer_string, "3") || strstr(buffer_string, "1")){
-                            SENSOR_LOGI(LOG_TAG "IAM20680 Gyro self test is passed buffer_string:%s\n", buffer_string);
-                            result = Passed;
-                    }
-                   else {
-                           SENSOR_LOGE(LOG_TAG "IAM20680 self test is failed buffer_string:%s\n", buffer_string);
-                           result = Failed;
-                   }
-               }
+                if(fgets(buffer_string, sizeof(buffer_string), self_test_fd) != NULL) {
+                   if(type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED && strstr(buffer_string, "3") || strstr(buffer_string, "2")) {
+			   SENSOR_LOGI(LOG_TAG "IAM20680 Accel self test is passed buffer_string:%s\n", buffer_string);
+			   result = Passed;
+                   } else if (type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED && strstr(buffer_string, "3") || strstr(buffer_string, "1")) {
+			   SENSOR_LOGI(LOG_TAG "IAM20680 Gyro self test is passed buffer_string:%s\n", buffer_string);
+			   result = Passed;
+		   } else {
+			   SENSOR_LOGE(LOG_TAG "IAM20680 self test is failed buffer_string:%s\n", buffer_string);
+			   result = Failed;
+		   }
+                }
                 fclose(self_test_fd);
-               elapsed_time = get_timestamp() - selftest_time;
-               SENSOR_LOGI(LOG_TAG "SelfTest time for sensor id %d: %lldms\n", sensor_id, NS_TO_MS(elapsed_time));
-               *selfTest = result;
+                elapsed_time = get_timestamp() - selftest_time;
+                SENSOR_LOGI(LOG_TAG "SelfTest time for sensor id %d: %lldms\n", sensor_id, NS_TO_MS(elapsed_time));
+                *selfTest = result;
                 *selfTestTS = get_timestamp();
 	        break;
 	}
