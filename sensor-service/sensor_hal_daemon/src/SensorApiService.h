@@ -227,6 +227,7 @@ public:
     bool  mMlcSupported;
     int   mBatchConst;
     int   mEnableFIR;
+    int   mSensorSelfTest;
     float rot[3][3];
     uint16_t roll;
     uint16_t pitch;

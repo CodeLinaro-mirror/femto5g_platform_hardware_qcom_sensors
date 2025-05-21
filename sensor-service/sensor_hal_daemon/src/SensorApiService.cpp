@@ -77,6 +77,7 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mAccRange(configParamRead.AccRange),
     mGyroRange(configParamRead.GyroRange),
     mEnableFIR(configParamRead.EnableFIR),
+    mSensorSelfTest(configParamRead.SensorSelfTest),
     mhmi(nullptr),
     mdev(nullptr),
     mpoll_dev_v0(nullptr),
@@ -1431,16 +1432,19 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
     switch(mPowerState) {
 	case POWER_STATE_SUSPEND:
              POWER_STATE_SHUTDOWN: {
-		 difference = get_timestamp() - selttest_time_delta;
-                 SENSOR_LOGI(LOG_TAG "Time since last voluntary self-test %lld\n", difference);
-		 if(selttest_time_delta == 0 || difference >= SELFTEST_WAIT_TIME){
-		     for(int i = 0 ; i < mSensorCount; i++)  {
-		         SENSOR_LOGI(LOG_TAG ">-- on Suspend/Shutdown Disable the sensor mSensor[i].sensor_id %d\n",
-				     mSensor[i].sensor_id);
-		         (void)mSensorDevice->sensorDevSelfTest(mSensor[i].sensor_id, mSensor[i].type,
-				     SelfTestType::All, &mSensor[i].selfTest, &mSensor[i].selfTestTS, onDemand);
-			 selttest_time_delta = get_timestamp();
-		     }
+	         SENSOR_LOGI(LOG_TAG "mSensorSelfTest %d\n", mSensorSelfTest);
+		 if(mSensorSelfTest == 1) {
+		    difference = get_timestamp() - selttest_time_delta;
+		    SENSOR_LOGI(LOG_TAG "Time since last voluntary self-test %lld\n", difference);
+		    if(selttest_time_delta == 0 || difference >= SELFTEST_WAIT_TIME){
+		       for(int i = 0 ; i < mSensorCount; i++)  {
+			    SENSOR_LOGI(LOG_TAG ">-- on Suspend/Shutdown Disable the sensor mSensor[i].sensor_id %d\n",
+					    mSensor[i].sensor_id);
+			    (void)mSensorDevice->sensorDevSelfTest(mSensor[i].sensor_id, mSensor[i].type,
+					    SelfTestType::All, &mSensor[i].selfTest, &mSensor[i].selfTestTS, onDemand);
+			    selttest_time_delta = get_timestamp();
+		       }
+		    }
 		 }
 		 for(int i = 0 ; i < mSensorCount; i++) {
 	             SENSOR_LOGI(LOG_TAG ">-- Deactivating the sensors sensor_id %d\n", mSensor[i].sensor_id);

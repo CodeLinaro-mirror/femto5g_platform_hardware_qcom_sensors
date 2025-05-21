@@ -270,6 +270,17 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
 		 mService->mMinAccBatchCount = MAX_BATCH_COUNT;
 	 else if (mService->mMinAccBatchCount <= 0)
 		 mService->mMinAccBatchCount = 1;
+
+	 if (mSensorType == SENSOR_SMI230) {
+	    //Adjusting batch rate to reduce the irq freq at higher rate
+	    if (mService->mMaxGyroSampleRate == 100 && mService->mMinGyroBatchCount < 2)
+		    mService->mMinGyroBatchCount = 2;
+	    else if (mService->mMaxAccSampleRate == 200 && mService->mMinAccBatchCount < 4)
+		    mService->mMinAccBatchCount = 4;
+	    else if (mService->mMaxAccSampleRate == 400 && mService->mMinAccBatchCount < 8)
+		    mService->mMinAccBatchCount = 8;
+	 }
+
 	 s->maxSamplingRate = mService->mMaxAccSampleRate;
 	 s->range = initMaxRange(s->type);
 	 SENSOR_LOGI("Accel Range %d\n", s->range);
@@ -283,6 +294,16 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
 		 mService->mMinGyroBatchCount = MAX_BATCH_COUNT;
 	 else if (mService->mMinGyroBatchCount <= 0)
 		 mService->mMinGyroBatchCount = 1;
+
+	 if (mSensorType == SENSOR_SMI230) {
+	    //Adjusting batch rate to reduce the irq freq at higher rate
+	    if (mService->mMaxGyroSampleRate == 100 && mService->mMinGyroBatchCount < 2)
+		    mService->mMinGyroBatchCount = 2;
+	    else if (mService->mMaxGyroSampleRate == 200 && mService->mMinGyroBatchCount < 4)
+		    mService->mMinGyroBatchCount = 4;
+	    else if (mService->mMaxGyroSampleRate == 400 && mService->mMinGyroBatchCount < 8)
+		    mService->mMinGyroBatchCount = 8;
+	 }
 
 	 //update sensor sampling rate, range and batch count supported to list
 	 s->maxSamplingRate = mService->mMaxGyroSampleRate;
