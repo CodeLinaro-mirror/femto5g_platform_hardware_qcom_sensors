@@ -127,17 +127,10 @@ BoschSensor::BoschSensor(const BoschSensor & other)
 
 BoschSensor::~BoschSensor()
 {
-    PDEBUG("SMI130 BoschSensor cleanup");
-    pthread_kill(thread_sensord, SIGTERM);
-    pthread_kill(thread_hwcntl, SIGTERM);
-
-    //pthread_join(thread_sensord, NULL);
-    //pthread_join(thread_hwcntl, NULL);
+    PDEBUG("SMI230 BoschSensor cleanup");
 
     sigaction(SIGTERM, &oldact, NULL);
 
-    pthread_mutex_destroy(&shmem_hwcntl.mutex);
-    pthread_cond_destroy(&shmem_hwcntl.cond);
     delete shmem_hwcntl.p_list;
 
     close(HALpipe_fd[0]);
