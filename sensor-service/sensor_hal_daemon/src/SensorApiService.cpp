@@ -1104,6 +1104,15 @@ int SensorApiService::activateSensor(SensorAPIEnableReqMsg* pMsg) {
 	   goto fail;
    }
 
+#ifdef POWERMANAGER_ENABLED
+    //Don't allow activation when system is in suspend state
+    if(mPowerState == POWER_STATE_SUSPEND && pMsg->enable == SENSOR_ENABLE)
+    {
+        ret = SENSOR_ERROR_NOT_SUPPORTED;
+        goto fail;
+    }
+#endif //POWERMANAGER_ENABLED
+
    if (mSensorCount != 0) {
 	   for (int i=0; i < mSensorCount; i++) {
 		   if (mSensorList[i].sensor_id == pMsg->sensor_id) {
