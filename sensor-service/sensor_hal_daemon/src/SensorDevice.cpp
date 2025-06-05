@@ -517,6 +517,7 @@ bool SensorDevice::sensorDevSelfTest(int sensor_id, int type, SelfTestType selfT
 		SENSOR_LOGI(LOG_TAG "SelfTest time for sensor id %d: %lldms\n", sensor_id, NS_TO_MS(elapsed_time));
 		*selfTest = result;
 		*selfTestTS = get_timestamp();
+		mService->sensorActivate(sensor_id, SENSOR_DISABLE); //Disable the sensor
 		break;
 	}
         case SENSOR_IAM20680: {
