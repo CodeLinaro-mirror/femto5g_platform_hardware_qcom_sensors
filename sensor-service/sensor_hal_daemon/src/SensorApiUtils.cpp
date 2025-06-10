@@ -63,7 +63,7 @@ int sysfs_write_scale(char *file, float val)
 	if (NULL == fp)
 		return -errno;
 
-	(void)fprintf(fp, "%f", val);
+	(void)fprintf(fp, "%.9f", val);
 	(void)fclose(fp);
 
 	return 0;

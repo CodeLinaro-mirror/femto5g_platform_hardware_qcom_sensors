@@ -207,6 +207,8 @@ void SensorDevice::getSensorDeviceName(string *sensorName) {
 int SensorDevice::initMaxRange(int type, int sensor_id) {
   string rangeFile;
   float scale_value = 0, range = 0;
+  float epsilon = std::numeric_limits<float>::epsilon();
+
   auto sensor = mSensorInfo.find(mSensorType);
   if (sensor != mSensorInfo.end()) {
      // Limit AccRangeIndex to valid bounds
@@ -235,9 +237,9 @@ int SensorDevice::initMaxRange(int type, int sensor_id) {
 		    SENSOR_LOGI(LOG_TAG "Accel scale_value read %f\n", scale_value);
 		    // Find the corresponding key for the read scale value
 		    for (const auto& entry : sensor->second[0].accel_range_scale_map) {
-			    if (scale_value == std::get<1>(entry.second)) {
+			    if (std::fabs(scale_value - std::get<1>(entry.second)) < epsilon) {
 				    range = entry.first;
-				    SENSOR_LOGI(LOG_TAG "range: %d\n", range);
+				    SENSOR_LOGI(LOG_TAG "Accel range: %f\n", range);
 			    }
 		    }
 	    }
@@ -258,9 +260,9 @@ int SensorDevice::initMaxRange(int type, int sensor_id) {
 	            if (mSensorType == SENSOR_SMI230) mService->sensorActivate(sensor_id, SENSOR_DISABLE);
 		    // Find the corresponding key for the read scale value
 		    for (const auto& entry : sensor->second[0].gyro_range_scale_map) {
-			    if (scale_value == std::get<1>(entry.second)) {
+			    if (std::fabs(scale_value - std::get<1>(entry.second)) < epsilon) {
 				    range = entry.first;
-				    SENSOR_LOGI(LOG_TAG "range: %d\n", range);
+				    SENSOR_LOGI(LOG_TAG "Gyro range: %f\n", range);
 			    }
 		    }
 	    }
