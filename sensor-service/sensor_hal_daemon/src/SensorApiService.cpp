@@ -1963,7 +1963,9 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 		char rangeFilePath[SEARCH_PATH_SIZE]={'\0'};
 		find_path(DYN_INPUT_TYPE, rangeFilePath, "SMI230GYRO", sizeof(rangeFilePath));
 		(void)strlcat(rangeFilePath, "range", sizeof(rangeFilePath));
+		sensor_activate(s->sensor_id, SENSOR_ENABLE);
 		(void)sysfs_read_int(rangeFilePath, &s->range);
+		sensor_activate(s->sensor_id, SENSOR_DISABLE);
                 (void)memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
                 mMaxGyroSampleRate = NearBySamplingRate(samplingRate, mMaxGyroSampleRate);
                 s->maxSamplingRate = mMaxGyroSampleRate;
