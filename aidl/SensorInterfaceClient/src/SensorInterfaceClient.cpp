@@ -327,8 +327,6 @@ int main() {
     int batch_count = 0, j = 0;
 
     printf("%s --> ", __func__);
-    setenv("VSOMEIP_CONFIGURATION", "/vendor/etc/vsomeip-sensor_test_client.json", 1);
-    setenv("COMMONAPI_CONFIG", "/vendor/etc/commonapi4someip.ini" ,1);
  
     regSigHandler();
 
