@@ -77,9 +77,9 @@ public:
 	};
 	struct SensorInfo {
 		const char*     chip_name;
-		const char*     accel_name;
-		const char*     gyro_name;
-		const char*     temp_name;
+		char*     accel_name;
+		char*     gyro_name;
+		char*     temp_name;
 		const char*     accel_range_name;
 		const char*     gyro_range_name;
 		const char*     selftest_name;

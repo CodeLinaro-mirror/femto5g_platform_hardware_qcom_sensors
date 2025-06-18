@@ -152,32 +152,43 @@ SensorDevice::~SensorDevice() {
 
 bool SensorDevice::openSensorDevice(string *libname) {
    int dev_num = -1;
-   for (const auto& [type, sensors] : mSensorInfo) {
-    for (const auto& sensor : sensors) {
+   for (auto& [type, sensors] : mSensorInfo) {
+    for (auto& sensor : sensors) {
      SENSOR_LOGD("Checking Sensor %s availability\n", sensor.accel_name);
-     int dev_num = sensor.is_input ? get_input_sensor_device_by_name(sensor.accel_name) : get_iio_sensor_device_by_name(sensor.accel_name);
+     dev_num = sensor.is_input ? get_input_sensor_device_by_name(sensor.accel_name) : get_iio_sensor_device_by_name(sensor.accel_name);
+
+     // If not found and it's asm330lhh_accel, try fallback
+     if (dev_num < 0 && strncmp(sensor.accel_name, "asm330lhh_accel", strlen("asm330lhh_accel")) == 0) {
+         SENSOR_LOGI("Sensor %s not found, retrying with asm330lhhx variant...\n", sensor.accel_name);
+         sensor.accel_name = "asm330lhhx_accel";
+         sensor.gyro_name = "asm330lhhx_gyro";
+         sensor.temp_name = "asm330lhhx_temp";
+
+	 dev_num = sensor.is_input ? get_input_sensor_device_by_name(sensor.accel_name) : get_iio_sensor_device_by_name(sensor.accel_name);
+     }
+
      if (dev_num >= 0) {
-	SENSOR_LOGI("Sensor %s found into %s\n", sensor.accel_name, sensor.is_input ?"/sys/devices/virtual/input/" : "/sys/bus/iio/devices/")
-	mAccel = (sensor.is_input ? "/sys/devices/virtual/input/input" : "/sys/bus/iio/devices/iio:device") + to_string(dev_num) + "/";
-	dev_num = sensor.is_input ? get_input_sensor_device_by_name(sensor.gyro_name) : get_iio_sensor_device_by_name(sensor.gyro_name);
-	if (dev_num >= 0) {
-	 SENSOR_LOGI("Sensor %s found into %s\n", sensor.gyro_name, sensor.is_input ? "/sys/devices/virtual/input/" : "/sys/bus/iio/devices/");
-	 mGyro = (sensor.is_input ? "/sys/devices/virtual/input/input" : "/sys/bus/iio/devices/iio:device") + to_string(dev_num) + "/";
-	}
-	dev_num = sensor.is_input ? get_input_sensor_device_by_name(sensor.temp_name) : get_iio_sensor_device_by_name(sensor.temp_name);
-	if (dev_num >= 0) {
-	 SENSOR_LOGI("Sensor %s found into %s\n", sensor.temp_name, sensor.is_input ? "/sys/devices/virtual/input/" : "/sys/bus/iio/devices/");
-	 mTemp = (sensor.is_input ? "/sys/devices/virtual/input/input" : "/sys/bus/iio/devices/iio:device") + to_string(dev_num) + "/";
-	}
-	mSensorType = type;
-	*libname = sensor.lib_name;  // Assign libname here
-	SENSOR_LOGI("mSensorType %d \n \
+         SENSOR_LOGI("Sensor %s found into %s\n", sensor.accel_name, sensor.is_input ?"/sys/devices/virtual/input/" : "/sys/bus/iio/devices/");
+	 mAccel = (sensor.is_input ? "/sys/devices/virtual/input/input" : "/sys/bus/iio/devices/iio:device") + to_string(dev_num) + "/";
+	 dev_num = sensor.is_input ? get_input_sensor_device_by_name(sensor.gyro_name) : get_iio_sensor_device_by_name(sensor.gyro_name);
+	 if (dev_num >= 0) {
+	     SENSOR_LOGI("Sensor %s found into %s\n", sensor.gyro_name, sensor.is_input ? "/sys/devices/virtual/input/" : "/sys/bus/iio/devices/");
+	     mGyro = (sensor.is_input ? "/sys/devices/virtual/input/input" : "/sys/bus/iio/devices/iio:device") + to_string(dev_num) + "/";
+	 }
+	 dev_num = sensor.is_input ? get_input_sensor_device_by_name(sensor.temp_name) : get_iio_sensor_device_by_name(sensor.temp_name);
+	 if (dev_num >= 0) {
+	     SENSOR_LOGI("Sensor %s found into %s\n", sensor.temp_name, sensor.is_input ? "/sys/devices/virtual/input/" : "/sys/bus/iio/devices/");
+	     mTemp = (sensor.is_input ? "/sys/devices/virtual/input/input" : "/sys/bus/iio/devices/iio:device") + to_string(dev_num) + "/";
+	 }
+	 mSensorType = type;
+	 *libname = sensor.lib_name;  // Assign libname here*/
+	 SENSOR_LOGI("mSensorType %d \n \
 		     libname %s \n \
 		     mAccel %s \n \
 		     mGyro %s \n \
 		     mTemp %s\n",
 		     mSensorType, sensor.lib_name, mAccel.c_str(), mGyro.c_str(), mTemp.c_str());
-	return true;
+	 return true;
      }
     }
    }
