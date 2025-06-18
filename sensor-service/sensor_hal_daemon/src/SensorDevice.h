@@ -60,7 +60,7 @@ public:
 	void setDefaultFIRCoeff();
 	int getDefaultFIRCoeff(bool is_accel, int sensor_rate, int client_rate, vector<float> &out_coef);
 	bool  sensorDevSelfTest(int sensor_id, int type, SelfTestType selfTestType, SelfTestResult *selfTest, uint64_t *selfTestTs, bool onDemand);
-	int  initMaxRange(int);
+	int  initMaxRange(int, int);
         void getSupportedSamplingRateAndRange(struct sensor_list *s);
 	//MLC API
 	bool loadMLC(const char *mcl_fw_name);

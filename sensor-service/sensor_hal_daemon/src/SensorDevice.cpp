@@ -204,7 +204,7 @@ void SensorDevice::getSensorDeviceName(string *sensorName) {
    }
 }
 
-int SensorDevice::initMaxRange(int type) {
+int SensorDevice::initMaxRange(int type, int sensor_id) {
   string rangeFile;
   float scale_value = 0, range = 0;
   auto sensor = mSensorInfo.find(mSensorType);
@@ -249,11 +249,13 @@ int SensorDevice::initMaxRange(int type) {
 	    auto it = next(sensor->second[0].gyro_range_scale_map.begin(), mService->mGyroRange);
 	    if (it != sensor->second[0].gyro_range_scale_map.end()) {
 		    scale_value = std::get<1>(it->second);
+	            if (mSensorType == SENSOR_SMI230) mService->sensorActivate(sensor_id, SENSOR_ENABLE);
 		    sysfs_write_scale(rangeFile.c_str(), scale_value);
 		    SENSOR_LOGI(LOG_TAG "Gyro scale_value written %d %f %f\n", mService->mGyroRange,
 				    std::get<0>(it->second), scale_value);
 		    sysfs_read_scale(rangeFile.c_str(), &scale_value);
 		    SENSOR_LOGI(LOG_TAG "Gyro scale_value read %f\n", scale_value);
+	            if (mSensorType == SENSOR_SMI230) mService->sensorActivate(sensor_id, SENSOR_DISABLE);
 		    // Find the corresponding key for the read scale value
 		    for (const auto& entry : sensor->second[0].gyro_range_scale_map) {
 			    if (scale_value == std::get<1>(entry.second)) {
@@ -293,7 +295,7 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
 	 }
 
 	 s->maxSamplingRate = mService->mMaxAccSampleRate;
-	 s->range = initMaxRange(s->type);
+	 s->range = initMaxRange(s->type, s->sensor_id);
 	 SENSOR_LOGI("Accel Range %d\n", s->range);
 	 s->minBatchCount   = mService->mMinAccBatchCount;
 	 fill(s->odr, s->odr + MAX_ODR, 0);
@@ -318,7 +320,7 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
 
 	 //update sensor sampling rate, range and batch count supported to list
 	 s->maxSamplingRate = mService->mMaxGyroSampleRate;
-	 s->range = initMaxRange(s->type);
+	 s->range = initMaxRange(s->type, s->sensor_id);
 	 SENSOR_LOGI("Gyro Range %d\n", s->range);
 	 s->minBatchCount   = mService->mMinGyroBatchCount;
 	 fill(s->odr, s->odr + MAX_ODR, 0);
