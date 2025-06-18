@@ -280,7 +280,9 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
   auto sensor = mSensorInfo.find(mSensorType);
   if (sensor != mSensorInfo.end()) {
      if (s->type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
-         mService->mMaxAccSampleRate  = mService->nearBySamplingRate(sensor->second[0].accel_odr.data(), mService->mMaxAccSampleRate);
+	 fill(s->odr, s->odr + MAX_ODR, 0);
+	 copy(sensor->second[0].accel_odr.begin(), sensor->second[0].accel_odr.begin() + min(sensor->second[0].accel_odr.size(), static_cast<size_t>(MAX_ODR)), s->odr);
+         mService->mMaxAccSampleRate  = mService->nearBySamplingRate(s->odr, mService->mMaxAccSampleRate);
 	 if (mService->mMinAccBatchCount >= MAX_BATCH_COUNT)
 		 mService->mMinAccBatchCount = MAX_BATCH_COUNT;
 	 else if (mService->mMinAccBatchCount <= 0)
@@ -300,11 +302,11 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
 	 s->range = initMaxRange(s->type, s->sensor_id);
 	 SENSOR_LOGI("Accel Range %d\n", s->range);
 	 s->minBatchCount   = mService->mMinAccBatchCount;
-	 fill(s->odr, s->odr + MAX_ODR, 0);
-	 copy(sensor->second[0].accel_odr.begin(), sensor->second[0].accel_odr.begin() + min(sensor->second[0].accel_odr.size(), static_cast<size_t>(MAX_ODR)), s->odr);
      }
      if (s->type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
-	 mService->mMaxGyroSampleRate = mService->nearBySamplingRate(sensor->second[0].gyro_odr.data(), mService->mMaxGyroSampleRate);
+	 fill(s->odr, s->odr + MAX_ODR, 0);
+	 copy(sensor->second[0].gyro_odr.begin(), sensor->second[0].gyro_odr.begin() + min(sensor->second[0].gyro_odr.size(), static_cast<size_t>(MAX_ODR)), s->odr);
+	 mService->mMaxGyroSampleRate = mService->nearBySamplingRate(s->odr, mService->mMaxGyroSampleRate);
 	 if (mService->mMinGyroBatchCount >= MAX_BATCH_COUNT)
 		 mService->mMinGyroBatchCount = MAX_BATCH_COUNT;
 	 else if (mService->mMinGyroBatchCount <= 0)
@@ -325,8 +327,6 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
 	 s->range = initMaxRange(s->type, s->sensor_id);
 	 SENSOR_LOGI("Gyro Range %d\n", s->range);
 	 s->minBatchCount   = mService->mMinGyroBatchCount;
-	 fill(s->odr, s->odr + MAX_ODR, 0);
-	 copy(sensor->second[0].gyro_odr.begin(), sensor->second[0].gyro_odr.begin() + min(sensor->second[0].gyro_odr.size(), static_cast<size_t>(MAX_ODR)), s->odr);
      }
      mService->mBatchConst =  sensor->second[0].batch_const;
   }
