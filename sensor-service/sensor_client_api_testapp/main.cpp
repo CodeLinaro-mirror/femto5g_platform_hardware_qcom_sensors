@@ -81,7 +81,7 @@
 #include <atomic>
 #include <vector>
 
-#define CMD_OPTIONS     "l:s:b:n:e:t:r:"
+#define CMD_OPTIONS     "l:s:b:n:e:t:r:q:"
 
 #undef LOG_TAG
 #define LOG_TAG "Sensor-Test-App:"
@@ -420,6 +420,7 @@ int main(int argc, char *argv[]) {
    static int enable_buffer = 0;
    static int enable_live = 0;
    static int enable_temperature = 0;
+   static int enable_selftest = 0;
    std::thread temperature;
 
    SelfTestType selfTestType;
@@ -462,6 +463,10 @@ int main(int argc, char *argv[]) {
 		   case 'r':
 			   Rotate = (bool)strtol(optarg, &stopstring, 10);
 			   break;
+		   case 'q':
+			   enable_selftest = 1;
+			   selfTestType = (SelfTestType)strtol(optarg, &stopstring, 10);
+			   break;
 		   default:
 			   Usage();
 			   break;
@@ -469,6 +474,18 @@ int main(int argc, char *argv[]) {
      }
      SENSOR_LOGI(LOG_TAG "Sensor enable_live %d sampling rate %f batch count %d live_count %d enable_buffer %d enable_temperature %d rotate %d\n",
 		     enable_live, odr_rate, batch_count, live_count, enable_buffer, enable_temperature, Rotate);
+
+     if(enable_selftest == 1)
+     {
+	for(int i=0; i < sensor_count; i++) {
+	    start_time = getTimestamp();
+	    ret = pClient->sensor_self_test(sensor[i].sensor_id, selfTestType, request_id++, onSelfTestResultCallback);
+	    if(ret < 0) {
+		SENSOR_LOGE(LOG_TAG "sensor self test request failed ret %d \n", ret);
+		break;
+	    }
+	}
+     }
 
      if(enable_buffer == 1){
 	ret = pClient->sensor_read_buffer_data(1, onSensorBufferDataReadCb);
