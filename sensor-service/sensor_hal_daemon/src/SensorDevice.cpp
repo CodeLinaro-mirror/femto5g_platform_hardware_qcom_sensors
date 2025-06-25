@@ -290,8 +290,8 @@ void SensorDevice::getSupportedSamplingRateAndRange(struct sensor_list *s) {
 
 	 if (mSensorType == SENSOR_SMI230) {
 	    //Adjusting batch rate to reduce the irq freq at higher rate
-	    if (mService->mMaxGyroSampleRate == 100 && mService->mMinGyroBatchCount < 2)
-		    mService->mMinGyroBatchCount = 2;
+	    if (mService->mMaxAccSampleRate == 100 && mService->mMinAccBatchCount < 2)
+		    mService->mMinAccBatchCount = 2;
 	    else if (mService->mMaxAccSampleRate == 200 && mService->mMinAccBatchCount < 4)
 		    mService->mMinAccBatchCount = 4;
 	    else if (mService->mMaxAccSampleRate == 400 && mService->mMinAccBatchCount < 8)

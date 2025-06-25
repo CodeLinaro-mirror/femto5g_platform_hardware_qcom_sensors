@@ -425,7 +425,6 @@ int main(int argc, char *argv[]) {
 
    SelfTestType selfTestType;
 
-
    pClient = new SensorClient(onCapabilitiesCb);
 
    (void)sleep(2);
@@ -485,6 +484,7 @@ int main(int argc, char *argv[]) {
 		break;
 	    }
 	}
+	(void)sleep(10);
      }
 
      if(enable_buffer == 1){
@@ -492,6 +492,7 @@ int main(int argc, char *argv[]) {
 	if(ret < 0) {
 		SENSOR_LOGE(LOG_TAG "sensor buffer read failed ret %d \n", ret);
 	}
+	(void)sleep(60);
      }
 
     if(enable_live == 1) {
@@ -520,7 +521,7 @@ int main(int argc, char *argv[]) {
 	SENSOR_LOGI(LOG_TAG "read temperature\n");
 	temperature = std::thread(temperatureThread);
     }
-     while(1) {
+     while(enable_live) {
 	if (enable_temperature == 1) {
 		SENSOR_LOGI(LOG_TAG "read temperature\n");
 		ret = pClient->sensor_read_temperature(onSensorTempReadCb);
@@ -536,6 +537,7 @@ int main(int argc, char *argv[]) {
 	(void)fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
 	int command = buf[0];
      }
+     goto EXIT;
    }
 
    printHelp();
