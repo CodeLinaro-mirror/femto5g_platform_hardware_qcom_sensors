@@ -81,7 +81,7 @@
 #include <atomic>
 #include <vector>
 
-#define CMD_OPTIONS     "l:s:b:n:e:t:r:q:"
+#define CMD_OPTIONS     "l:s:b:n:e:t:R:z:r:p:y:"
 
 #undef LOG_TAG
 #define LOG_TAG "Sensor-Test-App:"
@@ -114,8 +114,8 @@ std::atomic<bool> running(true);
 
 void Usage(void)
 {
-  SENSOR_LOGI(LOG_TAG "\nUsage:\nsensor_client_api_testapp --live <enable> --sampling <> --batch <> --count <> --temperature <enbale> --buffer <enable> --rotate <enable>\n");
-  SENSOR_LOGI(LOG_TAG "Ex: sensor_client_api_testapp -l 1 -s 104 -b 10 -n 10 -e 1 -t 1 -r 1\n");
+  SENSOR_LOGI(LOG_TAG "\nUsage:\nsensor_client_api_testapp --live <enable> --sampling <> --batch <> --count <> --temperature <enbale> --buffer <enable> --rotate <enable> --roll <roll> --pitch <pitch> --yaw <yaw>\n");
+  SENSOR_LOGI(LOG_TAG "Ex: sensor_client_api_testapp -l 1 -s 104 -b 10 -n 10 -e 1 -t 1 -R 1\n");
   return;
 }
 
@@ -406,6 +406,7 @@ int main(int argc, char *argv[]) {
    bool Rotate = 0;
    int batch_count = 0;
    uint32_t roll = 0, pitch = 0, yaw = 0;
+   bool euler = 0;
    sensor_state state = SENSOR_DISABLE;
    int mlc_enable = 0;
    int i = 0, j= 0;
@@ -459,12 +460,24 @@ int main(int argc, char *argv[]) {
 		   case 't':
 			   enable_temperature = strtol(optarg, &stopstring, 10);
 			   break;
-		   case 'r':
+		   case 'R':
 			   Rotate = (bool)strtol(optarg, &stopstring, 10);
 			   break;
-		   case 'q':
+		   case 'z':
 			   enable_selftest = 1;
 			   selfTestType = (SelfTestType)strtol(optarg, &stopstring, 10);
+			   break;
+		   case 'r':
+			   euler = 1;
+			   roll = strtol(optarg, &stopstring, 10);
+			   break;
+		   case 'p':
+			   euler = 1;
+			   pitch = strtol(optarg, &stopstring, 10);
+			   break;
+		   case 'y':
+			   euler = 1;
+			   yaw = strtol(optarg, &stopstring, 10);
 			   break;
 		   default:
 			   Usage();
@@ -474,6 +487,13 @@ int main(int argc, char *argv[]) {
      SENSOR_LOGI(LOG_TAG "Sensor enable_live %d sampling rate %f batch count %d live_count %d enable_buffer %d enable_temperature %d rotate %d\n",
 		     enable_live, odr_rate, batch_count, live_count, enable_buffer, enable_temperature, Rotate);
 
+     if(euler)
+     {
+	ret = pClient->sensor_update_rotation_matrix(roll, pitch, yaw);
+	if(ret < 0) {
+		SENSOR_LOGE(LOG_TAG "sensor set Euler angles failed ret %d \n", ret);
+	}
+     }
      if(enable_selftest == 1)
      {
 	for(int i=0; i < sensor_count; i++) {
@@ -481,7 +501,6 @@ int main(int argc, char *argv[]) {
 	    ret = pClient->sensor_self_test(sensor[i].sensor_id, selfTestType, request_id++, onSelfTestResultCallback);
 	    if(ret < 0) {
 		SENSOR_LOGE(LOG_TAG "sensor self test request failed ret %d \n", ret);
-		break;
 	    }
 	}
 	(void)sleep(10);
