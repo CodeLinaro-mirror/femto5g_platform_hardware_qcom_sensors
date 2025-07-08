@@ -113,7 +113,6 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     mAccBuffRange(configParamRead.AccBuffRange),
     mGyroBuffRange(configParamRead.GyroBuffRange),
     mEnableFIR(configParamRead.EnableFIR),
-    mSensorSelfTest(configParamRead.SensorSelfTest),
     mhmi(nullptr),
     mdev(nullptr),
     mpoll_dev_v0(nullptr),
@@ -1306,7 +1305,7 @@ fail:
     return;
 }
 
-int SensorApiService::SensorSelfTest(int sensor_id, SelfTestType selfTestType, SelfTestResult &result, SelfTestResultType &resultType, int &AccelTest, int &GyroTest, bool voluntary) {
+int SensorApiService::SensorSelfTest(int sensor_id, SelfTestType selfTestType, SelfTestResult &result, SelfTestResultType &resultType, int &AccelTest, int &GyroTest) {
     FILE *self_test_fd = NULL;
     SelfTestResult PositiveSignResult;
     SelfTestResult NegativeSignResult;
@@ -1323,7 +1322,7 @@ int SensorApiService::SensorSelfTest(int sensor_id, SelfTestType selfTestType, S
             if (sensor_id == mSensor[i].sensor_id) {
                 if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
                     AccelTest = 1;
-                    if (!voluntary && mSensor[i].Activate == SENSOR_ENABLE && mPowerState != POWER_STATE_SUSPEND){
+                    if (mSensor[i].Activate == SENSOR_ENABLE && mPowerState != POWER_STATE_SUSPEND){
                         resultType = 0;
                         goto end;
                     }
@@ -1332,7 +1331,7 @@ int SensorApiService::SensorSelfTest(int sensor_id, SelfTestType selfTestType, S
                 }
                 if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE) {
                     GyroTest = 1;
-                    if (!voluntary && mSensor[i].Activate == SENSOR_ENABLE && mPowerState != POWER_STATE_SUSPEND){
+                    if (mSensor[i].Activate == SENSOR_ENABLE && mPowerState != POWER_STATE_SUSPEND){
                         resultType = 0;
                         goto end;
                     }
@@ -1443,7 +1442,7 @@ int SensorApiService::SensorSelfTest(int sensor_id, SelfTestType selfTestType, S
             if (sensor_id == mSensor[i].sensor_id) {
                 if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
                     AccelTest = 1;
-                    if (!voluntary && mSensor[i].Activate == SENSOR_ENABLE && mPowerState != POWER_STATE_SUSPEND){
+                    if (mSensor[i].Activate == SENSOR_ENABLE && mPowerState != POWER_STATE_SUSPEND){
                         resultType = 0;
                         goto end;
                     }
@@ -1452,7 +1451,7 @@ int SensorApiService::SensorSelfTest(int sensor_id, SelfTestType selfTestType, S
 		}
 		if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED) {
 	            GyroTest = 1;
-		    if (!voluntary && mSensor[i].Activate == SENSOR_ENABLE && mPowerState != POWER_STATE_SUSPEND){
+		    if (mSensor[i].Activate == SENSOR_ENABLE && mPowerState != POWER_STATE_SUSPEND){
 		        resultType = 0;
 			goto end;
 		    }
@@ -1521,10 +1520,9 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
     uint64_t starting_time = 0;
     uint64_t ending_time = 0;
     uint64_t selftest_time = 0;
-    bool voluntary = false;
 
     starting_time = getTimestamp();
-    (void)SensorSelfTest(sensor_id, selfTestType, result, resultType, AccelTest, GyroTest, voluntary);
+    (void)SensorSelfTest(sensor_id, selfTestType, result, resultType, AccelTest, GyroTest);
     ending_time = getTimestamp();
     selftest_time = (ending_time - starting_time);
     SENSOR_LOGI(LOG_TAG "Time taken for self-test execution %lldms\n", selftest_time/1000000);
@@ -2023,82 +2021,6 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
   }
 }
 
-void SensorApiService::onPowerEventSelfTest(){
-    int ret = 0;
-    FILE *self_test_fd = NULL;
-    char *file_path_name = NULL;
-    int fsize = 256;
-    char self_test_file_name_accel[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
-    char self_test_file_name_gyro[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
-    int len = 0;
-    char buffer_string[DEVICE_IIO_MAX_FILENAME_LEN];
-    SelfTestResult Accelresult = 1;
-    SelfTestResult Gyroresult = 1;
-    SelfTestResult PositiveAccelSignResult;
-    SelfTestResult NegativeAccelSignResult;
-    SelfTestResult PositiveGyroSignResult;
-    SelfTestResult NegativeGyroSignResult;
-    SelfTestType SelfTestType = 2;
-    SelfTestResultType resultType = 1;
-    int AccelTest = 0;
-    int GyroTest = 0;
-    bool voluntary = true;
-
-    /* ASM330LHHx Sensor */
-    if(mSensorType == 1){
-	for (int i=0 ; i < mSensorCount; i++) {
-            if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
-	        for(int i = 0 ; i < mSensorCount; i++)  {
-	            if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
-                        (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
-
-                    }
-                }
-		(void)SensorSelfTest(mSensor[i].sensor_id, SelfTestType, Accelresult, resultType, AccelTest, GyroTest, voluntary);
-	    }
-
-	    if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE) {
-                for(int i = 0 ; i < mSensorCount; i++)  {
-                    if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE) {
-                        (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
-
-                    }
-                }
-		(void)SensorSelfTest(mSensor[i].sensor_id, SelfTestType, Gyroresult, resultType, AccelTest, GyroTest, voluntary);
-	    }
-	}
-	SelfTestResultAccel = Accelresult;
-        SelfTestResultGyro = Gyroresult;
-	timestamp = getTimestamp();
-        SENSOR_LOGI(LOG_TAG "SelfTestResultAccel %d SelfTestResultGyro %d\n", SelfTestResultAccel, SelfTestResultGyro);
-    }
-
-    /* SMI230 Sensor */
-    if (mSensorType == 4) {
-        for(int i = 0 ; i < mSensorCount; i++)  {
-            SENSOR_LOGI(LOG_TAG ">-- on Suspend/Shutdown Enable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
-            (void)sensor_activate(mSensor[i].sensor_id, SENSOR_ENABLE); //ENable the sensor
-        }
-        for (int i=0 ; i < mSensorCount; i++) {
-            if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
-		(void)SensorSelfTest(mSensor[i].sensor_id, SelfTestType, Accelresult, resultType, AccelTest, GyroTest, voluntary);
-		Acceltimestamp = getTimestamp();
-                timestamp = Acceltimestamp;
-            }
-            if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED) {
-		(void)SensorSelfTest(mSensor[i].sensor_id, SelfTestType, Gyroresult, resultType, AccelTest, GyroTest, voluntary);
-		Gyrotimestamp = getTimestamp();
-                timestamp = Gyrotimestamp;
-            }
-        }
-
-        SelfTestResultAccel = Accelresult;
-        SelfTestResultGyro = Gyroresult;
-        SENSOR_LOGI(LOG_TAG "SelfTestResultAccel %d SelfTestResultGyro %d\n", SelfTestResultAccel, SelfTestResultGyro);
-    }
-    return;
-}
-
 /******************************************************************************
 SensorApiService - power event handlers
 ******************************************************************************/
@@ -2113,19 +2035,6 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
     mPowerState = powerState;
 
     if(mPowerState == POWER_STATE_SUSPEND || mPowerState == POWER_STATE_SHUTDOWN){
-	SENSOR_LOGI(LOG_TAG "mSensorSelfTest %d\n", mSensorSelfTest);
-        if(mSensorSelfTest == 1){
-	    difference = getTimestamp() - selttest_time_delta;
-	    SENSOR_LOGI(LOG_TAG "Time since last voluntary self-test %lld\n", difference);
-	    if(selttest_time_delta == 0 || difference >= SELFTEST_WAIT_TIME){
-	        if (mSensorType == SENSOR_ASM330 || mSensorType == SENSOR_SMI230) {
-                    SENSOR_LOGI(LOG_TAG "Execute Voluntary SelfTest mPowerState %d\n", mPowerState);
-                    onPowerEventSelfTest();
-		    selttest_time_delta = getTimestamp();
-                }
-	    }
-        }
-
         for(int i = 0 ; i < mSensorCount; i++)  {
 	    SENSOR_LOGI(LOG_TAG ">-- on Suspend/Shutdown Disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
             (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
@@ -2133,17 +2042,6 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
     }
 
     if(mPowerState == POWER_STATE_RESUME){
-       if (mSensorType == 1 || mSensorType == 4) {
-           if (SelfTestResultAccel == 1)
-	       mask = ACCEL_SELFTEST_FAIL;
-
-	   if (SelfTestResultGyro == 1)
-               mask = GYRO_SELFTEST_FAIL;
-
-	   if (SelfTestResultAccel == 1 && SelfTestResultGyro == 1)
-	       mask = ACCEL_GYRO_BOTH_SELFTEST_FAIL;
-       }
-
        for(int i = 0 ; i < mSensorCount; i++)  {
 	   if (mSensor[i].Activate == SENSOR_ENABLE){
                int64_t SamplingRate = FREQUENCY_TO_NS(mSensor[i].SamplingRate);

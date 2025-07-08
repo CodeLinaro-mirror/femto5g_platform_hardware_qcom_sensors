@@ -268,7 +268,7 @@ private:
     void  onSelfTestRequest(SensorHalDaemonClientHandler*,
 		    int sensor_id, SelfTestType selfTestType, int request_id);
     int   SensorSelfTest(int sensor_id, SelfTestType selfTestType, SelfTestResult &SelfTestResult,
-		    SelfTestResultType &resultType, int &AccelTest, int &GyroTest, bool voluntary);
+		    SelfTestResultType &resultType, int &AccelTest, int &GyroTest);
     void  onPowerEventSelfTest();
     void  GetSupportedSamplingRateAndRange(struct sensor_list *s);
     int   NearByBatchCount(int minBatchCount, int ReqBatchCount, float input_rate, float output_rate, int factor);
@@ -366,7 +366,6 @@ private:
     uint16_t pitch;
     uint16_t yaw;
     int   mEnableFIR;
-    int   mSensorSelfTest;
     SensorDiagLog mDiagLogger;
 
 
