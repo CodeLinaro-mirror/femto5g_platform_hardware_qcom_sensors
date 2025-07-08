@@ -1645,7 +1645,7 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
 
     switch(mPowerState) {
 	case POWER_STATE_SUSPEND:
-             POWER_STATE_SHUTDOWN: {
+        case POWER_STATE_SHUTDOWN: {
 		 for(int i = 0 ; i < mSensorCount; i++)  {
 		     SENSOR_LOGI(LOG_TAG ">-- on Suspend/Shutdown Disable the sensor mSensor[i].sensor_id %d\n",
 				     mSensor[i].sensor_id);
