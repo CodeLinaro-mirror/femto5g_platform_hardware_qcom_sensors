@@ -34,7 +34,7 @@
 #define CALL_MEMBER_FN(pobject, ptrToMember) ((pobject)->*(ptrToMember))
 
 #define MAX_SYSFS_NAME_LEN  (100)
-#define IIO_BUFFER_LENGTH   (32768)
+#define IIO_BUFFER_LENGTH   (32768/4)
 
 /*****************************************************************************/
 
