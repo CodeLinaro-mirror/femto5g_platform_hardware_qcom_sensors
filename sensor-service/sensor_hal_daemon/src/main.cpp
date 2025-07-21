@@ -25,11 +25,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 #include <stdio.h>
@@ -87,18 +86,6 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
 		 break;
 	 } else if(buffer[i] == ' ') { // if char is whitespace, continue until something is found
 		 continue;
-	 } else if(strstr(buffer, "SENSOR_VENDOR=")) {
-		 line = strstr(buffer, "=");
-		 if(line) (void)sscanf(&line[1], "%d", &configParamRead->SensorType);
-		 break;
-	 }
-	 else if(strstr(buffer, "SENSOR_HAL_LIB_PATH=")) {
-		 line = strstr(buffer, "=");
-		 if(line) {
-			 (void)strlcpy(configParamRead->SensorHalLibPath, &line[1], sizeof(configParamRead->SensorHalLibPath));
-			 configParamRead->SensorHalLibPath[strlen(configParamRead->SensorHalLibPath)-1] = '\0';
-		 }
-		 break;
 	 }
 	 else if(strstr(buffer, "ACCEL_NAME=")) {
                  line = strstr(buffer, "=");
@@ -114,11 +101,6 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
 			 (void)strlcpy(configParamRead->GyroName, &line[1],sizeof(configParamRead->GyroName));
 			 configParamRead->GyroName[strlen(configParamRead->GyroName)-1] = '\0';
 		 }
-                 break;
-         }
-         else if(strstr(buffer, "DYAMIC_CONFIG_ENABLED=")) {
-                 line = strstr(buffer, "=");
-		 if(line) (void)sscanf(&line[1], "%d", &configParamRead->DynamicConfigEnabled);
                  break;
          }
          else if(strstr(buffer, "MAX_ACC_SAMPLING_RATE=")) {
@@ -141,16 +123,6 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
 		 if(line) (void)sscanf(&line[1], "%d", &configParamRead->GyroRange);
 		 break;
 	 }
-         else if(strstr(buffer, "ACC_BUFF_RANGE=")) {
-                line = strstr(buffer, "=");
-                if(line) (void)sscanf(&line[1], "%d", &configParamRead->AccBuffRange);
-                break;
-         }
-         else if(strstr(buffer, "GYRO_BUFF_RANGE=")) {
-                line = strstr(buffer, "=");
-                if(line) (void)sscanf(&line[1], "%d", &configParamRead->GyroBuffRange);
-                break;
-         }
 	 else if(strstr(buffer, "MIN_ACC_BATCH_COUNT=")) {
                  line = strstr(buffer, "=");
                  if(line) (void)sscanf(&line[1], "%d", &configParamRead->MinAccBatchCount);
@@ -171,11 +143,6 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
                  if(line) (void)sscanf(&line[1], "%d", &configParamRead->EnableFIR);
                  break;
          }
-	 else if(strstr(buffer, "SELF_TEST=")) {
-                 line = strstr(buffer, "=");
-                 if(line) (void)sscanf(&line[1], "%d", &configParamRead->SensorSelfTest);
-                 break;
-         }
        }
     }
     (void)fclose(file);
@@ -184,18 +151,20 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
 //Print the all values of parametets defined in etc/sensors.conf file
 void PrintSensorConfigParameters(configParamToRead configParamRead)
 {
-   SENSOR_LOGI(LOG_TAG "sensor type:%d\n \
-	\tsensor_lib:%s\n \
-	\tdynamicconfig:%d\n \
-	\tAccelName %s: AccSamplingRate :%f AccBatchcount :%d AccRange :%d AccBuffRange :%d\n\
-	\tGyroName  %s:GyroSamplingRate:%f GyroBatchcount:%d GyroRange:%d GyroBuffRange :%d\n \
-	DebugLevel:%d EnableFIR:%d\n",
-	configParamRead.SensorType,
-	configParamRead.SensorHalLibPath,
-	configParamRead.DynamicConfigEnabled,
-	configParamRead.AccelName, configParamRead.MaxAccSampleRate, configParamRead.MinAccBatchCount, configParamRead.AccRange, configParamRead.AccBuffRange,
-	configParamRead.GyroName,  configParamRead.MaxGyroSampleRate, configParamRead.MinGyroBatchCount, configParamRead.GyroRange, configParamRead.GyroBuffRange,
-	configParamRead.DebugLevel, configParamRead.EnableFIR);
+   SENSOR_LOGI(LOG_TAG "\n \
+	\tAccelName %s: AccSamplingRate :%f AccBatchcount :%d AccRange :%d \n \
+	\tGyroName  %s: GyroSamplingRate:%f GyroBatchcount:%d GyroRange:%d \n \
+	\tDebugLevel:%d EnableFIR:%d\n",
+	configParamRead.AccelName,
+	configParamRead.MaxAccSampleRate,
+	configParamRead.MinAccBatchCount,
+	configParamRead.AccRange,
+	configParamRead.GyroName,
+	configParamRead.MaxGyroSampleRate,
+	configParamRead.MinGyroBatchCount,
+	configParamRead.GyroRange,
+	configParamRead.DebugLevel,
+	configParamRead.EnableFIR);
 }
 
 //MAIN
@@ -205,6 +174,7 @@ int main(int argc, char *argv[])
     configParamRead.EnableFIR = 0; //By default, use moving average
 
     SENSOR_LOGI(LOG_TAG "sensor_hal_daemon - ver %s\n", HAL_DAEMON_VERSION);
+    sensor_boot_kpi_marker("S - SHD probe start");
 
     // read configuration file
     SENSOR_READ_CONF(SENSOR_CONF_PATH, &configParamRead);
@@ -226,7 +196,7 @@ int main(int argc, char *argv[])
     }
 
     // should not reach here...
-    SENSOR_LOGI(LOG_TAG "done\n");
     SensorApiService::destroy();
+    SENSOR_LOGI(LOG_TAG "done\n");
     exit(0);
 }

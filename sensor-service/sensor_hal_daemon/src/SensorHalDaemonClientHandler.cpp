@@ -25,11 +25,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 #include <cinttypes>
@@ -39,61 +38,9 @@
 #include <SensorApiService.h>
 #include <SensorInterfaceStubImpl.hpp>
 
-default_fir_coef_t DEFAULT_ACC_FIR_COEF_SMI230 = {
-   {400, {
-      {200, {1.0/2, 1.0/2}},
-      {100, {1.0/12, 3.0/12, 4.0/12, 3.0/12, 1.0/12}}
-   }},
-   {200, {
-      {100, {1.0/2, 1.0/2}}
-   }}
-};
-
-default_fir_coef_t DEFAULT_GYRO_FIR_COEF_SMI230 = {
-   {400, {
-      {200, {1.0/12, 3.0/12, 4.0/12, 3.0/12, 1.0/12}},
-      {100, {1.0/45, 3.0/45, 6.0/45, 8.0/45, 9.0/45, 8.0/45, 6.0/45, 3.0/45, 1.0/45}}
-   }},
-   {200, {
-      {100, {1.0/12, 3.0/12, 4.0/12, 3.0/12, 1.0/12}}
-   }}
-};
-
-default_fir_coef_t *DEFAULT_ACC_FIR_COEF = NULL;
-default_fir_coef_t *DEFAULT_GYRO_FIR_COEF = NULL;
-
-
-static int get_default_fir_coef(int sensor_rate, int client_rate, bool is_accel, std::vector<float> &out_coef)
+int FIRFilter::initFilter(uint32_t factor, bool is_accel)
 {
-   const default_fir_coef_t &default_coef = is_accel ? *DEFAULT_ACC_FIR_COEF : *DEFAULT_GYRO_FIR_COEF;
-   default_fir_coef_t::const_iterator it = default_coef.find(sensor_rate);
-   if (it != default_coef.end())
-   {
-      for (const std::pair<int, std::vector<float>> &coef : it->second)
-      {
-         if (coef.first == client_rate)
-         {
-            out_coef = coef.second;
-            return 0;
-         }
-      }
-   }
-   return -1;
-}
-
-void set_default_fir_coef(int sensorType)
-{
-   if(sensorType == 4)
-   {
-      //smi230
-      DEFAULT_ACC_FIR_COEF = &DEFAULT_ACC_FIR_COEF_SMI230;
-      DEFAULT_GYRO_FIR_COEF = &DEFAULT_GYRO_FIR_COEF_SMI230;
-   }
-}
-
-int FIRFilter::init_filter(uint32_t factor, bool is_accel)
-{
-   std::vector<float> &fir_coef = is_accel ? fir_coef_acc : fir_coef_gyro;
+   vector<float> &fir_coef = is_accel ? fir_coef_acc : fir_coef_gyro;
    auto &state = is_accel ? accel_state : gyro_state;
    uint32_t &order = is_accel ? order_acc : order_gyro;
    int &ptr = is_accel ? accel_ptr : gyro_ptr;
@@ -104,36 +51,36 @@ int FIRFilter::init_filter(uint32_t factor, bool is_accel)
    if(order != 0)
    {
       fir_coef.clear();
-      std::get<0>(state).clear();
-      std::get<1>(state).clear();
-      std::get<2>(state).clear();
+      get<0>(state).clear();
+      get<1>(state).clear();
+      get<2>(state).clear();
    }
    order = factor;
    fir_coef.reserve(order);
-   std::get<0>(state).reserve(2*order);
-   std::get<1>(state).reserve(2*order);
-   std::get<2>(state).reserve(2*order);
+   get<0>(state).reserve(2*order);
+   get<1>(state).reserve(2*order);
+   get<2>(state).reserve(2*order);
    ptr = 0;
    fir_coef.assign(order, 0.0f);
-   std::get<0>(state).assign(2*order, 0.0f);
-   std::get<1>(state).assign(2*order, 0.0f);
-   std::get<2>(state).assign(2*order, 0.0f);
+   get<0>(state).assign(2*order, 0.0f);
+   get<1>(state).assign(2*order, 0.0f);
+   get<2>(state).assign(2*order, 0.0f);
    return 0;
 }
 
-int FIRFilter::init_filter_acc(uint32_t factor)
+int FIRFilter::initFilter_acc(uint32_t factor)
 {
-   return init_filter(factor, true);
+   return initFilter(factor, true);
 }
 
-int FIRFilter::init_filter_gyro(uint32_t factor)
+int FIRFilter::initFilter_gyro(uint32_t factor)
 {
-   return init_filter(factor, false);
+   return initFilter(factor, false);
 }
 
-int FIRFilter::set_filter(const std::vector<float> &coef, bool is_accel)
+int FIRFilter::setFilter(const vector<float> &coef, bool is_accel)
 {
-   std::vector<float> &fir_coef = is_accel ? fir_coef_acc : fir_coef_gyro;
+   vector<float> &fir_coef = is_accel ? fir_coef_acc : fir_coef_gyro;
    auto &state = is_accel ? accel_state : gyro_state;
    uint32_t &order = is_accel ? order_acc : order_gyro;
    int &ptr = is_accel ? accel_ptr : gyro_ptr;
@@ -147,41 +94,41 @@ int FIRFilter::set_filter(const std::vector<float> &coef, bool is_accel)
 }
 
 
-int FIRFilter::set_filter_acc(const std::vector<float> &coef)
+int FIRFilter::setFilter_acc(const vector<float> &coef)
 {
-   return set_filter(coef, true);
+   return setFilter(coef, true);
 }
 
-int FIRFilter::set_filter_gyro(const std::vector<float> &coef)
+int FIRFilter::setFilter_gyro(const vector<float> &coef)
 {
-   return set_filter(coef, false);
+   return setFilter(coef, false);
 }
 
 
 //Ref: https://ccrma.stanford.edu/~jatin/Notebooks/FIRBenchmarks.html
-std::tuple<float,float,float> FIRFilter::convl(std::tuple<float,float,float> sample, bool is_accel)
+tuple<float,float,float> FIRFilter::convl(tuple<float,float,float> sample, bool is_accel)
 {
-   std::tuple<float,float,float> new_sample = sample;
-   std::vector<float> &fir_coef = is_accel ? fir_coef_acc : fir_coef_gyro;
+   tuple<float,float,float> new_sample = sample;
+   vector<float> &fir_coef = is_accel ? fir_coef_acc : fir_coef_gyro;
    auto &state = is_accel ? accel_state : gyro_state;
    uint32_t &order = is_accel ? order_acc : order_gyro;
    int &ptr = is_accel ? accel_ptr : gyro_ptr;
 
    if(order > 0)
    {
-      std::get<0>(state)[ptr] = std::get<0>(sample);
-      std::get<1>(state)[ptr] = std::get<1>(sample);
-      std::get<2>(state)[ptr] = std::get<2>(sample);
-      std::get<0>(state)[ptr + order] = std::get<0>(sample);
-      std::get<1>(state)[ptr + order] = std::get<1>(sample);
-      std::get<2>(state)[ptr + order] = std::get<2>(sample);
+      get<0>(state)[ptr] = get<0>(sample);
+      get<1>(state)[ptr] = get<1>(sample);
+      get<2>(state)[ptr] = get<2>(sample);
+      get<0>(state)[ptr + order] = get<0>(sample);
+      get<1>(state)[ptr + order] = get<1>(sample);
+      get<2>(state)[ptr + order] = get<2>(sample);
 
-      std::get<0>(new_sample) = std::inner_product(std::get<0>(state).begin() + ptr, 
-                                 std::get<0>(state).begin() + ptr + order, fir_coef.begin(), 0.0f);
-      std::get<1>(new_sample) = std::inner_product(std::get<1>(state).begin() + ptr, 
-                                 std::get<1>(state).begin() + ptr + order, fir_coef.begin(), 0.0f);
-      std::get<2>(new_sample) = std::inner_product(std::get<2>(state).begin() + ptr, 
-                                 std::get<2>(state).begin() + ptr + order, fir_coef.begin(), 0.0f);
+      get<0>(new_sample) = inner_product(get<0>(state).begin() + ptr,
+                                 get<0>(state).begin() + ptr + order, fir_coef.begin(), 0.0f);
+      get<1>(new_sample) = inner_product(get<1>(state).begin() + ptr,
+                                 get<1>(state).begin() + ptr + order, fir_coef.begin(), 0.0f);
+      get<2>(new_sample) = inner_product(get<2>(state).begin() + ptr,
+                                 get<2>(state).begin() + ptr + order, fir_coef.begin(), 0.0f);
       ptr = (ptr == 0 ? order - 1 : ptr - 1);
    }
    return new_sample;
@@ -189,7 +136,7 @@ std::tuple<float,float,float> FIRFilter::convl(std::tuple<float,float,float> sam
 
 static void FIRFilter::print_coefficients(const FIRFilter &filter, const char *prefix, bool is_accel)
 {
-   std::vector<float> fir_coef = is_accel ? filter.fir_coef_acc : filter.fir_coef_gyro;
+   vector<float> fir_coef = is_accel ? filter.fir_coef_acc : filter.fir_coef_gyro;
    if(fir_coef.size() == 0)
    {
       return;
@@ -212,10 +159,11 @@ static void FIRFilter::print_coefficients(const FIRFilter &filter, const char *p
 int SensorHalDaemonClientHandler::setFIRFilter(float sensor_rate, float client_rate, bool is_accel)
 {
    int ret = 0;
-   std::vector<float> coef;
+   vector<float> coef;
    char conf_suffix[64];
 
    is_accel ? fir_enabled_acc = false : fir_enabled_gyro = false;
+
 
    //Check if custom coefficient values is defined in sensors.conf
    if(is_accel)
@@ -231,12 +179,16 @@ int SensorHalDaemonClientHandler::setFIRFilter(float sensor_rate, float client_r
    {
       coef.clear();
       //check if default config is defined
-      ret = get_default_fir_coef((int)sensor_rate, (int)client_rate, is_accel, coef);
+      ret = mService->mSensorDevice->getDefaultFIRCoeff(is_accel, (int)sensor_rate, (int)client_rate, coef);
+      if(ret != 0)
+      {
+         SENSOR_LOGI(LOG_TAG "No default FIR coefficient found for %0.0f to %0.0f (%s)", sensor_rate, client_rate, is_accel? "ACC" : "GYRO");
+      }
    }
    if(coef.size() > 0)
    {
-      ret = is_accel ? ((filter.init_filter_acc(coef.size())==0) && filter.set_filter_acc(coef)) 
-                     : ((filter.init_filter_gyro(coef.size())==0) && filter.set_filter_gyro(coef));
+      ret = is_accel ? ((filter.initFilter_acc(coef.size())==0) && filter.setFilter_acc(coef)) 
+                     : ((filter.initFilter_gyro(coef.size())==0) && filter.setFilter_gyro(coef));
       if(ret == 0)
       {
          SENSOR_LOGI(LOG_TAG "FIR coeffcient set for %0.0f to %0.0f (%s)", sensor_rate, client_rate, is_accel? "ACC" : "GYRO");
@@ -244,7 +196,7 @@ int SensorHalDaemonClientHandler::setFIRFilter(float sensor_rate, float client_r
       }
       else
       {
-         SENSOR_LOGE(LOG_TAG "FIR set_filter failed for %0.0f to %0.0f (%s)", sensor_rate, client_rate, is_accel? "ACC" : "GYRO");
+         SENSOR_LOGE(LOG_TAG "FIR setFilter failed for %0.0f to %0.0f (%s)", sensor_rate, client_rate, is_accel? "ACC" : "GYRO");
       }
    }
    else
@@ -308,6 +260,7 @@ void SensorHalDaemonClientHandler::cleanup() {
    mAccTracking = false;
    mGyroTracking = false;
    mMlcEnable = false;
+   mWakeupEnable = false;
 }
 
 /******************************************************************************
@@ -390,6 +343,24 @@ void SensorHalDaemonClientHandler::onResponseCb(int ret, ESensorMsgID id) {
         rc = sendMessage(msg);
         break;
      }
+     case E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID: {
+	SENSOR_LOGI(LOG_TAG "<-- start sensor wakeup config get ret=%d id=%u pending=%u\n", ret, id, pendingMsgId);
+	SensorAPIGenericRespMsg msg(SERVICE_NAME, E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID, ret);
+        rc = sendMessage(msg);
+        break;
+     }
+     case E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID: {
+	SENSOR_LOGI(LOG_TAG "<-- start sensor wakeup update get ret=%d id=%u pending=%u\n", ret, id, pendingMsgId);
+	SensorAPIGenericRespMsg msg(SERVICE_NAME, E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID, ret);
+        rc = sendMessage(msg);
+        break;
+     }
+     case E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID: {
+	SENSOR_LOGI(LOG_TAG "<-- start sensor wakeup enable/disable resp ret=%d id=%u pending=%u\n", ret, id, pendingMsgId);
+	SensorAPIGenericRespMsg msg(SERVICE_NAME, E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID, ret);
+        rc = sendMessage(msg);
+        break;
+     }
      default: {
         SENSOR_LOGI(LOG_TAG "no pending message for %s\n", mName.c_str());
         return;
@@ -419,7 +390,7 @@ bool SensorHalDaemonClientHandler::SendDataToClient(sensors_event_t *e, int coun
   if (nullptr != mIpcSender) {
      SENSOR_LOGV(LOG_TAG "--< Count %d\n", count);
      size_t msglen = sizeof(SensorAPIDataIndMsg) + sizeof(sensors_event_t) * (count - 1);
-     uint8_t *msg = new(std::nothrow) uint8_t[msglen];
+     uint8_t *msg = new(nothrow) uint8_t[msglen];
      if (nullptr == msg) {
 	     return false;
      }
@@ -447,7 +418,7 @@ bool SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
   // already holds the lock
   bool rc = true;
   float temp_data[3];
-  std::tuple<float,float,float> new_fir_sample;
+  tuple<float,float,float> new_fir_sample;
 
    SENSOR_LOGV(LOG_TAG "--< onSensorDataReadCb\n");
    if (nullptr != mIpcSender || (strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0)) {
@@ -456,112 +427,113 @@ bool SensorHalDaemonClientHandler::onSensorDataReadCb(sensors_event_t *e, int co
 	 case SENSOR_TYPE_ACCELEROMETER:
 	 case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
 	    if (mAccTracking == true && mAccEvents) {
-         if(fir_enabled_acc)
-         {
-            new_fir_sample = filter.convl(std::tuple<float,float,float>(e[i].acceleration.x, e[i].acceleration.y, e[i].acceleration.z), true);
-         }
-         else
-         {
-            //fallback to moving average
-            mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib += e[i].acceleration.x;
-            mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib += e[i].acceleration.y;
-            mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib += e[i].acceleration.z;
-         }
-		 mAccMovingCount++;
-		 if(mAccMovingCount >= mAccFactor) {
-            if(fir_enabled_acc)
-            {
-               mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib = std::get<0>(new_fir_sample);
-               mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib = std::get<1>(new_fir_sample);
-               mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib = std::get<2>(new_fir_sample);
-            }
-            else
-            {
-               mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib /= mAccMovingCount;
-               mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib /= mAccMovingCount;
-               mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib /= mAccMovingCount;
-            }
-		     
-		     mAccEvents[mAccCount].timestamp = e[i].timestamp;
-		     mAccEvents[mAccCount].sensor    = e[i].sensor;
-		     mAccEvents[mAccCount].type    = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
-		     if(mAccRotate) {
-		        (void)memcpy(&temp_data, &mAccEvents[mAccCount].uncalibrated_accelerometer, 3 * sizeof(float));
-		        mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib = mService->rot[0][0] * temp_data[0] + // Matrix Multtiplication 
-			     							  mService->rot[1][0] * temp_data[1] + // Matrix Multtiplication 
-			     							  mService->rot[2][0] * temp_data[2]; // Get Rotated X coordinate
-		        mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib = mService->rot[0][1] * temp_data[0] + // Matrix Multtiplication 
-			     							  mService->rot[1][1] * temp_data[1] + // Matrix Multtiplication 
-			     							  mService->rot[2][1] * temp_data[2]; // Get Rotated Y coordinate
-		        mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib = mService->rot[0][2] * temp_data[0] + // Matrix Multtiplication 
-			     							  mService->rot[1][2] * temp_data[1] + // Matrix Multtiplication 
-			     							  mService->rot[2][2] * temp_data[2]; // Get Rotated Z coordinate
-		     }
-		     mAccMovingCount = 0;
-		     mAccCount++;
+	       if(fir_enabled_acc)
+		       new_fir_sample = filter.convl(tuple<float,float,float>(e[i].acceleration.x, e[i].acceleration.y, e[i].acceleration.z),
+				       true);
+	       else {
+		       //fallback to moving average
+		       mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib += e[i].acceleration.x;
+		       mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib += e[i].acceleration.y;
+		       mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib += e[i].acceleration.z;
+	       }
+	       mAccMovingCount++;
+	       if(mAccMovingCount >= mAccFactor) {
+		 if(fir_enabled_acc)
+		 {
+			 mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib = get<0>(new_fir_sample);
+			 mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib = get<1>(new_fir_sample);
+			 mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib = get<2>(new_fir_sample);
 		 }
-		 if (mAccCount >=  mAccBatchCount) {
-			 rc = SendDataToClient(&mAccEvents[0], mAccCount);
-			 mAccCount = 0;
+		 else
+		 {
+			 mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib /= mAccMovingCount;
+			 mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib /= mAccMovingCount;
+			 mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib /= mAccMovingCount;
 		 }
+		 mAccEvents[mAccCount].timestamp = e[i].timestamp;
+		 mAccEvents[mAccCount].sensor    = e[i].sensor;
+		 mAccEvents[mAccCount].type      = SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED;
+		 if(mAccRotate) {
+			 (void)memcpy(&temp_data, &mAccEvents[mAccCount].uncalibrated_accelerometer, 3 * sizeof(float));
+			 mAccEvents[mAccCount].uncalibrated_accelerometer.x_uncalib =
+				 mService->rot[0][0] * temp_data[0] + // Matrix Multtiplication
+				 mService->rot[1][0] * temp_data[1] + // Matrix Multtiplication
+				 mService->rot[2][0] * temp_data[2]; // Get Rotated X coordinate
+			 mAccEvents[mAccCount].uncalibrated_accelerometer.y_uncalib =
+				 mService->rot[0][1] * temp_data[0] + // Matrix Multtiplication
+				 mService->rot[1][1] * temp_data[1] + // Matrix Multtiplication
+				 mService->rot[2][1] * temp_data[2]; // Get Rotated Y coordinate
+			 mAccEvents[mAccCount].uncalibrated_accelerometer.z_uncalib =
+				 mService->rot[0][2] * temp_data[0] + // Matrix Multtiplication
+				 mService->rot[1][2] * temp_data[1] + // Matrix Multtiplication
+				 mService->rot[2][2] * temp_data[2]; // Get Rotated Z coordinate
+		 }
+		 mAccMovingCount = 0;
+		 mAccCount++;
+	       }
+	       if (mAccCount >=  mAccBatchCount) {
+		       rc = SendDataToClient(&mAccEvents[0], mAccCount);
+		       mAccCount = 0;
+	       }
 	    }
 	    break;
 	 case SENSOR_TYPE_GYROSCOPE:
 	 case SENSOR_TYPE_GYROSCOPE_UNCALIBRATED:
 	    if (mGyroTracking == true && mGyroEvents) {
-         if(fir_enabled_gyro)
-         {
-            new_fir_sample = filter.convl(std::tuple<float,float,float>(e[i].gyro.x, e[i].gyro.y, e[i].gyro.z), false);
-         }
-         else
-         {
-            //fallback to moving average
-            mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib += e[i].gyro.x;
-            mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib += e[i].gyro.y;
-            mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib += e[i].gyro.z;
-         }
-		 mGyroMovingCount++;
-		 if (mGyroMovingCount >= mGyroFactor) {
-            if(fir_enabled_gyro)
-            {
-               mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib = std::get<0>(new_fir_sample);
-               mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib = std::get<1>(new_fir_sample);
-               mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib = std::get<2>(new_fir_sample);
-            }
-            else
-            {
-               mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib /= mGyroMovingCount;
-               mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib /= mGyroMovingCount;
-               mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib /= mGyroMovingCount;
-            }
-		      
-		      mGyroEvents[mGyroCount].timestamp = e[i].timestamp;
-		      mGyroEvents[mGyroCount].sensor    = e[i].sensor;
-		      mGyroEvents[mGyroCount].type    = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
-		      if(mGyroRotate) {
-		         (void)memcpy(&temp_data, &mGyroEvents[mGyroCount].uncalibrated_gyro, 3 * sizeof(float));
-		         mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib = mService->rot[0][0] * temp_data[0] + // Matrix Multtiplication 
-			     						    mService->rot[1][0] * temp_data[1] + // Matrix Multtiplication 
-			     						    mService->rot[2][0] * temp_data[2]; // Get Rotated X coordinate
-		         mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib = mService->rot[0][1] * temp_data[0] + // Matrix Multtiplication 
-			     						    mService->rot[1][1] * temp_data[1] + // Matrix Multtiplication 
-			     						    mService->rot[2][1] * temp_data[2]; // Get Rotated Y coordinate
-		         mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib = mService->rot[0][2] * temp_data[0] + // Matrix Multtiplication 
-								            mService->rot[1][2] * temp_data[1] + // Matrix Multtiplication 
-			     						    mService->rot[2][2] * temp_data[2]; // Get Rotated Z coordinate
-		      }
-		      mGyroMovingCount = 0;
-		      mGyroCount++;
-		 }
-		 if (mGyroCount >=  mGyroBatchCount) {
-			 rc = SendDataToClient(&mGyroEvents[0], mGyroCount);
-			 mGyroCount = 0;
-		 }
+               if(fir_enabled_gyro)
+		       new_fir_sample = filter.convl(tuple<float,float,float>(e[i].gyro.x, e[i].gyro.y, e[i].gyro.z), false);
+	       else
+	       {
+		       //fallback to moving average
+		       mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib += e[i].gyro.x;
+		       mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib += e[i].gyro.y;
+		       mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib += e[i].gyro.z;
+	       }
+	       mGyroMovingCount++;
+	       if (mGyroMovingCount >= mGyroFactor) {
+		       if(fir_enabled_gyro)
+		       {
+			       mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib = get<0>(new_fir_sample);
+			       mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib = get<1>(new_fir_sample);
+			       mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib = get<2>(new_fir_sample);
+		       }
+		       else
+		       {
+			       mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib /= mGyroMovingCount;
+			       mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib /= mGyroMovingCount;
+			       mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib /= mGyroMovingCount;
+		       }
+
+		       mGyroEvents[mGyroCount].timestamp = e[i].timestamp;
+		       mGyroEvents[mGyroCount].sensor    = e[i].sensor;
+		       mGyroEvents[mGyroCount].type    = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED;
+		       if(mGyroRotate) {
+			       (void)memcpy(&temp_data, &mGyroEvents[mGyroCount].uncalibrated_gyro, 3 * sizeof(float));
+			       mGyroEvents[mGyroCount].uncalibrated_gyro.x_uncalib =
+				       mService->rot[0][0] * temp_data[0] + // Matrix Multtiplication
+				       mService->rot[1][0] * temp_data[1] + // Matrix Multtiplication
+				       mService->rot[2][0] * temp_data[2]; // Get Rotated X coordinate
+			       mGyroEvents[mGyroCount].uncalibrated_gyro.y_uncalib =
+				       mService->rot[0][1] * temp_data[0] + // Matrix Multtiplication
+				       mService->rot[1][1] * temp_data[1] + // Matrix Multtiplication
+				       mService->rot[2][1] * temp_data[2]; // Get Rotated Y coordinate
+			       mGyroEvents[mGyroCount].uncalibrated_gyro.z_uncalib =
+				       mService->rot[0][2] * temp_data[0] + // Matrix Multtiplication
+				       mService->rot[1][2] * temp_data[1] + // Matrix Multtiplication
+				       mService->rot[2][2] * temp_data[2]; // Get Rotated Z coordinate
+		       }
+		       mGyroMovingCount = 0;
+		       mGyroCount++;
+	       }
+	       if (mGyroCount >=  mGyroBatchCount) {
+		       rc = SendDataToClient(&mGyroEvents[0], mGyroCount);
+		       mGyroCount = 0;
+	       }
 	    }
 	    break;
-     }
-    }
-   }
+     }//End of switch
+    }//End of for loop for samples
+   }//End of client
 
    return rc;
 }
@@ -579,7 +551,7 @@ void SensorHalDaemonClientHandler::onSensorListCb(struct sensor_list *s, int cou
 #endif
    if (nullptr != mIpcSender) {
 	   size_t msglen = sizeof(SensorAPIListIndMsg) + sizeof(sensor_list) * (count - 1);
-	   uint8_t *msg = new(std::nothrow) uint8_t[msglen];
+	   uint8_t *msg = new(nothrow) uint8_t[msglen];
 	   if (nullptr == msg) {
 		   return;
 	   }
@@ -629,7 +601,7 @@ void SensorHalDaemonClientHandler::onSensorBatchingCb(int sensor_id, float Sampl
 }
 
 void SensorHalDaemonClientHandler::StoreMlcCaseListStatus(struct sensor_mlc_case_list *s, int count) {
-   mMlcCaseList = new(std::nothrow) struct mlc_case_list[count];
+   mMlcCaseList = new(nothrow) struct mlc_case_list[count];
    if (mMlcCaseList == nullptr) {
 	   return;
    }
@@ -653,7 +625,7 @@ void SensorHalDaemonClientHandler::onSensorMlcCaseListCb(struct sensor_mlc_case_
    StoreMlcCaseListStatus(s, count);
    if (nullptr != mIpcSender) {
            size_t msglen = sizeof(SensorMlcCaseListIndMsg) + sizeof(sensor_mlc_case_list) * (count - 1);
-           uint8_t *msg = new(std::nothrow) uint8_t[msglen];
+           uint8_t *msg = new(nothrow) uint8_t[msglen];
            if (nullptr == msg) {
                    return;
            }
@@ -680,7 +652,7 @@ void SensorHalDaemonClientHandler::onSensorMlcCaseListCb(struct sensor_mlc_case_
 SensorHalDaemonClientHandler - onSensorMlcCaseEventCb to send event to client
 ************************************************************************************/
 bool SensorHalDaemonClientHandler::onSensorMlcCaseEventCb(char *name , struct mlc_event_data *event) {
-   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+   lock_guard<mutex> lock(SensorApiService::mMutex);
    SENSOR_LOGI(LOG_TAG "--< onSensorMlcCaseEventCb name %s\n", name);
    if (nullptr != mIpcSender) {
 	   SensorAPIMLCEventIndMsg msg (SERVICE_NAME, name, event);
@@ -695,11 +667,11 @@ bool SensorHalDaemonClientHandler::onSensorMlcCaseEventCb(char *name , struct ml
 SensorHalDaemonClientHandler - onSensorMFifoDataReadCb to send buffer data to client
 ************************************************************************************/
 bool SensorHalDaemonClientHandler::onSensorMFifoDataReadCb(sensors_event_t *events, int count) {
-   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+   lock_guard<mutex> lock(SensorApiService::mMutex);
    SENSOR_LOGV(LOG_TAG "--< onSensorMFifoDataReadCb count %d\n", count);
    if (nullptr != mIpcSender) {
            size_t msglen = sizeof(SensorAPImFifoIndMsg) + sizeof(sensors_event_t) * (count-1);
-           uint8_t *msg = new(std::nothrow) uint8_t[msglen];
+           uint8_t *msg = new(nothrow) uint8_t[msglen];
            if (nullptr == msg) {
                    return false;
            }
@@ -721,7 +693,7 @@ bool SensorHalDaemonClientHandler::onSensorMFifoDataReadCb(sensors_event_t *even
 SensorHalDaemonClientHandler - onSensorTempCb to send temperature to client
 ************************************************************************************/
 void SensorHalDaemonClientHandler::onSensorTempCb(float temperature) {
-   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+   lock_guard<mutex> lock(SensorApiService::mMutex);
    SENSOR_LOGV(LOG_TAG "--< onSensorTempCb temperature %f\n", temperature);
 
    if (nullptr != mIpcSender) {
@@ -740,12 +712,12 @@ void SensorHalDaemonClientHandler::onSensorTempCb(float temperature) {
 SensorHalDaemonClientHandler - onSensorBufferDataReadCb to send buffer data to client
 ************************************************************************************/
 bool SensorHalDaemonClientHandler::onSensorBufferDataReadCb(sensors_event_t *events, int count) {
-   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
+   lock_guard<mutex> lock(SensorApiService::mMutex);
    SENSOR_LOGV(LOG_TAG "--< onSensorBufferReadCb count %d\n", count);
 
    if (nullptr != mIpcSender) {
 	   size_t msglen = sizeof(SensorAPIBufferDataIndMsg) + sizeof(sensors_event_t) * (count-1);
-	   uint8_t *msg = new(std::nothrow) uint8_t[msglen];
+	   uint8_t *msg = new(nothrow) uint8_t[msglen];
 	   if (nullptr == msg) {
 		   return false;
 	   }
@@ -782,4 +754,52 @@ void SensorHalDaemonClientHandler::onSensorSelfTestResultCb(int sensor_id, int r
                    (void)mService->deleteClientbyName(mName);
            }
    }
+}
+/**************************************************************************************
+SensorHalDaemonClientHandler - onSensorEventCb to nofiy client with wake up status
+**************************************************************************************/
+bool SensorHalDaemonClientHandler::onSensorWakeupConfigRequestCb(struct wakeup_config_info wakeup_info) {
+   // please do not attempt to hold the lock, as the caller of this function
+   // already holds the lock
+   SENSOR_LOGI(LOG_TAG "--< onSensorWakeupConfigRequestCb\n");
+   if (nullptr != mIpcSender) {
+           SensorAPIWakeupConfigIndMsg msg (SERVICE_NAME, wakeup_info);
+           bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+                           sizeof(msg));
+	   return rc;
+   }
+   return true;
+}
+
+/**************************************************************************************
+SensorHalDaemonClientHandler - onSensorEventCb to nofiy client with wake up status
+**************************************************************************************/
+bool SensorHalDaemonClientHandler::onSensorWakeupConfigUpdateCb(int sensor_id, struct wakeup_config wakeup) {
+   // please do not attempt to hold the lock, as the caller of this function
+   // already holds the lock
+   SENSOR_LOGI(LOG_TAG "--< onSensorWakeupConfigUpdateCb\n");
+
+   if (nullptr != mIpcSender) {
+           SensorAPIWakeupConfigUpdateIndMsg msg (SERVICE_NAME, sensor_id, wakeup);
+           bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+                           sizeof(msg));
+	   return rc;
+   }
+   return true;
+}
+
+/**************************************************************************************
+SensorHalDaemonClientHandler - onSensorEventCb to nofiy client with wake up status
+**************************************************************************************/
+bool SensorHalDaemonClientHandler::onSensorEventCb(int sensor_id, struct iio_event_data event) {
+   lock_guard<mutex> lock(SensorApiService::mMutex);
+   SENSOR_LOGI(LOG_TAG "--< onSensorEventCb\n");
+
+   if (nullptr != mIpcSender) {
+           SensorAPIWakeupEnableIndMsg msg (SERVICE_NAME, sensor_id, event);
+           bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+                           sizeof(msg));
+	   return rc;
+   }
+   return true;
 }

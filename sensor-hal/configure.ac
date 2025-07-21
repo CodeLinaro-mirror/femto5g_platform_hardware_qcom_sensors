@@ -62,10 +62,8 @@ AM_CONDITIONAL(CONFIG_ST_HAL_HAS_SELFTEST_FUNCTIONS, test "x${with_st}" = "xyes"
 
 AC_CONFIG_FILES([ \
         Makefile \
-        bmi160/Makefile \
         iam20680/Makefile \
         st/Makefile \
-        smi130/HAL_DataReady/Makefile \
         smi230/Makefile \
         libsensors.pc \
         ])

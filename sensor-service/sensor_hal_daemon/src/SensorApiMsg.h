@@ -25,11 +25,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 #ifndef SENSORAPIMSG_H
@@ -52,7 +51,7 @@
 /******************************************************************************
 Constants
 ******************************************************************************/
-#define BUFFER_EVENT    2048
+#define BUFFER_EVENT    50
 #define SENSOR_REMOTE_API_MSG_VERSION (1)
 
 //Max Batch Count supported by SHD
@@ -65,7 +64,6 @@ Constants
 #define GID_SENSORCLIENT (3011)
 
 #define SOCKET_SENSOR_CLIENT_DIR     "/dev/socket/sensor_client/"
-//#define EAP_SENSOR_CLIENT_DIR        "/dev/socket/sensor_client/"
 #define SOCKET_TO_SENSOR_HAL_DAEMON  "/dev/socket/sensor_client/hal_daemon"
 #define SOCKET_TO_SENSOR_CLIENT_BASE "/dev/socket/sensor_client/toclient"
 #define SOCKET_TO_EXTERANL_AP_SENSOR_CLIENT_BASE "/dev/socket/sensor_client/extap.toclient"
@@ -141,7 +139,15 @@ enum ESensorMsgID {
     E_SENSORAPI_SENSOR_SELFTEST_IND_MSG_ID = 23,
 
     //Rotation matrix ID
-    E_SENSORAPI_SENSOR_EULER_ANGLES_REQ_MSG_ID = 24
+    E_SENSORAPI_SENSOR_EULER_ANGLES_REQ_MSG_ID = 24,
+
+    //wakeup ID
+    E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID = 25,
+    E_SENSORAPI_SENSOR_WAKEUP_CONFIG_IND_MSG_ID = 26,
+    E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID = 27,
+    E_SENSORAPI_SENSOR_WAKEUP_UPDATE_IND_MSG_ID = 28,
+    E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID = 29,
+    E_SENSORAPI_SENSOR_WAKEUP_ENABLE_IND_MSG_ID = 30
 };
 
 
@@ -237,7 +243,7 @@ struct SensorAPIClientRegisterReqMsg: SensorAPIMsgHeader
 {
     ClientType mClientType;
 
-    inline SensorAPIClientRegisterReqMsg(const char* name, ClientType clientType) :
+    SensorAPIClientRegisterReqMsg(const char* name, ClientType clientType) :
         SensorAPIMsgHeader(name, E_SENSORAPI_CLIENT_REGISTER_MSG_ID),
         mClientType(clientType) { }
 };
@@ -245,7 +251,7 @@ struct SensorAPIClientRegisterReqMsg: SensorAPIMsgHeader
 // defintion for message with msg id of E_SENSORAPI_CLIENT_DEREGISTER_MSG_ID
 struct SensorAPIClientDeregisterReqMsg: SensorAPIMsgHeader
 {
-    inline SensorAPIClientDeregisterReqMsg(const char* name) :
+    SensorAPIClientDeregisterReqMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_CLIENT_DEREGISTER_MSG_ID) { }
 };
 
@@ -254,7 +260,7 @@ struct SensorAPICapabilitiesIndMsg: SensorAPIMsgHeader
 {
     SensorCapabilitiesMask mask;
 
-    inline SensorAPICapabilitiesIndMsg(const char* name, SensorCapabilitiesMask mask) :
+    SensorAPICapabilitiesIndMsg(const char* name, SensorCapabilitiesMask mask) :
         SensorAPIMsgHeader(name, E_SENSORAPI_CAPABILILTIES_MSG_ID),
         mask(mask) { }
 };
@@ -262,7 +268,7 @@ struct SensorAPICapabilitiesIndMsg: SensorAPIMsgHeader
 // defintion for message with msg id of E_SENSORAPI_HAL_READY_MSG_ID
 struct SensorAPIHalReadyIndMsg: SensorAPIMsgHeader
 {
-    inline SensorAPIHalReadyIndMsg(const char* name) :
+    SensorAPIHalReadyIndMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_HAL_READY_MSG_ID) { }
 };
 
@@ -271,7 +277,7 @@ struct SensorAPIGenericRespMsg: SensorAPIMsgHeader
 {
     int ret;
 
-    inline SensorAPIGenericRespMsg(const char* name, ESensorMsgID msgId, int ret) :
+    SensorAPIGenericRespMsg(const char* name, ESensorMsgID msgId, int ret) :
         SensorAPIMsgHeader(name, msgId),
         ret(ret) { }
 };
@@ -279,7 +285,7 @@ struct SensorAPIGenericRespMsg: SensorAPIMsgHeader
 // defintion for message with msg id of E_SENSORAPI_GET_SENSOR_LIST_MSG_ID
 struct SensorAPIListReqMsg: SensorAPIMsgHeader
 {
-    inline SensorAPIListReqMsg(const char* name) :
+    SensorAPIListReqMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_GET_SENSOR_LIST_MSG_ID) { }
 };
 
@@ -288,7 +294,7 @@ struct SensorAPIListIndMsg : SensorAPIMsgHeader
 {
     SensorList sensorList;
 
-    inline SensorAPIListIndMsg(const char* name) :
+    SensorAPIListIndMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_LIST_MSG_ID) { }
 };
 
@@ -298,7 +304,7 @@ struct SensorAPIEnableReqMsg: SensorAPIMsgHeader
     int sensor_id;
     int enable;
 
-    inline SensorAPIEnableReqMsg(const char* name, int sensor_id, int enable):
+    SensorAPIEnableReqMsg(const char* name, int sensor_id, int enable):
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_ENABLE_MSG_ID),
         sensor_id(sensor_id),
         enable(enable) { }
@@ -312,7 +318,7 @@ struct SensorAPIStartBatchingReqMsg: SensorAPIMsgHeader
     int batchCount;
     bool rotate;
 
-    inline SensorAPIStartBatchingReqMsg(const char* name,
+    SensorAPIStartBatchingReqMsg(const char* name,
                                      int sensor_id,
                                      float Sampling_rate,
                                      int Batch_Count,
@@ -328,7 +334,7 @@ struct SensorAPIStartBatchingReqMsg: SensorAPIMsgHeader
 // defintion for message with msg id of E_SENSORAPI_START_TRACKING_MSG_ID
 struct SensorAPIStartTrackingReqMsg: SensorAPIMsgHeader
 {
-    inline SensorAPIStartTrackingReqMsg(const char* name):
+    SensorAPIStartTrackingReqMsg(const char* name):
         SensorAPIMsgHeader(name, E_SENSORAPI_START_TRACKING_MSG_ID) { }
 };
 
@@ -337,7 +343,7 @@ struct SensorAPIDataIndMsg: SensorAPIMsgHeader
 {
     SensorDataPayload sensorData;
 
-    inline SensorAPIDataIndMsg(const char* name) :
+    SensorAPIDataIndMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_DATA_READ_MSG_ID) { }
 };
 
@@ -346,7 +352,7 @@ struct SensorMlcCaseListIndMsg : SensorAPIMsgHeader
 {
     SensorMlcCaseList sensorMlcCaseList;
 
-    inline SensorMlcCaseListIndMsg(const char* name) :
+    SensorMlcCaseListIndMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_MLC_CASE_LIST_MSG_ID) { }
 };
 
@@ -356,7 +362,7 @@ struct SensorAPIMLCCaseEnableMsg: SensorAPIMsgHeader
     char mlc_case_name[100];
     bool enable;
 
-    inline SensorAPIMLCCaseEnableMsg(const char* name, char *case_name, bool enable) :
+    SensorAPIMLCCaseEnableMsg(const char* name, char *case_name, bool enable) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_MLC_CASE_ENABLE_MSG_ID),
 	enable(enable) {
 		memset(mlc_case_name, 0, 100);
@@ -369,7 +375,7 @@ struct SensorAPIMLCEventIndMsg: SensorAPIMsgHeader
 {
     SensorMlcEventData mlcEventData;
 
-    inline SensorAPIMLCEventIndMsg(const char* name, char *case_name, struct mlc_event_data *event) :
+    SensorAPIMLCEventIndMsg(const char* name, char *case_name, struct mlc_event_data *event) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_MLC_EVENT_IND_MSG_ID) {
                 memset(&mlcEventData.name[0], 0, 100);
                 strlcpy(&mlcEventData.name[0], case_name, 100);
@@ -380,7 +386,7 @@ struct SensorAPIMLCEventIndMsg: SensorAPIMsgHeader
 // defintion for message with msg id of E_SENSORAPI_SENSOR_TEMP_REQ_MSG_ID
 struct SensorAPITempReqMsg: SensorAPIMsgHeader
 {
-    inline SensorAPITempReqMsg(const char* name) :
+    SensorAPITempReqMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_TEMP_REQ_MSG_ID) { }
 };
 
@@ -389,7 +395,7 @@ struct SensorAPITempIndMsg: SensorAPIMsgHeader
 {
     float temperature;
 
-    inline SensorAPITempIndMsg(const char* name, float Temperature) :
+    SensorAPITempIndMsg(const char* name, float Temperature) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_TEMP_IND_MSG_ID),
 	temperature(Temperature) { }
 };
@@ -399,7 +405,7 @@ struct SensorAPIBufferDataReqMsg: SensorAPIMsgHeader
 {
     bool enable;
 
-    inline SensorAPIBufferDataReqMsg(const char* name, bool Enable) :
+    SensorAPIBufferDataReqMsg(const char* name, bool Enable) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_BUFFER_REQ_MSG_ID),
         enable(Enable) { }
 };
@@ -409,7 +415,7 @@ struct SensorAPIBufferDataIndMsg: SensorAPIMsgHeader
 {
     SensorDataPayload sensorData;
 
-    inline SensorAPIBufferDataIndMsg(const char* name) :
+    SensorAPIBufferDataIndMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_BUFFER_IND_MSG_ID) { }
 };
 
@@ -418,7 +424,7 @@ struct SensorAPImFifoIndMsg: SensorAPIMsgHeader
 {
     SensorDataPayload sensorData;
 
-    inline SensorAPImFifoIndMsg(const char* name) :
+    SensorAPImFifoIndMsg(const char* name) :
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_MFIFO_IND_MSG_ID) { }
 };
 
@@ -429,7 +435,7 @@ struct SensorAPISelfTestReqMsg: SensorAPIMsgHeader
     int request_id;
     SelfTestType selfTestType;
 
-    inline SensorAPISelfTestReqMsg(const char* name,
+    SensorAPISelfTestReqMsg(const char* name,
                                      int sensor_id,
                                      SelfTestType selfTestType, int request_id
                                      ):
@@ -448,7 +454,7 @@ struct SensorAPISelfTestIndMsg: SensorAPIMsgHeader
     SelfTestResultType resulttype;
     uint64_t timestamp;
 
-    inline SensorAPISelfTestIndMsg(const char* name,
+    SensorAPISelfTestIndMsg(const char* name,
                                      int sensor_id, int request_id,
                                      SelfTestResult result, SelfTestResultType resulttype, uint64_t timestamp
                                      ):
@@ -467,13 +473,94 @@ struct SensorAPIEulerAnglesReqMsg: SensorAPIMsgHeader
     uint16_t pitch;
     uint16_t yaw;
 
-    inline SensorAPIEulerAnglesReqMsg(const char* name,
+    SensorAPIEulerAnglesReqMsg(const char* name,
                                      uint16_t roll, uint16_t pitch, uint16_t yaw
                                      ):
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_EULER_ANGLES_REQ_MSG_ID),
         roll(roll),
         pitch(pitch),
         yaw(yaw){ }
+};
+
+//defintion for message with msg id of E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID
+struct SensorAPIWakeupConfigReqMsg: SensorAPIMsgHeader
+{
+    int sensor_id;
+
+    SensorAPIWakeupConfigReqMsg(const char* name, int sensor_id):
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_WAKEUP_CONFIG_REQ_MSG_ID),
+        sensor_id(sensor_id){ 
+    }
+};
+
+//defintion for message with msg id of E_SENSORAPI_SENSOR_WAKEUP_CONFIG_IND_MSG_ID
+struct SensorAPIWakeupConfigIndMsg: SensorAPIMsgHeader
+{
+    struct wakeup_config_info wakeup_info;
+
+    SensorAPIWakeupConfigIndMsg(const char* name,
+                                     struct wakeup_config_info wakeup_info
+                                     ):
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_WAKEUP_CONFIG_IND_MSG_ID) {
+	memcpy(&this->wakeup_info, &wakeup_info, sizeof(struct wakeup_config_info));
+    }
+};
+
+//defintion for message with msg id of E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID
+struct SensorAPIWakeupConfigUpdateReqMsg: SensorAPIMsgHeader
+{
+    int sensor_id;
+
+    SensorAPIWakeupConfigUpdateReqMsg(const char* name, int sensor_id):
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID),
+        sensor_id(sensor_id){ 
+    }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_WAKEUP_UPDATE_IND_MSG_ID
+struct SensorAPIWakeupConfigUpdateIndMsg: SensorAPIMsgHeader
+{
+    int sensor_id;
+    struct wakeup_config wakeup;
+
+    SensorAPIWakeupConfigUpdateIndMsg(const char* name, int sensor_id,
+		    struct wakeup_config wakeup) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_WAKEUP_UPDATE_IND_MSG_ID),
+        sensor_id(sensor_id){
+	memcpy(&this->wakeup, &wakeup, sizeof(struct wakeup_config));
+    }
+};
+
+//defintion for message with msg id of E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID
+struct SensorAPIWakeupEnableReqMsg: SensorAPIMsgHeader
+{
+    int sensor_id;
+    struct wakeup_config wakeup;
+    bool enable;
+
+    SensorAPIWakeupEnableReqMsg(const char* name,
+		    		     int sensor_id,
+                                     struct wakeup_config wakeup, bool enable
+                                     ):
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID),
+        sensor_id(sensor_id),
+        enable(enable){
+	memcpy(&this->wakeup, &wakeup, sizeof(struct wakeup_config));
+    }
+};
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_WAKEUP_ENABLE_IND_MSG_ID
+struct SensorAPIWakeupEnableIndMsg: SensorAPIMsgHeader
+{
+    int sensor_id;
+    struct iio_event_data event;
+
+    SensorAPIWakeupEnableIndMsg(const char* name, int sensor_id,
+		    struct iio_event_data event) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_WAKEUP_ENABLE_IND_MSG_ID),
+        sensor_id(sensor_id){
+	memcpy(&this->event, &event, sizeof(struct iio_event_data));
+    }
 };
 
 #endif /* SENSORAPIMSG_H */

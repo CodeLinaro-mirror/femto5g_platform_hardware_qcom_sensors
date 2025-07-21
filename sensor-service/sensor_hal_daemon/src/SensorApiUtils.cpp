@@ -30,12 +30,12 @@
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
+
 #include <stdint.h>
 #include <sys/stat.h>
 #include <dlfcn.h>
@@ -46,90 +46,29 @@
 
 using namespace std;
 
-//Search for Path
-void search_in_path(char* parentDir,  char* subFileRead, string contentVerified, int maxLevel,char* outputPath)
-{
-    if ( NULL == parentDir || NULL == subFileRead || NULL == outputPath )
-    {
-        return;
-    }
-    if ( 0 == maxLevel || strlen(outputPath) !=0 )
-    {
-        return;
-    }
-    std::stack<std::pair<std::string, int>> dirs;
-    dirs.push({parentDir, 0});
-
-    while (!dirs.empty()) {
-        auto [currentDir, level] = dirs.top();
-        dirs.pop();
-
-        if (level > maxLevel) continue;
-
-        DIR *dir = opendir(currentDir.c_str());
-        if (dir == NULL) continue;
-
-        struct dirent *entry = readdir(dir);
-	SENSOR_LOGD(LOG_TAG "Current directory: %s\n", currentDir.c_str());
-
-        while (entry != NULL) {
-            if ((entry->d_type == DT_DIR || entry->d_type == DT_LNK) &&
-                std::string(entry->d_name) != ".." && std::string(entry->d_name) != ".") {
-                std::string newParent = currentDir + "/" + entry->d_name;
-                dirs.push({newParent, level + 1});
-            } else if (std::string(entry->d_name).find(subFileRead) != std::string::npos) {
-                std::string fullFilePath = currentDir + "/" + entry->d_name;
-                std::ifstream fin(fullFilePath);
-                std::string content;
-                if (fin.is_open() && fin.peek() != EOF) {
-                    fin >> content;
-                    if ((contentVerified.empty() && std::string(entry->d_name).length() == std::string(subFileRead).length()) ||
-                        contentVerified == content) {
-			(void)snprintf(outputPath, SEARCH_PATH_SIZE, "%s\/", currentDir.c_str());
-                        (void)closedir(dir);
-			fin.close();
-                        return;
-                    }
-                }
-                fin.close();
-            }
-            entry = readdir(dir);
-        }
-        (void)closedir(dir);
-    }
+// Monotonic boot time
+uint64_t get_timestamp() {
+        struct timespec ts;
+        clock_gettime(CLOCK_BOOTTIME, &ts);
+        uint64_t system_ts =
+                ((uint64_t)(ts.tv_sec)) * 1000000000ULL + ((uint64_t)(ts.tv_nsec));
+        return system_ts;
 }
 
-/**
- * @brief Finds location of fle.
- *
- *
- * @param[in] aeType - type of device, aeFtype- type of file, aBuffPath- output,aLength- sizeof the output
- *
- * @return void.
- */
-void find_path(dynDeviceType aeType, char *aPath, std::string aKey, int aLength )
+int sysfs_write_scale(char *file, float val)
 {
-  switch(aeType)
-  {
-    case DYN_IIO_TYPE:
-          if (NULL ==aPath)
-          {
-            return;
-          }
-          search_in_path(IIO_PATH, NAME_FILE, aKey, 2, aPath);
-          SENSOR_LOGD(LOG_TAG "PATH detected - %s\n", aPath);
-          break;
+	FILE *fp;
 
-    case DYN_INPUT_TYPE:
-          if(NULL == aPath)
-          {
-            return;
-          }
-          search_in_path(INPUT_PATH,NAME_FILE, aKey, 2, aPath);
-          SENSOR_LOGD(LOG_TAG "PATH detected- %s\n", aPath);
-          break;
-  }
+	fp = fopen(file, "w");
+	if (NULL == fp)
+		return -errno;
+
+	(void)fprintf(fp, "%.9f", val);
+	(void)fclose(fp);
+
+	return 0;
 }
+
 
 int sysfs_read_scale(char *file, float *val)
 {
@@ -173,23 +112,92 @@ int sysfs_read_int(char *file, int *val)
 
 	return ret;
 }
+/**
+ * get_input_sensor_device_by_name() - function to match top level types by name
+ * @type: the type of top level instance being searched
+ *
+ * Returns the device number of a matched input device on success, otherwise a
+ * negative error code.
+ * Typical types this is used for are device and trigger.
+ **/
+int get_input_sensor_device_by_name(const char *name)
+{
+        struct dirent *ent;
+        int number, numstrlen;
+        FILE *devilceFile;
+        DIR *dp;
+        char dname[DEVICE_MAX_NAME_LENGTH];
+        char dfilename[DEVICE_MAX_FILENAME_LEN + 1];
+        int ret;
+        int fnamelen;
+
+        dp = opendir(device_input_dir);
+        if (NULL == dp)
+                return -ENODEV;
+
+        for (ent = readdir(dp); ent != 0; ent = readdir(dp)) {
+                if (strlen(ent->d_name) <= strlen(device_input_device_name) ||
+                    !strcmp(ent->d_name, ".") ||
+                    !strcmp(ent->d_name, ".."))
+                        continue;
+
+                if (strncmp(ent->d_name, device_input_device_name,
+                            strlen(device_input_device_name)) == 0) {
+                        numstrlen = sscanf(ent->d_name +
+                                           strlen(device_input_device_name),
+                                           "%d", &number);
+                        fnamelen = numstrlen + strlen(device_input_dir) +
+                                   strlen(device_input_device_name);
+                        if (fnamelen > DEVICE_MAX_FILENAME_LEN)
+                                continue;
+                        (void)snprintf(dfilename, DEVICE_MAX_FILENAME_LEN,
+                                "%s%s%d/name",
+                                device_input_dir,
+                                device_input_device_name,
+                                number);
+                        devilceFile = fopen(dfilename, "r");
+                        if (!devilceFile)
+                                continue;
+
+                        ret = fscanf(devilceFile, "%s", dname);
+                        if (ret <= 0) {
+                                (void)fclose(devilceFile);
+                                break;
+                        }
+
+                        if (strncmp(name, dname, strlen(dname)) == 0 &&
+                            /* check if asm330lhh and asm330lhhx */
+                            strlen(name) == strlen(dname)) {
+                                (void)fclose(devilceFile);
+                                (void)closedir(dp);
+                                return number;
+                        }
+
+                (void)fclose(devilceFile);
+                }
+        }
+
+        (void)closedir(dp);
+
+        return -ENODEV;
+}
 
 /**
- * get_sensor_device_by_name() - function to match top level types by name
+ * get_iio_sensor_device_by_name() - function to match top level types by name
  * @type: the type of top level instance being searched
  *
  * Returns the device number of a matched IIO device on success, otherwise a
  * negative error code.
  * Typical types this is used for are device and trigger.
  **/
-int get_sensor_device_by_name(const char *name)
+int get_iio_sensor_device_by_name(const char *name)
 {
         struct dirent *ent;
         int number, numstrlen;
         FILE *devilceFile;
         DIR *dp;
-        char dname[DEVICE_IIO_MAX_NAME_LENGTH];
-        char dfilename[DEVICE_IIO_MAX_FILENAME_LEN + 1];
+        char dname[DEVICE_MAX_NAME_LENGTH];
+        char dfilename[DEVICE_MAX_FILENAME_LEN + 1];
         int ret;
         int fnamelen;
 
@@ -210,9 +218,9 @@ int get_sensor_device_by_name(const char *name)
                                            "%d", &number);
                         fnamelen = numstrlen + strlen(device_iio_dir) +
                                    strlen(device_iio_device_name);
-                        if (fnamelen > DEVICE_IIO_MAX_FILENAME_LEN)
+                        if (fnamelen > DEVICE_MAX_FILENAME_LEN)
                                 continue;
-                        (void)snprintf(dfilename, DEVICE_IIO_MAX_FILENAME_LEN,
+                        (void)snprintf(dfilename, DEVICE_MAX_FILENAME_LEN,
                                 "%s%s%d/name",
                                 device_iio_dir,
                                 device_iio_device_name,
@@ -254,27 +262,27 @@ int get_sensor_type(struct device_iio_info_channel *channel,
         unsigned padint;
         const struct dirent *ent;
         char signchar, endianchar;
-        char dir[DEVICE_IIO_MAX_FILENAME_LEN + 1];
-        char type_name[DEVICE_IIO_MAX_FILENAME_LEN + 1];
-        char name_post[DEVICE_IIO_MAX_FILENAME_LEN + 1];
-        char filename[DEVICE_IIO_MAX_FILENAME_LEN + 1];
+        char dir[DEVICE_MAX_FILENAME_LEN + 1];
+        char type_name[DEVICE_MAX_FILENAME_LEN + 1];
+        char name_post[DEVICE_MAX_FILENAME_LEN + 1];
+        char filename[DEVICE_MAX_FILENAME_LEN + 1];
 
         /* Check string len */
         if (strlen(device_dir) +
-            strlen("scan_elements") + 1 > DEVICE_IIO_MAX_FILENAME_LEN)
+            strlen("scan_elements") + 1 > DEVICE_MAX_FILENAME_LEN)
                 return -1;
 
         if (strlen(name) +
-            strlen("_type") + 1 > DEVICE_IIO_MAX_FILENAME_LEN)
+            strlen("_type") + 1 > DEVICE_MAX_FILENAME_LEN)
                 return -1;
 
         if (strlen(post) +
-            strlen("_type") + 1 > DEVICE_IIO_MAX_FILENAME_LEN)
+            strlen("_type") + 1 > DEVICE_MAX_FILENAME_LEN)
                 return -1;
 
-        (void)snprintf(dir, DEVICE_IIO_MAX_FILENAME_LEN, "%s/scan_elements", device_dir);
-        (void)snprintf(type_name, DEVICE_IIO_MAX_FILENAME_LEN, "%s_type", name);
-        (void)snprintf(name_post, DEVICE_IIO_MAX_FILENAME_LEN, "%s_type", post);
+        (void)snprintf(dir, DEVICE_MAX_FILENAME_LEN, "%s/scan_elements", device_dir);
+        (void)snprintf(type_name, DEVICE_MAX_FILENAME_LEN, "%s_type", name);
+        (void)snprintf(name_post, DEVICE_MAX_FILENAME_LEN, "%s_type", post);
 
         dp = opendir(dir);
         if (dp == NULL)
@@ -283,7 +291,7 @@ int get_sensor_type(struct device_iio_info_channel *channel,
         while (ent = readdir(dp), ent != NULL) {
                 if ((strcmp(type_name, ent->d_name) == 0) ||
                     (strcmp(name_post, ent->d_name) == 0)) {
-                        (void)snprintf(filename, DEVICE_IIO_MAX_FILENAME_LEN, "%s/%s", dir, ent->d_name);
+                        (void)snprintf(filename, DEVICE_MAX_FILENAME_LEN, "%s/%s", dir, ent->d_name);
                         sysfsfp = fopen(filename, "r");
                         if (sysfsfp == NULL)
                                 continue;
@@ -319,13 +327,13 @@ int get_sensor_type(struct device_iio_info_channel *channel,
 int get_sensor_scale(const char *device_dir, float *value)
 {
         int ret;
-        char tmp_filaname[DEVICE_IIO_MAX_FILENAME_LEN];
+        char tmp_filaname[DEVICE_MAX_FILENAME_LEN];
         char *scale_filename;
 
         scale_filename = (char *)"in_accel_x_scale";
 
         /* read <iio:devicex>/in_<device_type>_x_scale */
-        ret = snprintf(tmp_filaname, DEVICE_IIO_MAX_FILENAME_LEN,
+        ret = snprintf(tmp_filaname, DEVICE_MAX_FILENAME_LEN,
                        "%s/%s", device_dir, scale_filename);
 
         return ret < 0 ? -ENOMEM : sysfs_read_scale(tmp_filaname, value);
@@ -333,29 +341,29 @@ int get_sensor_scale(const char *device_dir, float *value)
 
 int enable_sensor_channels(const char *device_dir, bool enable)
 {
-        char dir[DEVICE_IIO_MAX_FILENAME_LEN + 1];
-        char filename[DEVICE_IIO_MAX_FILENAME_LEN + 1];
+        char dir[DEVICE_MAX_FILENAME_LEN + 1];
+        char filename[DEVICE_MAX_FILENAME_LEN + 1];
         const struct dirent *ent;
         FILE *sysfsfp;
         DIR *dp;
 
         if (strlen(device_dir) +
-                strlen("scan_elements") + 1 > DEVICE_IIO_MAX_FILENAME_LEN)
+                strlen("scan_elements") + 1 > DEVICE_MAX_FILENAME_LEN)
                 return -1;
 
-        (void)snprintf(dir, DEVICE_IIO_MAX_FILENAME_LEN, "%s/scan_elements", device_dir);
+        (void)snprintf(dir, DEVICE_MAX_FILENAME_LEN, "%s/scan_elements", device_dir);
         dp = opendir(dir);
         if (!dp)
                 return -errno;
 
         while (ent = readdir(dp), ent != NULL) {
         if (strlen(dir) +
-                strlen(ent->d_name) > DEVICE_IIO_MAX_FILENAME_LEN)
+                strlen(ent->d_name) > DEVICE_MAX_FILENAME_LEN)
                 continue;
 
                 if (!strcmp(ent->d_name + strlen(ent->d_name) - strlen("_en"),
                             "_en")) {
-                        (void)snprintf(filename, DEVICE_IIO_MAX_FILENAME_LEN, "%s/%s", dir, ent->d_name);
+                        (void)snprintf(filename, DEVICE_MAX_FILENAME_LEN, "%s/%s", dir, ent->d_name);
                         sysfsfp = fopen(filename, "r+");
                         if (!sysfsfp) {
                                 (void)closedir(dp);
@@ -495,4 +503,32 @@ void dump_sensor_event(const struct sensors_event_t *e)
         SENSOR_LOGD(LOG_TAG "Unknown sensor_id events %d\n", e->type);
         break;
     }
+}
+
+/*API for boot kpi marker prints
+ * on Success : return 0
+ * on Failure : return -1 */
+int sensor_boot_kpi_marker(const char * pFmt, ...)
+{
+    int result = -1;
+    int32_t errRet = -1;
+    struct stat nodeStat;
+
+    // Check if the KPI node exists exists
+    errRet = stat(BOOT_KPI_FILE, &nodeStat);
+    if (errRet == 0) {
+        char buf[MAX_COMMAND_STR_LEN] = {};
+        va_list ap;
+        va_start(ap, pFmt);
+        vsnprintf(&buf[0], sizeof(buf), pFmt, ap);
+        int fd = 0;
+        fd = open(BOOT_KPI_FILE, O_WRONLY);
+        if (fd > 0) {
+            write(fd, buf, strlen(buf));
+            close(fd);
+	    result = 0;
+        }
+        va_end(ap);
+    }
+    return result;
 }

@@ -1,6 +1,8 @@
-/* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 #include <dlfcn.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -55,7 +57,7 @@ static void printHelp() {
     SENSOR_LOGI(LOG_TAG "t: Read Sensor Temperature\n");
     SENSOR_LOGI(LOG_TAG "s: Run on boot\n");
     SENSOR_LOGI(LOG_TAG "q: Quit\n");
-    SENSOR_LOGI(LOG_TAG "Ex: sensor_test -l /usr/lib/libsensors.so -d 10000000 -d 100000000 -n 1 -a 1 -t 1 -g 1\n");
+    SENSOR_LOGI(LOG_TAG "Ex: sensor_test -l /usr/lib/libsensors.so -d 10000000 -b 100000000 -a 1 -n 1 -t 1 -g 1\n");
 }
 
 void term(int signum) {

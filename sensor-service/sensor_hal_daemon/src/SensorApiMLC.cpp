@@ -7,14 +7,19 @@
  * Copyright 2021 STMicroelectronics Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 #include <stdint.h>
 #include <sys/stat.h>
 #include <dlfcn.h>
 #include <memory>
 #include <algorithm>
-#include <SensorHalDaemonClientHandler.h>
-#include <SensorApiService.h>
+#include <SensorDevice.h>
 #include <poll.h>
 
 #define IIO_DEVICE_NAME         "/sys/bus/iio/devices/iio:device"
@@ -28,12 +33,12 @@
 #define ASM330LHHX_GYRO_SEARCH  "asm330lhhx_gyro"
 #define IIO_GET_EVENT_FD_IOCTL  _IOR('i', 0x90, int)
 
-
 static int mlc_case_device_number = 0;
 static int mlc_case_device_start_index = 0;
+static pthread_t mMlcThreadtid;
 
 /*
- *SensorApiService - Print sensor mlc case List
+ *SensorDevice - Print sensor mlc case List
  */
 static void PrintSensorMLCCaseList(struct sensor_mlc_case_list *m, int mlc_case_count)
 {
@@ -44,7 +49,7 @@ static void PrintSensorMLCCaseList(struct sensor_mlc_case_list *m, int mlc_case_
 }
 
 /*
- *SensorApiService - Print mlce event id with timestamp
+ *SensorDevice - Print mlce event id with timestamp
  */
 static void print_event(int iio_device_number, struct mlc_event_data *event)
 {
@@ -53,9 +58,9 @@ static void print_event(int iio_device_number, struct mlc_event_data *event)
 
         pevent = (unsigned char *)event;
 
-	SENSOR_LOGI(LOG_TAG "Dev: %d Event: %x %x %x %x %x %x %x %x time: %lld\n", 
-			iio_device_number, pevent[0], pevent[1], pevent[2], 
-			pevent[3],pevent[4], pevent[5], pevent[6], pevent[7], 
+	SENSOR_LOGI(LOG_TAG "Dev: %d Event: %x %x %x %x %x %x %x %x time: %lld\n",
+			iio_device_number, pevent[0], pevent[1], pevent[2],
+			pevent[3],pevent[4], pevent[5], pevent[6], pevent[7],
 			event->timestamp);
 }
 
@@ -64,7 +69,7 @@ static void print_event(int iio_device_number, struct mlc_event_data *event)
  */
 static int find_mlc_iio_device_number(void)
 {
-        char iio_device_name[DEVICE_IIO_MAX_FILENAME_LEN];
+        char iio_device_name[DEVICE_MAX_FILENAME_LEN];
         struct stat sb;
         int i;
 
@@ -88,7 +93,7 @@ static int find_mlc_iio_device_number(void)
  */
 static bool find_mlc_case_iio_device_number(int i)
 {
-        char iio_device_name[DEVICE_IIO_MAX_FILENAME_LEN];
+        char iio_device_name[DEVICE_MAX_FILENAME_LEN];
         struct stat sb;
 
         (void)snprintf(iio_device_name, sizeof(iio_device_name),
@@ -104,7 +109,7 @@ static bool find_mlc_case_iio_device_number(int i)
 }
 
 static int get_mlc_case_name(int i, char *name) {
-        char iio_device_file[DEVICE_IIO_MAX_FILENAME_LEN];
+        char iio_device_file[DEVICE_MAX_FILENAME_LEN];
 	FILE *nameFile;
 	int ret =0;
 
@@ -135,9 +140,9 @@ static int mlc_info(int iio_device_number)
 {
 	FILE *mlc_info_fd = NULL;
         FILE *mlc_version_fd = NULL;
-        char mlc_info_file_name[DEVICE_IIO_MAX_FILENAME_LEN];
-        char mlc_version_file_name[DEVICE_IIO_MAX_FILENAME_LEN];
-        char str[DEVICE_IIO_MAX_FILENAME_LEN];
+        char mlc_info_file_name[DEVICE_MAX_FILENAME_LEN];
+        char mlc_version_file_name[DEVICE_MAX_FILENAME_LEN];
+        char str[DEVICE_MAX_FILENAME_LEN];
         int ret;
 
         ret = snprintf(mlc_info_file_name, sizeof(mlc_info_file_name), "%s%d/%s",
@@ -168,15 +173,16 @@ static int mlc_info(int iio_device_number)
         mlc_info_fd = fopen(mlc_info_file_name, "r");
         if (!mlc_info_fd) {
                 SENSOR_LOGE(LOG_TAG "MLC: open mlc_info_file_name %s failed\n", mlc_info_file_name);
+		(void)fclose(mlc_version_fd);
                 return -1;
         }
 
-        if (fgets(str, DEVICE_IIO_MAX_FILENAME_LEN, mlc_info_fd) != NULL) {
+        if (fgets(str, DEVICE_MAX_FILENAME_LEN, mlc_info_fd) != NULL) {
                 SENSOR_LOGI(LOG_TAG "MLC INFO: %s\n", str);
         }
 
-        (void)memset(str, 0, DEVICE_IIO_MAX_FILENAME_LEN);
-        if (fgets(str, DEVICE_IIO_MAX_FILENAME_LEN, mlc_version_fd) != NULL) {
+        (void)memset(str, 0, DEVICE_MAX_FILENAME_LEN);
+        if (fgets(str, DEVICE_MAX_FILENAME_LEN, mlc_version_fd) != NULL) {
                 SENSOR_LOGI(LOG_TAG "MLC VERSION: %s\n", str);
         }
 
@@ -191,9 +197,9 @@ static int mlc_info(int iio_device_number)
  */
 static int mlc_flush(int iio_device_number)
 {
-        char mlc_file_name[DEVICE_IIO_MAX_FILENAME_LEN];
+        char mlc_file_name[DEVICE_MAX_FILENAME_LEN];
         FILE *sysfs_flush = NULL;
-        char str[DEVICE_IIO_MAX_FILENAME_LEN];
+        char str[DEVICE_MAX_FILENAME_LEN];
         int ret;
 
         ret = snprintf(mlc_file_name, sizeof(mlc_file_name), "%s%d/%s",
@@ -228,9 +234,9 @@ static int mlc_flush(int iio_device_number)
 /*
  * echo 1 > load_mlc
  */
-bool SensorApiService::LoadMLC(const char *mcl_fw_name)
+bool SensorDevice::loadMLC(const char *mcl_fw_name)
 {
-        char mlc_file_name[DEVICE_IIO_MAX_FILENAME_LEN];
+        char mlc_file_name[DEVICE_MAX_FILENAME_LEN];
         FILE *sysfs_load = NULL;
         FILE *mcl_fw = NULL;
         int ret = 0, i = 0;
@@ -292,12 +298,12 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 	//Print MLC INFO
 	(void)mlc_info(iio_device_number);
 	(void)memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
-	mSesnorMlcCaseList = (struct sensor_mlc_case_list*) malloc(sizeof(struct sensor_mlc_case_list));
-	if (mSesnorMlcCaseList == nullptr) {
+	mService->mSensorMlcCaseList = (struct sensor_mlc_case_list*) malloc(sizeof(struct sensor_mlc_case_list));
+	if (mService->mSensorMlcCaseList == nullptr) {
 		return false;
 	}
 
-	mSensorMlcCaseCount = 0;
+	mService->mSensorMlcCaseCount = 0;
 	for (int i = mlc_case_device_number; i < iio_device_number+12; i++) {
 		if(find_mlc_case_iio_device_number(i)) {
 			if (mlc_start_index)
@@ -305,22 +311,22 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 			mlc_start_index = false;
 			//Create MLC case List to send to all Clients.
 			(void)get_mlc_case_name(i, mlc_file_name);
-			(void)strlcpy(&mSesnorMlcCaseList[mSensorMlcCaseCount].name[0], mlc_file_name, MAX_PATH_SIZE);
-			mSensorMlcCaseCount++;
-			if (mSesnorMlcCaseList == nullptr) {
+			(void)strlcpy(&mService->mSensorMlcCaseList[mService->mSensorMlcCaseCount].name[0], mlc_file_name, MAX_PATH_SIZE);
+			mService->mSensorMlcCaseCount++;
+			if (mService->mSensorMlcCaseList == nullptr) {
 				return false;
 			}
 
-			mSesnorMlcCaseList = (struct sensor_mlc_case_list*) realloc(mSesnorMlcCaseList,
-					(mSensorMlcCaseCount+1) * sizeof(struct sensor_mlc_case_list));
+			mService->mSensorMlcCaseList = (struct sensor_mlc_case_list*) realloc(mService->mSensorMlcCaseList,
+					(mService->mSensorMlcCaseCount+1) * sizeof(struct sensor_mlc_case_list));
 			(void)memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
 		}
 	}
 
 	//Print sensor list for debug
-	PrintSensorMLCCaseList(mSesnorMlcCaseList, mSensorMlcCaseCount);
+	PrintSensorMLCCaseList(mService->mSensorMlcCaseList, mService->mSensorMlcCaseCount);
 
-	if(mSensorMlcCaseCount > 0) {
+	if(mService->mSensorMlcCaseCount > 0) {
 		//Create the thread to read mlc case events
 		if (!Sensor_ThreadCreate(&mMlcThreadtid, mlcPollEvents, this, "SensorMlcEventsRead-")) {
 			SENSOR_LOGE(LOG_TAG "Sensor Mlc Events Read thread failed \n");
@@ -332,12 +338,12 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 }
 
 /*
- *SensorApiService - MLCaseEvents Poll
+ *SensorDevice - MLCaseEvents Poll
  */
-void* SensorApiService::mlcPollEvents(void *arg)
+void* SensorDevice::mlcPollEvents(void *arg)
 {
-        SensorApiService* mSensorService = (SensorApiService*)(arg);
-        mSensorService->pollEvents();
+        SensorDevice* mSensorDevice = (SensorDevice*)(arg);
+        mSensorDevice->pollEvents();
 	return 0;
 }
 
@@ -416,12 +422,12 @@ static int ProcessScanData(uint8_t *data,
         return num_channels;
 }
 
-void SensorApiService::pollEvents(void) {
-	char mlc_case_name[DEVICE_IIO_MAX_FILENAME_LEN];
-	char sensor_mfifo_file_name[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
-	char enable_file[DEVICE_IIO_MAX_FILENAME_LEN];
-	char length_file[DEVICE_IIO_MAX_FILENAME_LEN];
-        char device_path[DEVICE_IIO_MAX_FILENAME_LEN];
+void SensorDevice::pollEvents(void) {
+	char mlc_case_name[DEVICE_MAX_FILENAME_LEN];
+	char sensor_mfifo_file_name[DEVICE_MAX_FILENAME_LEN] = {'\0'};
+	char enable_file[DEVICE_MAX_FILENAME_LEN];
+	char length_file[DEVICE_MAX_FILENAME_LEN];
+        char device_path[DEVICE_MAX_FILENAME_LEN];
         int i = 0 , j = 0;
         int fd[30] = { -1 };
         int ret = 0;
@@ -447,11 +453,11 @@ void SensorApiService::pollEvents(void) {
 	bool rc = false;
 
 	/**Handling mFifo device*/
-	mfifo_num = get_sensor_device_by_name(IIO_MLC_MFIFO_NAME);
+	mfifo_num = get_iio_sensor_device_by_name(IIO_MLC_MFIFO_NAME);
         if (mfifo_num < 0)
 		SENSOR_LOGE(LOG_TAG "No %s sensor found into /sys/bus/iio/devices/ folder.\n",IIO_MLC_MFIFO_NAME);
 
-	(void)snprintf(sensor_mfifo_file_name, DEVICE_IIO_MAX_FILENAME_LEN, "/sys/bus/iio/devices/iio:device%d/", mfifo_num);
+	(void)snprintf(sensor_mfifo_file_name, DEVICE_MAX_FILENAME_LEN, "/sys/bus/iio/devices/iio:device%d/", mfifo_num);
 
 	SENSOR_LOGI(LOG_TAG "sensor_mfifo_file_name %s mfifo_num %d\n", sensor_mfifo_file_name, mfifo_num);
 
@@ -567,15 +573,16 @@ void SensorApiService::pollEvents(void) {
 						   events.uncalibrated_accelerometer.x_uncalib,
 						   events.uncalibrated_accelerometer.y_uncalib,
 						   events.uncalibrated_accelerometer.z_uncalib,events.timestamp);
-				   auto it = mClients.begin();
-				   while (it != mClients.end() && it != (std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator)NULL) {
+				   auto it = mService->mClients.begin();
+				   while (it != mService->mClients.end() &&
+						   it != (unordered_map<string, SensorHalDaemonClientHandler*>::iterator)NULL) {
 					   if (it->second && it->second->mMlcEnable == true) {
 						   rc= it->second->onSensorMFifoDataReadCb(&events, count);
 						   // purge this client if failed
 						   if (!rc) {
 							   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
-							   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
-							   it =deleteClientbyName(it->first.c_str());
+							   lock_guard<mutex> lock(mService->mMutex);
+							   it = mService->deleteClientbyName(it->first.c_str());
 						   }
 						   else
 							   ++it;
@@ -599,9 +606,9 @@ void SensorApiService::pollEvents(void) {
 			   }
 			   print_event(i+mlc_case_device_start_index-1, &event);
 			   (void)get_mlc_case_name(i+mlc_case_device_start_index-1, mlc_case_name);
-			   auto it = mClients.begin();
-			   while (it != mClients.end() && it != (std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator)NULL) {
-				   for (int i = 0; i < mSensorMlcCaseCount ; i++) {
+			   auto it = mService->mClients.begin();
+			   while (it != mService->mClients.end() && it != (unordered_map<string, SensorHalDaemonClientHandler*>::iterator)NULL) {
+				   for (int i = 0; i < mService->mSensorMlcCaseCount ; i++) {
 					   if (it->second && it->second->mMlcCaseList != nullptr) {
 						   if ((strcmp(it->second->mMlcCaseList[i].name, mlc_case_name) == 0 )
 								   && it->second->mMlcCaseList[i].enable == 1) {
@@ -609,8 +616,8 @@ void SensorApiService::pollEvents(void) {
 							   // purge this client if failed
 							   if (!rc) {
 								   SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
-								   std::lock_guard<std::mutex> lock(SensorApiService::mMutex);
-								   it = deleteClientbyName(it->first.c_str());
+								   lock_guard<mutex> lock(mService->mMutex);
+								   it = mService->deleteClientbyName(it->first.c_str());
 								   mlc_client_delete = 1;
 								   break;
 							   }
@@ -631,18 +638,21 @@ void SensorApiService::pollEvents(void) {
 }
 
 /******************************************************************************
-SensorApiService - implementation - SensorMlcEnableEvents
+SensorDevice - implementation - SensorMlcEnableEvents
 ******************************************************************************/
-bool SensorApiService::SensorMlcEnableEvents(char *mlc_case_name, int enable)
+bool SensorDevice::sensorMlcEnableEvents(char *mlc_case_name, int enable)
 {
         FILE *event_file_enable = NULL;
-        char event_file_enable_name[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
+        char event_file_enable_name[DEVICE_MAX_FILENAME_LEN] = {'\0'};
         int ret;
 
         SENSOR_LOGI(LOG_TAG "mlc_case_name %s\n",mlc_case_name);
 
-        find_path(DYN_IIO_TYPE, event_file_enable_name, mlc_case_name, sizeof(event_file_enable_name));
+	int dev_num = get_iio_sensor_device_by_name(mlc_case_name);
+        if (dev_num < 0)
+		SENSOR_LOGE(LOG_TAG "No %s sensor found into /sys/bus/iio/devices/ folder.\n",mlc_case_name);
 
+	(void)snprintf(event_file_enable_name, DEVICE_MAX_FILENAME_LEN, "/sys/bus/iio/devices/iio:device%d/", dev_num);
         (void)strlcat(event_file_enable_name, IIO_MLC_EVENT_NAME, sizeof(event_file_enable_name));
 
         SENSOR_LOGI(LOG_TAG "event_file_enable_name %s", event_file_enable_name);
@@ -654,8 +664,8 @@ bool SensorApiService::SensorMlcEnableEvents(char *mlc_case_name, int enable)
         }
 
         //Check the mlc enable request of all clients
-        for (auto each : mClients) {
-		for (int i = 0; i < mSensorMlcCaseCount ; i++) {
+        for (auto each : mService->mClients) {
+		for (int i = 0; i < mService->mSensorMlcCaseCount ; i++) {
                  if (strcmp(each.second->mMlcCaseList[i].name, mlc_case_name) == 0) {
 			 enable = max(enable, each.second->mMlcCaseList[i].enable);
 			 SENSOR_LOGI(LOG_TAG "<-- enable %d each.second->mMlcCaseList[%d].enable %d \n",
@@ -675,32 +685,36 @@ bool SensorApiService::SensorMlcEnableEvents(char *mlc_case_name, int enable)
 }
 
 /******************************************************************************
-SensorApiService - implementation - SetPowerMode to LPM or HPM
+SensorDevice - implementation - SetPowerMode to LPM or HPM
 ******************************************************************************/
-int SensorApiService::SetPowerMode(int sensor_id, int mode)
+int SensorDevice::setPowerMode(int sensor_id, int mode)
 {
         FILE *power_mode_fd = NULL;
-        char power_mode_file_name[DEVICE_IIO_MAX_FILENAME_LEN] = {'\0'};
+        char power_mode_file_name[DEVICE_MAX_FILENAME_LEN] = {'\0'};
         int ret = SENSOR_ERROR_CONTROL_FAILED;
 
         //Check the sensor for sensor_id
-        for (int i=0 ; i < mSensorCount; i++) {
-          if (sensor_id == mSensor[i].sensor_id) {
-            if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
-                    if (mode == SENSOR_LPM && mMaxAccSampleRate > 208)
+        for (int i=0 ; i < mService->mSensorCount; i++) {
+          if (sensor_id == mService->mSensor[i].sensor_id) {
+            if (mService->mSensor[i].type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+                    if (mode == SENSOR_LPM && mService->mMaxAccSampleRate > 208)
                             return SENSOR_ERROR_CONTROL_FAILED;
-                    if (mSensor[i].Activate == SENSOR_ENABLE)
+                    if (mService->mSensor[i].Activate == SENSOR_ENABLE)
                             return SENSOR_ERROR_CONTROL_FAILED;
-                    find_path(DYN_IIO_TYPE, power_mode_file_name, ASM330LHHX_ACC_SEARCH,
-                                    sizeof(power_mode_file_name));
+		    int dev_num = get_iio_sensor_device_by_name(ASM330LHHX_ACC_SEARCH);
+		    if (dev_num < 0)
+			    SENSOR_LOGE(LOG_TAG "No %s sensor found into /sys/bus/iio/devices/ folder.\n", power_mode_file_name);
+		    (void)snprintf(power_mode_file_name, DEVICE_MAX_FILENAME_LEN, "/sys/bus/iio/devices/iio:device%d/", dev_num);
             }
-            if (mSensor[i].type == SENSOR_TYPE_GYROSCOPE) {
-                    if (mode == SENSOR_LPM && mMaxGyroSampleRate > 208)
+            if (mService->mSensor[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED) {
+                    if (mode == SENSOR_LPM && mService->mMaxGyroSampleRate > 208)
                             return SENSOR_ERROR_CONTROL_FAILED;
-                    if (mSensor[i].Activate == SENSOR_ENABLE)
+                    if (mService->mSensor[i].Activate == SENSOR_ENABLE)
                             return SENSOR_ERROR_CONTROL_FAILED;
-                    find_path(DYN_IIO_TYPE, power_mode_file_name, ASM330LHHX_GYRO_SEARCH,
-                                    sizeof(power_mode_file_name));
+		    int dev_num = get_iio_sensor_device_by_name(ASM330LHHX_GYRO_SEARCH);
+		    if (dev_num < 0)
+			    SENSOR_LOGE(LOG_TAG "No %s sensor found into /sys/bus/iio/devices/ folder.\n", power_mode_file_name);
+		    (void)snprintf(power_mode_file_name, DEVICE_MAX_FILENAME_LEN, "/sys/bus/iio/devices/iio:device%d/", dev_num);
             }
           }
         }

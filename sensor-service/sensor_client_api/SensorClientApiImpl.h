@@ -87,6 +87,8 @@ struct SensorTrackingOption {
 	bool rotate;
 	sensor_state state;
 	SensorDataReadCb mSensorDataReadCb;
+	struct wakeup_config wakeup;
+	bool wakeup_enable;
 };
 
 class SensorClientImpl :
@@ -119,6 +121,12 @@ public:
     virtual int selfTest(int sensor_id, SelfTestType selfTestType, int request_id, SelfTestResultCallback);
     //Sensor update rotation matrix
     virtual int setEulerAngles(uint16_t rolld, uint16_t pitchd, uint16_t yawd);
+    //Sensor wakeup config info limits
+    virtual int getSensorWakeupConfInfoLimits(int sensor_id, struct wakeup_config_info *wakeup_info);
+    //Sensor wakeup config info
+    virtual int getSensorWakeupConfUpdate(int sensor_id, SensorWakeupConfigUpdateCb);
+    //Sensor wakeup enable/disable
+    virtual int sensorWakeupEnable(int sensor_id, struct wakeup_config wakeup, bool enable, SensorWakeupConfigUpdateCb, SensorEventCb);
     // convenient methods
     inline bool sendMessage(const uint8_t* data, uint32_t length) const {
         return (mIpcSender != nullptr) && mIpcSender->send(data, length);
@@ -160,6 +168,7 @@ private:
     //MLC case list
     int 		             mSensorMlcCaseCount;
     struct sensor_mlc_case_list*     mSensorMlcCaseList;
+    struct wakeup_config_info        mSensorWakeupConfigInfo;
 
     // callbacks
     CapabilitiesCb          mCapabilitiesCb;
@@ -170,6 +179,8 @@ private:
     MlcCaseListCb*          mSensorMLCEventCbs;
     SensormFifoReadCb       mSensormFifoReadCb;
     SelfTestResultCallback  mSelfTestResultCb;
+    SensorEventCb           mSensorEventCb;
+    SensorWakeupConfigUpdateCb    mSensorWakeupCb;
 
     //Ipc sender
 #ifdef FEATURE_EXTERNAL_AP

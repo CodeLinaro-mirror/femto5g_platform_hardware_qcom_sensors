@@ -946,7 +946,7 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
         {
                 PDEBUG("shutdown gyro");
 
-                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_SUSPEND);
+                ret = wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_DEEP_SUSPEND);
         }else
         {
                 PDEBUG("set gyro active");
@@ -1479,22 +1479,22 @@ static void ap_hw_poll_smi230acc(BoschSimpleList *dest_list_acc)
     {
         if(EV_SYN != event[5].type)
         {
-            PWARN("0: %d, %d, %d;", event[0].type, event[0].code, event[0].value);
+            /*PWARN("0: %d, %d, %d;", event[0].type, event[0].code, event[0].value);
             PWARN("1: %d, %d, %d;", event[1].type, event[1].code, event[1].value);
             PWARN("2: %d, %d, %d;", event[2].type, event[2].code, event[2].value);
             PWARN("3: %d, %d, %d;", event[3].type, event[3].code, event[3].value);
             PWARN("4: %d, %d, %d;", event[4].type, event[4].code, event[4].value);
-            PWARN("5: %d, %d, %d;", event[5].type, event[5].code, event[5].value);
+            PWARN("5: %d, %d, %d;", event[5].type, event[5].code, event[5].value);*/
             continue;
         }
         if(event[0].value == 0)
         {
-            PWARN("0: %d, %d, %d;", event[0].type, event[0].code, event[0].value);
+            /*PWARN("0: %d, %d, %d;", event[0].type, event[0].code, event[0].value);
             PWARN("1: %d, %d, %d;", event[1].type, event[1].code, event[1].value);
             PWARN("2: %d, %d, %d;", event[2].type, event[2].code, event[2].value);
             PWARN("3: %d, %d, %d;", event[3].type, event[3].code, event[3].value);
             PWARN("4: %d, %d, %d;", event[4].type, event[4].code, event[4].value);
-            PWARN("5: %d, %d, %d;", event[5].type, event[5].code, event[5].value);
+            PWARN("5: %d, %d, %d;", event[5].type, event[5].code, event[5].value);*/
             continue;
         }
 
@@ -1536,12 +1536,12 @@ static void ap_hw_poll_smi230gyro(BoschSimpleList *dest_list)
     {
         if(EV_SYN != event[5].type)
         {
-            PWARN("0: %d, %d, %d;", event[0].type, event[0].code, event[0].value);
+            /*PWARN("0: %d, %d, %d;", event[0].type, event[0].code, event[0].value);
             PWARN("1: %d, %d, %d;", event[1].type, event[1].code, event[1].value);
             PWARN("2: %d, %d, %d;", event[2].type, event[2].code, event[2].value);
             PWARN("3: %d, %d, %d;", event[3].type, event[3].code, event[3].value);
             PWARN("4: %d, %d, %d;", event[4].type, event[4].code, event[4].value);
-            PWARN("5: %d, %d, %d;", event[5].type, event[5].code, event[5].value);
+            PWARN("5: %d, %d, %d;", event[5].type, event[5].code, event[5].value);*/
             continue;
         }
 
@@ -2187,7 +2187,7 @@ static int32_t ap_hwcntl_init_GYRO()
                 break;
         }
 	if (pwr_cfg_read != SENSOR_GYRO_PM_NORMAL)
-		ret += wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_SUSPEND);
+		ret += wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_DEEP_SUSPEND);
 
         if (ret < 0)
         {

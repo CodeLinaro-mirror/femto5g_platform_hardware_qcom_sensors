@@ -58,6 +58,11 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <stdio.h>
@@ -76,7 +81,7 @@
 #include <atomic>
 #include <vector>
 
-#define CMD_OPTIONS     "l:s:b:n:e:t:r:"
+#define CMD_OPTIONS     "l:s:b:n:e:t:R:z:r:p:y:"
 
 #undef LOG_TAG
 #define LOG_TAG "Sensor-Test-App:"
@@ -109,8 +114,8 @@ std::atomic<bool> running(true);
 
 void Usage(void)
 {
-  SENSOR_LOGI(LOG_TAG "\nUsage:\nsensor_client_api_testapp --live <enable> --sampling <> --batch <> --count <> --temperature <enbale> --buffer <enable> --rotate <enable>\n");
-  SENSOR_LOGI(LOG_TAG "Ex: sensor_client_api_testapp -l 1 -s 104 -b 10 -n 10 -e 1 -t 1 -r 1\n");
+  SENSOR_LOGI(LOG_TAG "\nUsage:\nsensor_client_api_testapp --live <enable> --sampling <> --batch <> --count <> --temperature <enbale> --buffer <enable> --rotate <enable> --roll <roll> --pitch <pitch> --yaw <yaw>\n");
+  SENSOR_LOGI(LOG_TAG "Ex: sensor_client_api_testapp -l 1 -s 104 -b 10 -n 10 -e 1 -t 1 -R 1\n");
   return;
 }
 
@@ -213,37 +218,34 @@ static void dump_buffer_event(const struct sensors_event_t *e)
 
 static void onCapabilitiesCb(SensorCapabilitiesMask mask) {
     SENSOR_LOGI(LOG_TAG "<<< Recieved onCapabilitiesCb mask=%d\n", mask);
-    switch (mask) {
-	case SHD_READY:
-		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is Ready to commnunicate\n");
-		break;
-	case SHD_RESTARTED:
-		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is Restarted\n");
-		break;
-	case SHD_NOT_RUNNING:
-		SENSOR_LOGI(LOG_TAG "Sensor Hal daemon is not available\n");
-		break;
-	case DEVICE_SUSPEND:
-		SENSOR_LOGI(LOG_TAG "Device is about go to suspend state\n");
-		break;
-	case DEVICE_RESUME:
-		SENSOR_LOGI(LOG_TAG "Device is resumed\n");
-		break;
-	case DEVICE_SHUTDOWN:
-		SENSOR_LOGI(LOG_TAG "Device is about go to shutdown\n");
-		break;
-	case ACCEL_SELFTEST_FAIL:
-		SENSOR_LOGI(LOG_TAG "Accel self-test fail\n");
-                break;
-	case GYRO_SELFTEST_FAIL:
-		SENSOR_LOGI(LOG_TAG "Gyro self-test fail\n");
-                break;
-	case ACCEL_GYRO_BOTH_SELFTEST_FAIL:
-		SENSOR_LOGI(LOG_TAG "Accel and Gyro self-test both failed\n");
-                break;
-	defult:
-		SENSOR_LOGI(LOG_TAG "Unknown mask\n");
-		break;
+    if (mask & SHD_READY) {
+	    SENSOR_LOGI(LOG_TAG "Sensor HAL daemon is Ready to communicate\n");
+    }
+    if (mask & SHD_RESTARTED) {
+	    SENSOR_LOGI(LOG_TAG "Sensor HAL daemon is Restarted\n");
+    }
+    if (mask & SHD_NOT_RUNNING) {
+	    SENSOR_LOGI(LOG_TAG "Sensor HAL daemon is not available\n");
+    }
+    if (mask & DEVICE_SUSPEND) {
+	    SENSOR_LOGI(LOG_TAG "Device is about to go to suspend state\n");
+    }
+    if (mask & DEVICE_RESUME) {
+	    SENSOR_LOGI(LOG_TAG "Device is resumed\n");
+    }
+    if (mask & DEVICE_SHUTDOWN) {
+	    SENSOR_LOGI(LOG_TAG "Device is about to go to shutdown\n");
+    }
+    if (mask & ACCEL_SELFTEST_FAIL) {
+	    SENSOR_LOGI(LOG_TAG "Accel self-test fail\n");
+    }
+    if (mask & GYRO_SELFTEST_FAIL) {
+	    SENSOR_LOGI(LOG_TAG "Gyro self-test fail\n");
+    }
+    if (!(mask & (SHD_READY | SHD_RESTARTED | SHD_NOT_RUNNING | 
+				    DEVICE_SUSPEND | DEVICE_RESUME | DEVICE_SHUTDOWN | 
+				    ACCEL_SELFTEST_FAIL | GYRO_SELFTEST_FAIL))) {
+	    SENSOR_LOGI(LOG_TAG "Unknown mask\n");
     }
 }
 
@@ -341,12 +343,49 @@ static void onSensorBufferDataReadCb(const sensors_event_t *events, uint32_t cou
             dump_buffer_event(&events[i]);
 }
 
+const char* getSelfTestResultTypeName(SelfTestResultType type) {
+   switch (type) {
+	   case SENSOR_BUSY:
+		   return "SENSOR_BUSY";
+	   case SENSOR_IDLE:
+		   return "SENSOR_IDLE";
+	   default:
+		   return "Unknown";
+   }
+}
+
+const char* getSelfTestResultName(SelfTestResult result) {
+   switch (result) {
+	   case Passed:
+		   return "Passed";
+	   case Failed:
+		   return "Failed";
+	   case NotAvailable:
+		   return "NotAvailable";
+	   default:
+		   return "Unknown";
+   }
+}
+
 static void onSelfTestResultCallback(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp)
 {
    end_time = getTimestamp();
    selftest_time = (end_time - start_time);
    SENSOR_LOGI(LOG_TAG "\nselftest time taken = %lldms\n", selftest_time/1000000);
-   SENSOR_LOGI(LOG_TAG "self_test- sensor_id %d request_id %d result %d resultType %d timestamp %lld\n",sensor_id, request_id, result, resultType, timestamp);
+   SENSOR_LOGI(LOG_TAG "self_test - sensor_id:%d request_id:%d result:%s resultType:%s timestamp:%lld\n",
+		   sensor_id, request_id, getSelfTestResultName(result), getSelfTestResultTypeName(resultType), timestamp);
+}
+
+static void onSensorWakeupConfigUpdateCb(int sensor_id, struct wakeup_config wakeup)
+{
+   SENSOR_LOGI(LOG_TAG ">>> id: %d wakeup threshold %f duration %d odr %f \n",
+		   sensor_id, wakeup.threshold, wakeup.duration, wakeup.odr);
+}
+
+static void onSensorEventCallback(int sensor_id, struct iio_event_data event)
+{
+   SENSOR_LOGI(LOG_TAG "onSensorEventCallback sensor ID: %d event id: %lld ts: %lld\n",
+		   sensor_id, event.id, (unsigned long long)event.timestamp);
 }
 
 static void printHelp() {
@@ -362,6 +401,9 @@ static void printHelp() {
     SENSOR_LOGI(LOG_TAG "m: get mlc case list\n");
     SENSOR_LOGI(LOG_TAG "e: enable/disable mlc case event\n");
     SENSOR_LOGI(LOG_TAG "r: set sensor rotation matrix\n");
+    SENSOR_LOGI(LOG_TAG "s: sensor self test\n");
+    SENSOR_LOGI(LOG_TAG "d: get sensor wakeup config\n");
+    SENSOR_LOGI(LOG_TAG "w: set sensor wakeup config\n");
     SENSOR_LOGI(LOG_TAG "q: Quit\n");
 }
 
@@ -374,10 +416,12 @@ int main(int argc, char *argv[]) {
    char enable[10];
    char batchcount[10];
    char rm[10];
+   char console[10];
    char rotate[10];
    bool Rotate = 0;
    int batch_count = 0;
    uint32_t roll = 0, pitch = 0, yaw = 0;
+   bool euler = 0;
    sensor_state state = SENSOR_DISABLE;
    int mlc_enable = 0;
    int i = 0, j= 0;
@@ -392,10 +436,13 @@ int main(int argc, char *argv[]) {
    static int enable_buffer = 0;
    static int enable_live = 0;
    static int enable_temperature = 0;
+   static int enable_selftest = 0;
    std::thread temperature;
+   struct wakeup_config wakeup;
+   bool wakeup_enable;
+   struct wakeup_config_info wakeup_info;
 
    SelfTestType selfTestType;
-
 
    pClient = new SensorClient(onCapabilitiesCb);
 
@@ -431,8 +478,24 @@ int main(int argc, char *argv[]) {
 		   case 't':
 			   enable_temperature = strtol(optarg, &stopstring, 10);
 			   break;
-		   case 'r':
+		   case 'R':
 			   Rotate = (bool)strtol(optarg, &stopstring, 10);
+			   break;
+		   case 'z':
+			   enable_selftest = 1;
+			   selfTestType = (SelfTestType)strtol(optarg, &stopstring, 10);
+			   break;
+		   case 'r':
+			   euler = 1;
+			   roll = strtol(optarg, &stopstring, 10);
+			   break;
+		   case 'p':
+			   euler = 1;
+			   pitch = strtol(optarg, &stopstring, 10);
+			   break;
+		   case 'y':
+			   euler = 1;
+			   yaw = strtol(optarg, &stopstring, 10);
 			   break;
 		   default:
 			   Usage();
@@ -442,11 +505,31 @@ int main(int argc, char *argv[]) {
      SENSOR_LOGI(LOG_TAG "Sensor enable_live %d sampling rate %f batch count %d live_count %d enable_buffer %d enable_temperature %d rotate %d\n",
 		     enable_live, odr_rate, batch_count, live_count, enable_buffer, enable_temperature, Rotate);
 
+     if(euler)
+     {
+	ret = pClient->sensor_update_rotation_matrix(roll, pitch, yaw);
+	if(ret < 0) {
+		SENSOR_LOGE(LOG_TAG "sensor set Euler angles failed ret %d \n", ret);
+	}
+     }
+     if(enable_selftest == 1)
+     {
+	for(int i=0; i < sensor_count; i++) {
+	    start_time = getTimestamp();
+	    ret = pClient->sensor_self_test(sensor[i].sensor_id, selfTestType, request_id++, onSelfTestResultCallback);
+	    if(ret < 0) {
+		SENSOR_LOGE(LOG_TAG "sensor self test request failed ret %d \n", ret);
+	    }
+	}
+	(void)sleep(10);
+     }
+
      if(enable_buffer == 1){
 	ret = pClient->sensor_read_buffer_data(1, onSensorBufferDataReadCb);
 	if(ret < 0) {
 		SENSOR_LOGE(LOG_TAG "sensor buffer read failed ret %d \n", ret);
 	}
+	(void)sleep(60);
      }
 
     if(enable_live == 1) {
@@ -475,7 +558,7 @@ int main(int argc, char *argv[]) {
 	SENSOR_LOGI(LOG_TAG "read temperature\n");
 	temperature = std::thread(temperatureThread);
     }
-     while(1) {
+     while(enable_live) {
 	if (enable_temperature == 1) {
 		SENSOR_LOGI(LOG_TAG "read temperature\n");
 		ret = pClient->sensor_read_temperature(onSensorTempReadCb);
@@ -491,6 +574,7 @@ int main(int argc, char *argv[]) {
 	(void)fgets(buf, sizeof(buf)/sizeof(buf[0]), stdin);
 	int command = buf[0];
      }
+     goto EXIT;
    }
 
    printHelp();
@@ -671,6 +755,57 @@ int main(int argc, char *argv[]) {
 		if(ret < 0) {
 			SENSOR_LOGE(LOG_TAG "sensor set Euler angles failed ret %d \n", ret);
 			break;
+		}
+	}
+        break;
+     case 'd':
+        if (pClient) {
+		for(int i=0; i < sensor_count; i++) {
+		  SENSOR_LOGI(LOG_TAG "get Sensor wake up config for sensor[i].sensor_id %d\n",sensor[i].sensor_id);
+		  ret = pClient->sensor_get_wakeup_config_limits(sensor[i].sensor_id, &wakeup_info);
+		  if(ret < 0) {
+			  SENSOR_LOGE(LOG_TAG "sensor wakeup config limits failed id: %d ret %d \n", sensor[i].sensor_id, ret);
+		  } else {
+			  SENSOR_LOGI(LOG_TAG "Sensor ID:%d Threshold: min=%.2f, max=%.2f Duration: min=%d, max=%d ODR: min=%f, max=%f\n",
+				       sensor[i].sensor_id,
+				       wakeup_info.minThreshold, wakeup_info.maxThreshold,
+				       wakeup_info.minDuration, wakeup_info.maxDuration,
+				       wakeup_info.minOdr, wakeup_info.maxOdr);
+		  }
+		  ret = pClient->sensor_get_wakeup_config_update(sensor[i].sensor_id, onSensorWakeupConfigUpdateCb);
+		  if(ret < 0)
+			  SENSOR_LOGE(LOG_TAG "sensor wakeup update req failed id: %d ret %d \n", sensor[i].sensor_id, ret);
+		}
+	}
+        break;
+     case 'w':
+        if (pClient) {
+		for(int i=0; i < sensor_count; i++) {
+		  SENSOR_LOGI(LOG_TAG "Enable/Disable wake up config for the sensor sensor[i].sensor_id %d\n",sensor[i].sensor_id);
+		  SENSOR_LOGI(LOG_TAG "\nEnter wakeup enable:");
+		  (void)memset(console, 0, sizeof(console)/sizeof(console[0]));
+		  (void)fgets(console, sizeof(console)/sizeof(console[0]), stdin);
+		  wakeup_enable=strtol(console,&stopstring,10);
+		  if (wakeup_enable == 1) {
+			  SENSOR_LOGI(LOG_TAG "\nEnter wakeup threshold:");
+			  (void)memset(console, 0, sizeof(console)/sizeof(console[0]));
+			  (void)fgets(console, sizeof(console)/sizeof(console[0]), stdin);
+			  wakeup.threshold=strtof(console,&stopstring);
+
+			  SENSOR_LOGI(LOG_TAG "\nEnter wakeup duration:");
+			  (void)memset(console, 0, sizeof(console)/sizeof(console[0]));
+			  (void)fgets(console, sizeof(console)/sizeof(console[0]), stdin);
+			  wakeup.duration=strtol(console,&stopstring,10);
+
+			  SENSOR_LOGI(LOG_TAG "\nEnter wakeup odr:");
+			  (void)memset(console, 0, sizeof(console)/sizeof(console[0]));
+			  (void)fgets(console, sizeof(console)/sizeof(console[0]), stdin);
+			  wakeup.odr=strtof(console,&stopstring);
+		  }
+		  ret = pClient->sensor_enable_wakeup_config(sensor[i].sensor_id, wakeup, wakeup_enable, onSensorWakeupConfigUpdateCb, onSensorEventCallback);
+		  if(ret < 0) {
+			  SENSOR_LOGE(LOG_TAG "sensor wakeup enable failed ret id:%d ret: %d \n", sensor[i].sensor_id, ret);
+		  }
 		}
 	}
         break;

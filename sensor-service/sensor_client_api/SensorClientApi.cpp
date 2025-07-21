@@ -217,4 +217,41 @@ int SensorClient::sensor_update_rotation_matrix(uint16_t rolld, uint16_t pitchd,
     return mApiImpl->setEulerAngles(rolld, pitchd, yawd);
 }
 
+/******************************************************************************
+SensorClient - GetSensorWakeUpInfoLimits
+******************************************************************************/
+int SensorClient::sensor_get_wakeup_config_limits(int sensor_id, struct wakeup_config_info *wakeup_info) {
+    //Chek for Client Register
+    if (!mApiImpl) {
+        SENSOR_LOGE(LOG_TAG "NULL mApiImpl\n");
+        return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+    }
+    return mApiImpl->getSensorWakeupConfInfoLimits(sensor_id, wakeup_info);
+}
+
+/******************************************************************************
+SensorClient - GetSensorWakeUpInfo
+******************************************************************************/
+int SensorClient::sensor_get_wakeup_config_update(int sensor_id, SensorWakeupConfigUpdateCb sensorWakeupCallback) {
+    //Chek for Client Register
+    if (!mApiImpl) {
+        SENSOR_LOGE(LOG_TAG "NULL mApiImpl\n");
+        return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+    }
+    return mApiImpl->getSensorWakeupConfUpdate(sensor_id, sensorWakeupCallback);
+}
+
+/******************************************************************************
+SensorClient - SensorWakeUp
+******************************************************************************/
+int SensorClient::sensor_enable_wakeup_config(int sensor_id, struct wakeup_config wakeup, bool enable,
+		SensorWakeupConfigUpdateCb sensorWakeupCallback, SensorEventCb sensorEventCallback) {
+    //Chek for Client Register
+    if (!mApiImpl) {
+        SENSOR_LOGE(LOG_TAG "NULL mApiImpl\n");
+        return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
+    }
+    return mApiImpl->sensorWakeupEnable(sensor_id, wakeup, enable, sensorWakeupCallback, sensorEventCallback);
+}
+
 } // namespace sensor_client
