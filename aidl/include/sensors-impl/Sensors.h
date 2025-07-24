@@ -130,7 +130,11 @@ class Sensors : public BnSensors, public ISensorsEventCallback, public SensorCor
     void AddSensor() {
         std::shared_ptr<SensorType> sensor =
                 std::make_shared<SensorType>(mNextHandle++ /* sensorHandle */, this /* callback */);
-        mSensors[sensor->getSensorInfo().sensorHandle] = sensor;
+	if(sensor) {
+	    mSensors[sensor->getSensorInfo().sensorHandle] = sensor;
+	}else {
+	    ALOGE("Failed to create sensor instance");
+	}
     }
 
     // Utility function to delete the Event Flag
