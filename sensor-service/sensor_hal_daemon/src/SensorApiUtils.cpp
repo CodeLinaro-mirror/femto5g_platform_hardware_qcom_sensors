@@ -63,10 +63,10 @@ int sysfs_write_scale(char *file, float val)
 	if (NULL == fp)
 		return -errno;
 
-	(void)fprintf(fp, "%.9f", val);
+	int ret = fprintf(fp, "%.9g", val);
 	(void)fclose(fp);
 
-	return 0;
+	return ret > 0 ? 0 : ret;
 }
 
 
