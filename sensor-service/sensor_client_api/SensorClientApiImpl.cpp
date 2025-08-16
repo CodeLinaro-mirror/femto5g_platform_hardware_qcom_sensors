@@ -93,7 +93,8 @@ SensorClientImpl::SensorClientImpl(CapabilitiesCb capabitiescb) :
 	mSensormFifoReadCb(nullptr),
 	mSelfTestResultCb(nullptr),
 	mSensorEventCb(nullptr),
-	mSensorWakeupCb(nullptr),
+	mSensorWakeupConfigUpdateCb(nullptr),
+    mSensorEnableWakeupConfigUpdateCb(nullptr),
 	mSensorCount(0),
 	mShdRestarted(false),
 	mSensorMlcCaseCount(0)
@@ -743,7 +744,7 @@ int SensorClientImpl::getSensorWakeupConfUpdate(int sensor_id, SensorWakeupConfi
     else
       return SENSOR_ERROR_NO_SENSORS_FOUND;
 
-    mSensorWakeupCb = sensorWakeupCallback;
+    mSensorWakeupConfigUpdateCb = sensorWakeupCallback;
 
     if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
 	    (void)pthread_mutex_lock (&mSensorLibMutex);
@@ -786,8 +787,8 @@ int SensorClientImpl::sensorWakeupEnable(int sensor_id, struct wakeup_config wak
             return SENSOR_ERROR_CLIENT_REGISTER_FAILED;
     }
 
+    mSensorEnableWakeupConfigUpdateCb = sensorWakeupCallback;
     mSensorEventCb = sensorEventCallback;
-    mSensorWakeupCb = sensorWakeupCallback;
 
     if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
 	    (void)pthread_mutex_lock (&mSensorLibMutex);
@@ -1290,22 +1291,31 @@ void SensorClientImpl::onReceive(const string& data) {
           }
 	  break;
        }
-       //Received sensor wake up config infor from SHD(SENSOR HAL DAEMON)
-       case E_SENSORAPI_SENSOR_WAKEUP_UPDATE_IND_MSG_ID:
-       {
-          if((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSensorWakeupCb) {
-                  const SensorAPIWakeupConfigUpdateIndMsg* pWakeupMsg = (SensorAPIWakeupConfigUpdateIndMsg*) (pMsg);
-                  mSensorWakeupCb(pWakeupMsg->sensor_id, pWakeupMsg->wakeup);
-		  //copy enable config to re-enable once SHD restart
-		  for (int i = 0; i < mSensorCount; i++) {
-			  if(mSensorTrackingOption[i].sensor_id == pWakeupMsg->sensor_id) {
-				  memcpy(&mSensorTrackingOption[i].wakeup, &pWakeupMsg->wakeup, sizeof(struct wakeup_config));
-				  mSensorTrackingOption[i].wakeup_enable = true;
-			  }
-		  }
-          }
-	  break;
-       }
+        //Received sensor wake up config info from SHD(SENSOR HAL DAEMON)
+        case E_SENSORAPI_SENSOR_WAKEUP_UPDATE_IND_MSG_ID:
+        {
+           if((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSensorWakeupConfigUpdateCb) {
+                const SensorAPIWakeupConfigUpdateIndMsg* pWakeupMsg = (SensorAPIWakeupConfigUpdateIndMsg*) (pMsg);
+                mSensorWakeupConfigUpdateCb(pWakeupMsg->sensor_id, pWakeupMsg->wakeup);
+            }
+            break;
+        }
+        //Received sensor wake up config info from SHD(SENSOR HAL DAEMON) on enable
+        case E_SENSORAPI_SENSOR_ENABLE_WAKEUP_CONFIG_UPDATE_IND_MSG_ID:
+        {
+            if((mClientId != SENSOR_CLIENT_SESSION_ID_INVALID) && mSensorEnableWakeupConfigUpdateCb) {
+                const SensorAPIWakeupConfigUpdateIndMsg* pWakeupMsg = (SensorAPIWakeupConfigUpdateIndMsg*) (pMsg);
+                mSensorEnableWakeupConfigUpdateCb(pWakeupMsg->sensor_id, pWakeupMsg->wakeup);
+                //copy enable config to re-enable once SHD restart
+                for (int i = 0; i < mSensorCount; i++) {
+                    if(mSensorTrackingOption[i].sensor_id == pWakeupMsg->sensor_id) {
+                        memcpy(&mSensorTrackingOption[i].wakeup, &pWakeupMsg->wakeup, sizeof(struct wakeup_config));
+                        mSensorTrackingOption[i].wakeup_enable = true;
+                    }
+                }
+            }
+            break;
+        }
        //Received unknown message from SHD(SENSOR HAL DAEMON)
        default:
        {

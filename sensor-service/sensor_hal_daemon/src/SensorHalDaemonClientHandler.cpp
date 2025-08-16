@@ -772,7 +772,7 @@ bool SensorHalDaemonClientHandler::onSensorWakeupConfigRequestCb(struct wakeup_c
 }
 
 /**************************************************************************************
-SensorHalDaemonClientHandler - onSensorEventCb to nofiy client with wake up status
+SensorHalDaemonClientHandler - onSensorWakeupConfigUpdateCb to nofiy client with wakeup config
 **************************************************************************************/
 bool SensorHalDaemonClientHandler::onSensorWakeupConfigUpdateCb(int sensor_id, struct wakeup_config wakeup) {
    // please do not attempt to hold the lock, as the caller of this function
@@ -799,6 +799,23 @@ bool SensorHalDaemonClientHandler::onSensorEventCb(int sensor_id, struct iio_eve
            SensorAPIWakeupEnableIndMsg msg (SERVICE_NAME, sensor_id, event);
            bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
                            sizeof(msg));
+	   return rc;
+   }
+   return true;
+}
+
+/**************************************************************************************
+SensorHalDaemonClientHandler - onSensorWakeupEnableConfigUpdateCb to nofiy client with with wakeup config on enable
+**************************************************************************************/
+bool SensorHalDaemonClientHandler::onSensorWakeupEnableConfigUpdateCb(int sensor_id, struct wakeup_config wakeup) {
+   // please do not attempt to hold the lock, as the caller of this function
+   // already holds the lock
+   SENSOR_LOGI(LOG_TAG "--< onSensorWakeupEnableConfigUpdateCb\n");
+
+   if (nullptr != mIpcSender) {
+         SensorAPIWakeupEnableConfigUpdateIndMsg msg (SERVICE_NAME, sensor_id, wakeup);
+         bool rc = sendMessage(reinterpret_cast<uint8_t*>(&msg),
+                        sizeof(msg));
 	   return rc;
    }
    return true;

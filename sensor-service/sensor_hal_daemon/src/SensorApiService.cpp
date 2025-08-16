@@ -1548,7 +1548,7 @@ void SensorApiService::sensorWakeupEnable(SensorAPIWakeupEnableReqMsg*  pMsg) {
         mSensorDevice->getSensorWakeupConfigInfo(pMsg->sensor_id, &wakeup);
         SENSOR_LOGI(LOG_TAG ">>> id: %d wakeup threshold %f duration %d odr %f \n",
             pMsg->sensor_id, wakeup.threshold, wakeup.duration, wakeup.odr);
-        pClient->onSensorWakeupConfigUpdateCb(pMsg->sensor_id, wakeup);
+        pClient->onSensorWakeupEnableConfigUpdateCb(pMsg->sensor_id, wakeup);
     }
 fail:
     //send response back to client

@@ -147,7 +147,8 @@ enum ESensorMsgID {
     E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID = 27,
     E_SENSORAPI_SENSOR_WAKEUP_UPDATE_IND_MSG_ID = 28,
     E_SENSORAPI_SENSOR_WAKEUP_ENABLE_REQ_MSG_ID = 29,
-    E_SENSORAPI_SENSOR_WAKEUP_ENABLE_IND_MSG_ID = 30
+    E_SENSORAPI_SENSOR_WAKEUP_ENABLE_IND_MSG_ID = 30,
+    E_SENSORAPI_SENSOR_ENABLE_WAKEUP_CONFIG_UPDATE_IND_MSG_ID = 31
 };
 
 
@@ -560,6 +561,21 @@ struct SensorAPIWakeupEnableIndMsg: SensorAPIMsgHeader
         SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_WAKEUP_ENABLE_IND_MSG_ID),
         sensor_id(sensor_id){
 	memcpy(&this->event, &event, sizeof(struct iio_event_data));
+    }
+};
+
+
+// defintion for message with msg id of E_SENSORAPI_SENSOR_ENABLE_WAKEUP_CONFIG_UPDATE_IND_MSG_ID
+struct SensorAPIWakeupEnableConfigUpdateIndMsg: SensorAPIMsgHeader
+{
+    int sensor_id;
+    struct wakeup_config wakeup;
+
+    SensorAPIWakeupEnableConfigUpdateIndMsg(const char* name, int sensor_id,
+		    struct wakeup_config wakeup) :
+        SensorAPIMsgHeader(name, E_SENSORAPI_SENSOR_ENABLE_WAKEUP_CONFIG_UPDATE_IND_MSG_ID),
+        sensor_id(sensor_id){
+	memcpy(&this->wakeup, &wakeup, sizeof(struct wakeup_config));
     }
 };
 

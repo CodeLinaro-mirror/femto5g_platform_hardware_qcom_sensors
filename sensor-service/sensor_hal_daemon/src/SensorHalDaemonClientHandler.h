@@ -225,6 +225,7 @@ public:
     bool onCapabilitiesCallback(SensorCapabilitiesMask mask);
     void onSensorSelfTestResultCb(int sensor_id, int request_id, SelfTestResult result, SelfTestResultType resultType, uint64_t timestamp);
     bool onSensorWakeupConfigRequestCb(struct wakeup_config_info wakeup_info);
+    bool onSensorWakeupEnableConfigUpdateCb(int sensor_id, struct wakeup_config wakeup);
     bool onSensorWakeupConfigUpdateCb(int sensor_id, struct wakeup_config wakeup);
     bool onSensorEventCb(int sensor_id, struct iio_event_data event);
     //MLC public APIs
