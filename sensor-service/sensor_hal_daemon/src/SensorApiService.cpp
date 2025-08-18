@@ -1067,7 +1067,7 @@ int SensorApiService::activateSensor(SensorAPIEnableReqMsg* pMsg) {
     //Don't allow activation when system is in suspend state
     if(mPowerState == POWER_STATE_SUSPEND && pMsg->enable == SENSOR_ENABLE)
     {
-        ret = SENSOR_ERROR_NOT_SUPPORTED;
+        ret = SENSOR_ERROR_DEVICE_IN_SUSPEND;
         goto fail;
     }
 #endif //POWERMANAGER_ENABLED

@@ -91,27 +91,28 @@ typedef enum {
         SENSOR_ERROR_IPC_FAILED=-8,
         /** No sensors supported in h/w **/
         SENSOR_ERROR_NO_SENSORS_FOUND=-9,
-        /**No snesor is activated and configured**/
+        /** No snesor is activated and configured **/
         SENSOR_ERROR_TRACKING_FAILED=-10,
         /** Unknown error **/
         SENSOR_ERROR_UNKNOWN=-11,
-        /** Buffer is not supported by sensor**/
+        /** Buffer is not supported by sensor **/
         SENSOR_ERROR_BUFFER_NOT_SUPPORTED=-12,
-        /** Buffer is deleted**/
+        /** Buffer is deleted **/
         SENSOR_ERROR_BUFFER_DELETED=-13,
-        /** MLC Event Enable failed**/
+        /** MLC Event Enable failed **/
         SENSOR_ERROR_MLC_EVENT_ENABLE_FAILED=-14,
-        /** NO MLC case found**/
+        /** NO MLC case found **/
         SENSOR_ERROR_NO_MLC_CASE_FOUND=-15,
-        /**Sensor No response from SHD timeout happens*/
+        /** Sensor No response from SHD timeout happens **/
         SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT = -16,
-        /**Sensor selftest is not supported**/
+        /** Sensor selftest is not supported **/
         SENSOR_ERROR_SELFTEST_NOT_SUPPORTED = -17,
-	/** Sensor already in requested state (enabled or disabled) **/
-	SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE = -18,
-	/** Sensor wakeup not enabled **/
-	SENSOR_ERROR_WAKEUP_NOT_ENABLED = -19,
-	SENSOR_SELFTEST_NOT_SUPPORTED = -33,
+        /** Sensor already in requested state (enabled or disabled) **/
+        SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE = -18,
+        /** Sensor wakeup not enabled **/
+        SENSOR_ERROR_WAKEUP_NOT_ENABLED = -19,
+        /** Sensor device in suspend state */
+        SENSOR_ERROR_DEVICE_IN_SUSPEND = -20,
 }SensorRet;
 
 typedef enum {
