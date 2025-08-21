@@ -38,6 +38,8 @@ using namespace v1::com::qualcomm::qti::sensor;
 using namespace std;
 
 int DEBUG_LEVEL = 0;
+int ENABLE_10Hz = 0;
+
 static float rot[3][3];
 static uint16_t roll;
 static uint16_t pitch;
@@ -137,11 +139,18 @@ int getSensorDebugLevel() {
                }
                break;
            }
+	   if(strstr(buffer, "ENABLE_10Hz=")) {
+               line = strstr(buffer, "=");
+	       if(line != NULL){
+                   sscanf(&line[1], "%d", &ENABLE_10Hz);
+		   SENSOR_LOGI(SENSOR_TAG "Info Sensor ENABLE_10Hz is %d\n", ENABLE_10Hz);
+               }
+	       break;
+	   }
        }
    }
-
+   fclose(fd_config);
 fail:
-     fclose(fd_config);
      free(file_path_name);
      file_path_name = NULL;
 
@@ -150,7 +159,7 @@ fail:
 
 void DeInitHandles()
 {
-   CommonAPI::CallStatus callStatus;
+   CommonAPI::CallStatus callStatus = CommonAPI::CallStatus::UNKNOWN;
    SensorInterfaceTypes::SensorReturnT resp;
 
    myProxy->getSensorCapabilitiesEvent().unsubscribe(capSubscription);
@@ -453,9 +462,8 @@ int read_sensor_rotation_matrix(uint16_t *roll, uint16_t *pitch, uint16_t *yaw)
           break;
       }
   }
-
-fail:
   fclose(fd_config);
+fail:
   free(file_path_name);
   file_path_name = NULL;
 
@@ -463,7 +471,6 @@ fail:
 }
 
 void SensorCore::SensorCore_Init() {
-    float x_uncalib, y_uncalib, z_uncalib;
 
     regSigHandler();
 
@@ -570,11 +577,14 @@ void SensorCore::SensorCore_Init() {
        vector<SensorCoreData> idlSensorEventsData;
        SensorCoreData idlSensorEvents = {};
        for (int i=0 ;i <count; i++){
-            memset(&idlSensorEvents, 0, sizeof(idlSensorEvents));
-	    const SensorInterfaceTypes::SensorUncalibratedEventT & data = events[i].getData();
-	    x_uncalib = rot[0][0] * data.getXUncalib() + rot[1][0] * data.getYUncalib() + rot[2][0] * data.getZUncalib();
-            y_uncalib = rot[0][1] * data.getXUncalib() + rot[1][1] * data.getYUncalib() + rot[2][1] * data.getZUncalib();
-            z_uncalib = rot[0][2] * data.getXUncalib() + rot[1][2] * data.getYUncalib() + rot[2][2] * data.getZUncalib();
+	    idlSensorEvents = {}; // Safe reset
+	    const auto & data = events[i].getData();
+            float a = data.getXUncalib();
+            float b = data.getYUncalib();
+            float c = data.getZUncalib();
+            float x_uncalib = rot[0][0] * a + rot[1][0] * b + rot[2][0] * c;
+            float y_uncalib = rot[0][1] * a + rot[1][1] * b + rot[2][1] * c;
+            float z_uncalib = rot[0][2] * a + rot[1][2] * b + rot[2][2] * c;
 	    idlSensorEvents.sensorId = events[i].getSensorId();
 	    idlSensorEvents.Type = events[i].getType();
 	    idlSensorEvents.timestamp = events[i].getTimestamp();
@@ -698,8 +708,16 @@ void SensorCore::SensorCore_configSensor(int32_t in_sensorHandle, int64_t in_sam
        for (int i=0; i < mSensorCount; i++) {
 	  if (mSensorList[i].getSensorId() == in_sensorHandle) {
 		  SENSOR_LOGI(SENSOR_TAG "Sensor %d configure for sampling rate %f and batch count %d\n", mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(), mSensorList[i].getMinBatchCount());
-		  myProxy->SensorConfigReq(mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(),
-				  mSensorList[i].getMinBatchCount(), callStatus, resp, &info);
+		  int batch_count = mSensorList[i].getMaxSamplingRate() * 0.1;
+		  SENSOR_LOGI(SENSOR_TAG "mSensorList[i].getMaxSamplingRate() %d, batch_count %d ENABLE_10Hz %d \n", mSensorList[i].getMaxSamplingRate(), batch_count, ENABLE_10Hz);
+		  if(ENABLE_10Hz == 1) {
+			  myProxy->SensorConfigReq(mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(),
+					                                    batch_count, callStatus, resp, &info);
+		  }
+		  else {
+		  	myProxy->SensorConfigReq(mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(),
+					  mSensorList[i].getMinBatchCount(), callStatus, resp, &info);
+		  }
 		  if (callStatus != CommonAPI::CallStatus::SUCCESS) {
 			  SENSOR_LOGE(SENSOR_TAG "sensor config  failed sensor_id %d ret %d \n", in_sensorHandle, (int)callStatus);
 			  return;

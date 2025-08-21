@@ -81,7 +81,7 @@ void parseSensorReturnT(SensorInterfaceTypes::SensorReturnT resp) {
 
 void DeInitHandles()
 {
-   CommonAPI::CallStatus callStatus;
+   CommonAPI::CallStatus callStatus = CommonAPI::CallStatus::UNKNOWN;
     SensorInterfaceTypes::SensorReturnT resp;
 
    myProxy->getSensorCapabilitiesEvent().unsubscribe(capSubscription);
@@ -314,7 +314,7 @@ int main() {
     SensorInterfaceTypes::SensorStateT state = SensorInterfaceTypes::SensorStateT::SENSOR_STATE_DISABLE;
     SensorInterfaceTypes::SensorReturnT resp;
     const string name = "World";
-    CommonAPI::CallStatus callStatus;
+    CommonAPI::CallStatus callStatus = CommonAPI::CallStatus::UNKNOWN;
     string returnMessage;
     info.sender_ = 1234;
     vector<SensorInterfaceTypes::SensorInfoT> sensor;
@@ -327,8 +327,6 @@ int main() {
     int batch_count = 0, j = 0;
 
     printf("%s --> ", __func__);
-    setenv("VSOMEIP_CONFIGURATION", "/vendor/etc/vsomeip-sensor_test_client.json", 1);
-    setenv("COMMONAPI_CONFIG", "/vendor/etc/commonapi4someip.ini" ,1);
  
     regSigHandler();
 
