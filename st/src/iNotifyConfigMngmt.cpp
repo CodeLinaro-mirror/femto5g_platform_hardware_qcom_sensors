@@ -501,6 +501,7 @@ static void *hal_configuration_thread(void *parm)
 	char *buffer;
 	int fd = -1;
 	int wd = -1;
+	bool config_folder_exists = true;
 
 	fd = inotify_init();
 	if (fd < 0) {
@@ -518,17 +519,21 @@ static void *hal_configuration_thread(void *parm)
 	if (!thread_params->pathname ||
 	    !is_directory(thread_params->pathname)) {
 		ALOGE("SensorHAL pathname is not a valid directory %s\n", thread_params->pathname);
+		config_folder_exists = false;
 	}
-	else
+
+	init_hal_config(&hal_config);
+
+	if(config_folder_exists)
 	{
-
-		init_hal_config(&hal_config);
-
 		update_file_data(HAL_CONFIGURATION_FILE, thread_params->pathname);
-		write_algos_parameters_to_driver(&hal_config);
-		show_sensor_placement(&hal_config);
-		ignition_off_check_and_run(&hal_config, thread_params->hal_data);
+	}
+	write_algos_parameters_to_driver(&hal_config);
+	show_sensor_placement(&hal_config);
+	ignition_off_check_and_run(&hal_config, thread_params->hal_data);
 
+	if(config_folder_exists)
+	{
 		wd = inotify_add_watch(fd, thread_params->pathname, IN_CLOSE);
 		if (wd < 0) {
 			ALOGE("SensorHAL unable to add watch");
@@ -573,6 +578,7 @@ static void *hal_configuration_thread(void *parm)
 			}
 		}
 	}
+	
 
 	if (fd >= 0) {
 		if(wd >= 0)
