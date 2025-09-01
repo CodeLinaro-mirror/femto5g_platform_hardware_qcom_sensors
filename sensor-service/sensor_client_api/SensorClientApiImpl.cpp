@@ -803,8 +803,18 @@ int SensorClientImpl::sensorWakeupEnable(int sensor_id, struct wakeup_config wak
 	    (void)pthread_mutex_unlock (&mSensorLibMutex);
 	    if (ret == ETIMEDOUT)
 		    return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
-	    else
+	    else {
+		    if(mRespReturn == SENSOR_RESPONSE_SUCCESS && !enable) {
+		        for (int i = 0; i < mSensorCount; i++) {
+			    if(mSensorTrackingOption[i].sensor_id == sensor_id) {
+				  memset(&mSensorTrackingOption[i].wakeup, 0, sizeof(struct wakeup_config));
+				  mSensorTrackingOption[i].wakeup_enable = false;
+				  break;
+			    }
+			}
+		    }
 		    return mRespReturn;
+	   }
     }
     else
 	    return SENSOR_ERROR_INVALID_CLIENT;
@@ -982,6 +992,8 @@ void SensorClientImpl::onReceive(const string& data) {
 		     for (int i = 0 ; i < mSensorCount ; i++) {
 			     mSensorTrackingOption[i].sensor_id = mSensorList[i].sensor_id;
 			     mSensorTrackingOption[i].mSensorDataReadCb = nullptr;
+			     mSensorTrackingOption[i].wakeup_enable = false;
+			     memset(&mSensorTrackingOption[i].wakeup, 0, sizeof(struct wakeup_config));
 		     }
 		   }
            }
