@@ -1524,26 +1524,31 @@ void SensorApiService::sensorWakeupEnable(SensorAPIWakeupEnableReqMsg*  pMsg) {
 	   goto fail;
     }
 
-    pClient->mWakeupEnable = pMsg->enable;
     //Check the enable request of all clients
     for (auto each : mClients) {
-	    anyClientEnabled = max(anyClientEnabled, each.second->mWakeupEnable);
-	    SENSOR_LOGD(LOG_TAG "<-- enable %d each.second->mWakeupEnable %d \n", anyClientEnabled, each.second->mWakeupEnable);
+        if(each.second->mName != pClient->mName){
+	        anyClientEnabled = max(anyClientEnabled, each.second->mWakeupEnable);
+	        SENSOR_LOGD(LOG_TAG "<-- enable %d each.second->mWakeupEnable %d \n", anyClientEnabled, each.second->mWakeupEnable);
+        }
     }
+    anyClientEnabled = max(anyClientEnabled, pMsg->enable);
     if (anyClientEnabled != mWakeupActive) {
 	    ret = mSensorDevice->sensorWakeupEnable(pMsg->sensor_id, pMsg->wakeup, anyClientEnabled);
-	    if (ret == SENSOR_RESPONSE_SUCCESS)
+	    if (ret == SENSOR_RESPONSE_SUCCESS){
 		    mWakeupActive = anyClientEnabled;
+            pClient->mWakeupEnable = pMsg->enable;
+        }
     }
     else {
 	   ret = SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
     }
-    //notify configure value to clients
-    if (pMsg->enable == true) {
-	    mSensorDevice->getSensorWakeupConfigInfo(pMsg->sensor_id, &wakeup);
-	    SENSOR_LOGI(LOG_TAG ">>> id: %d wakeup threshold %f duration %d odr %f \n",
-			 pMsg->sensor_id, wakeup.threshold, wakeup.duration, wakeup.odr);
-	    pClient->onSensorWakeupConfigUpdateCb(pMsg->sensor_id, wakeup);
+
+    //notify already configured value to clients
+    if ((ret == SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE || ret == SENSOR_RESPONSE_SUCCESS) && pMsg->enable == true) {
+        mSensorDevice->getSensorWakeupConfigInfo(pMsg->sensor_id, &wakeup);
+        SENSOR_LOGI(LOG_TAG ">>> id: %d wakeup threshold %f duration %d odr %f \n",
+            pMsg->sensor_id, wakeup.threshold, wakeup.duration, wakeup.odr);
+        pClient->onSensorWakeupConfigUpdateCb(pMsg->sensor_id, wakeup);
     }
 fail:
     //send response back to client
