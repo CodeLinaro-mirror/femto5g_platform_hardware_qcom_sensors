@@ -499,8 +499,8 @@ static void *hal_configuration_thread(void *parm)
 	static size_t bufsiz = sizeof(struct inotify_event) + PATH_MAX + 1;
 	struct thread_params_t *thread_params;
 	char *buffer;
-	int fd;
-	int wd;
+	int fd = -1;
+	int wd = -1;
 
 	fd = inotify_init();
 	if (fd < 0) {
@@ -518,67 +518,68 @@ static void *hal_configuration_thread(void *parm)
 	if (!thread_params->pathname ||
 	    !is_directory(thread_params->pathname)) {
 		ALOGE("SensorHAL pathname is not a valid directory %s\n", thread_params->pathname);
-		exit(-1);
 	}
+	else
+	{
 
-	init_hal_config(&hal_config);
+		init_hal_config(&hal_config);
 
-	update_file_data(HAL_CONFIGURATION_FILE, thread_params->pathname);
-	write_algos_parameters_to_driver(&hal_config);
-	show_sensor_placement(&hal_config);
-	ignition_off_check_and_run(&hal_config, thread_params->hal_data);
+		update_file_data(HAL_CONFIGURATION_FILE, thread_params->pathname);
+		write_algos_parameters_to_driver(&hal_config);
+		show_sensor_placement(&hal_config);
+		ignition_off_check_and_run(&hal_config, thread_params->hal_data);
 
-	wd = inotify_add_watch(fd, thread_params->pathname, IN_CLOSE);
-	if (wd < 0) {
-		if (buffer) {
-			free(buffer);
-			buffer = NULL;
+		wd = inotify_add_watch(fd, thread_params->pathname, IN_CLOSE);
+		if (wd < 0) {
+			ALOGE("SensorHAL unable to add watch");
 		}
+		else
+		{
+			while (run) {
+				int length;
+				int i;
 
-		ALOGE("SensorHAL unable to add watch");
-		exit(-1);
-	}
+				length = read(fd, buffer, bufsiz);
+				if (length < 0) {
+					continue;
+				}
 
-	while (run) {
-		int length;
-		int i;
+				i = 0;
+				while (i < length) {
+					struct inotify_event *event = (struct inotify_event *)&buffer[i];
 
-		length = read(fd, buffer, bufsiz);
-		if (length < 0) {
-			continue;
-		}
+					if (event->mask & IN_Q_OVERFLOW) {
+						ALOGE( "SensorHAL Overflow" );
+					}
 
-		i = 0;
-		while (i < length) {
-			struct inotify_event *event = (struct inotify_event *)&buffer[i];
-
-			if (event->mask & IN_Q_OVERFLOW) {
-				ALOGE( "SensorHAL Overflow" );
-			}
-
-			if (event->len) {
-				if (event->mask & IN_CLOSE) {
-					if (event->mask & IN_CLOSE_WRITE) {
-						ALOGD("SensorHAL Configuration file %s closed for write", event->name);
-						if (strcmp(event->name, HAL_CONFIGURATION_FILE) == 0) {
-							update_file_data(HAL_CONFIGURATION_FILE, thread_params->pathname);
-							write_algos_parameters_to_driver(&hal_config);
-							show_sensor_placement(&hal_config);
+					if (event->len) {
+						if (event->mask & IN_CLOSE) {
+							if (event->mask & IN_CLOSE_WRITE) {
+								ALOGD("SensorHAL Configuration file %s closed for write", event->name);
+								if (strcmp(event->name, HAL_CONFIGURATION_FILE) == 0) {
+									update_file_data(HAL_CONFIGURATION_FILE, thread_params->pathname);
+									write_algos_parameters_to_driver(&hal_config);
+									show_sensor_placement(&hal_config);
+								}
+							}
 						}
 					}
+
+					i += sizeof(struct inotify_event) + event->len;
 				}
+
+				ignition_off_check_and_run(&hal_config,
+							thread_params->hal_data);
 			}
-
-			i += sizeof(struct inotify_event) + event->len;
 		}
-
-		ignition_off_check_and_run(&hal_config,
-					   thread_params->hal_data);
 	}
 
 	if (fd >= 0) {
-		/* removing the directory from the watch list */
-		inotify_rm_watch(fd, wd);
+		if(wd >= 0)
+		{
+			/* removing the directory from the watch list */
+			inotify_rm_watch(fd, wd);
+		}
 
 		/* closing the INOTIFY instance */
 		close(fd);
