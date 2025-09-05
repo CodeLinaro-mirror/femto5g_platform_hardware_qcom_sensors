@@ -31,10 +31,14 @@ using namespace std;
 
 // Forward declaration of default_fir_coef_t
 #ifdef NO_UNORDERED_SET_OR_MAP
-typedef map<int, vector<pair<int, vector<float>>>> default_fir_coef_t;
+using default_fir_coef_t = map<int, vector<pair<int, vector<float>>>>;
 #else
-typedef unordered_map<int, vector<pair<int, vector<float>>>> default_fir_coef_t;
+using default_fir_coef_t = unordered_map<int, vector<pair<int, vector<float>>>>;
 #endif
+
+
+//range_value : <scale, <scale, write_value, read_value>>
+using range_t = map<float, tuple<float, float, float>>;
 
 //To check sensor type defined in config file
 typedef enum
@@ -47,6 +51,7 @@ typedef enum
 
 // forward declaration
 class SensorApiService;
+
 
 /**
  * class SensorDevice
@@ -109,8 +114,8 @@ public:
 		const char*     lib_name;
 		vector<float>   accel_odr;
 		vector<float>   gyro_odr;
-		map<float, tuple<float, float>> accel_range_scale_map;
-	        map<float, tuple<float, float>> gyro_range_scale_map;
+		range_t accel_range_scale_map;
+	    range_t gyro_range_scale_map;
 		float           accel_buff_range;
 		float           gyro_buff_range;
 		int             batch_const;
@@ -118,6 +123,7 @@ public:
 		int             gyro_id;
 		bool            is_input;
 	};
+	void normalizeSensorRange(int, const SensorInfo &);
 protected:
 private:
 	sensorType mSensorType;

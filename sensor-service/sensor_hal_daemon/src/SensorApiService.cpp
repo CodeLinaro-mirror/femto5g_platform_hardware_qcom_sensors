@@ -1649,7 +1649,7 @@ void SensorApiService::onPowerEvent(PowerStateType powerState, SensorCapabilitie
 		 for(int i = 0 ; i < mSensorCount; i++)  {
 		     SENSOR_LOGI(LOG_TAG ">-- on Suspend/Shutdown Disable the sensor mSensor[i].sensor_id %d\n",
 				     mSensor[i].sensor_id);
-		     sensorActivate(mSensor[i].sensor_id, SENSOR_DISABLE);
+		     if(mSensor[i].Activate == SENSOR_ENABLE) sensorActivate(mSensor[i].sensor_id, SENSOR_DISABLE);
 		 }
 		 break;
 	}

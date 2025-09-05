@@ -60,8 +60,8 @@ SensorDevice::SensorInfo initASM330() {
 	   "/usr/lib/libasm330sensors.so.1.0.0",
 	   {13, 26, 52, 104, 208, 416},
 	   {13, 26, 52, 104, 208, 416},
-	   {{2, {0.000598205, 0.000598205}}, {4,{0.001196411,0.001196411}}, {8,{0.002392822,0.002392822}}, {16, {0.004785645,0.004785645}}},
-	   {{125,{0.000076271, 0.000076271}}, {250,{0.000152716, 0.000152716}}, {500, {0.000305432, 0.000305432}}, {1000, {0.000610865,0.000610865}}, {2000, {0.001221729,0.001221729}}, {4000, {0.002443459,0.002443459}}},
+	   {{2, {0.000598205, 0.000598205, 0.000598205}}, {4,{0.001196411,0.001196411, 0.001196411}}, {8,{0.002392822,0.002392822,0.002392822}}, {16, {0.004785645,0.004785645,0.004785645}}},
+	   {{125,{0.000076271, 0.000076271, 0.000076271}}, {250,{0.000152716, 0.000152716, 0.000152716}}, {500, {0.000305432, 0.000305432, 0.000305432}}, {1000, {0.000610865,0.000610865,0.000610865}}, {2000, {0.001221729,0.001221729,0.001221729}}, {4000, {0.002443459,0.002443459,0.002443459}}},
 	   4,
 	   125,
 	   3,
@@ -86,8 +86,8 @@ SensorDevice::SensorInfo initIAM20680() {
 	   "iam20680",
 	   "iam20680",
 	   "iam20680",
-	   "in_accel_x_scale",
-	   "in_anglvel_x_scale",
+	   "in_accel_scale",
+	   "in_anglvel_scale",
 	   "misc_self_test",
 	   {},
 	   {},
@@ -96,8 +96,9 @@ SensorDevice::SensorInfo initIAM20680() {
 	   "/usr/lib/libiam20680sensors.so.1.0.0",
 	   {6.25, 12.5, 25, 50, 100, 200},
 	   {6.25, 12.5, 25, 50, 100, 200},
-	   {{2,{0.000598755, 2}}, {4, {0.00119751,4}}, {8, {0.00239502, 8}}, {16, {0.00479004, 16}}},
-	   {{250,{0.000133158,250}}, {500, {0.000266316, 500}}, {1000, {0.000532632,1000}}, {2000, {0.00106526,2000}}},
+	   //For IAM write index instead of actual range value, reading back the value should give the actual range value though
+	   {{2,{0.000598755, 0, 2}}, {4, {0.00119751, 1, 4}}, {8, {0.00239502, 2, 8}}, {16, {0.00479004, 3, 16}}},
+	   {{250,{0.000133158, 0, 250}}, {500, {0.000266316, 1, 500}}, {1000, {0.000532632, 2, 1000}}, {2000, {0.00106526,3, 2000}}},
 	   4,
 	   250,
 	   1,
@@ -129,8 +130,8 @@ SensorDevice::SensorInfo initSMI230() {
 	    "/usr/lib/libsmi230sensors.so.1.0.0",
 	    {12.5, 25, 50, 100, 200, 400},
 	    {100, 200, 400},
-	    {{2,{0.000598755,2}}, {4,{0.001197510,4}}, {8,{0.002395020,8}}, {16,{0.004790039,16}}},
-	    {{125,{0.00006657903,125}}, {250,{0.00013315805,250}}, {500,{0.00026631611,500}}, {1000,{0.00053263222,1000}}, {2000,{0.00106526444,2000}}},
+	    {{2,{0.000598755,2,2}}, {4,{0.001197510,4,4}}, {8,{0.002395020,8,8}}, {16,{0.004790039,16,16}}},
+	    {{125,{0.00006657903,125,125}}, {250,{0.00013315805,250,250}}, {500,{0.00026631611,500,500}}, {1000,{0.00053263222,1000,1000}}, {2000,{0.00106526444,2000,2000}}},
 	    4,
 	    125,
 	    1,
@@ -245,6 +246,58 @@ void SensorDevice::getSensorDeviceName(string *sensorName) {
    }
 }
 
+void SensorDevice::normalizeSensorRange(int type, const SensorDevice::SensorInfo &sensor_info) {
+	//These are the layout (possible values) in sensors.conf
+	static vector<float> acc_range_layout = {2, 4, 8, 16};
+	static vector<float> gyro_range_layout = {125, 250, 500, 1000, 2000, 4000};
+
+	//Actual range of values supported by a sensor might be different from the layout
+	//So we need to find the closest value to the one configured in sensors.conf
+	//and use that value as the range for the sensor
+	auto getSensorRangeBoundary = [](const vector<float> &layout, const range_t &sensor_range) {
+		if(0 == sensor_range.size()) return make_pair(0,0);
+		auto left_it = find(layout.begin(), layout.end(), sensor_range.begin()->first);
+		auto right_it = find(layout.rbegin(), layout.rend(), sensor_range.rbegin()->first);
+		int left_index = (left_it != layout.end()) ? std::distance(layout.begin(), left_it) : 0;
+		int right_index = (right_it != layout.rend()) ? layout.size() - 1 - std::distance(layout.rbegin(), right_it) : 0;
+		return make_pair(left_index, right_index);
+	};
+
+	if(type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED)
+	{
+		auto acc_range_boundary = getSensorRangeBoundary(acc_range_layout, sensor_info.accel_range_scale_map);
+		// Limit AccRangeIndex to valid bounds
+		if (mService->mAccRange < 0 || 
+			mService->mAccRange <= acc_range_boundary.first) {
+			mService->mAccRange = 0;
+		} else if (mService->mAccRange >= sensor_info.accel_range_scale_map.size() || 
+					mService->mAccRange >= acc_range_boundary.second) {
+			mService->mAccRange = sensor_info.accel_range_scale_map.size() - 1;
+		} else {
+			mService->mAccRange -= acc_range_boundary.first;
+		}
+	}
+	else if(type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED)
+	{
+		auto gyro_range_boundary = getSensorRangeBoundary(gyro_range_layout, sensor_info.gyro_range_scale_map);		
+
+		SENSOR_LOGE(LOG_TAG "range gyro boundary : %d, %d\n", gyro_range_boundary.first, gyro_range_boundary.second);
+		SENSOR_LOGE(LOG_TAG "received range gyro : %d\n", mService->mGyroRange);
+		// Limit GyroRangeIndex to valid bounds
+		if (mService->mGyroRange < 0 || 
+			mService->mGyroRange <= gyro_range_boundary.first) {
+			mService->mGyroRange = 0;
+		} else if (mService->mGyroRange >= sensor_info.gyro_range_scale_map.size() || 
+					mService->mGyroRange >= gyro_range_boundary.second) {
+			mService->mGyroRange = sensor_info.gyro_range_scale_map.size() - 1;
+		} else {
+			mService->mGyroRange -= gyro_range_boundary.first;
+		}
+		SENSOR_LOGE(LOG_TAG "fixed range gyro : %d\n", mService->mGyroRange);
+	}
+	
+}
+
 int SensorDevice::initMaxRange(int type, int sensor_id) {
   string rangeFile;
   float scale_value = 0, range = 0;
@@ -252,56 +305,68 @@ int SensorDevice::initMaxRange(int type, int sensor_id) {
 
   auto sensor = mSensorInfo.find(mSensorType);
   if (sensor != mSensorInfo.end()) {
-     // Limit AccRangeIndex to valid bounds
-     if (mService->mAccRange < 0) {
-	     mService->mAccRange = 0;
-     } else if (mService->mAccRange >= sensor->second[0].accel_range_scale_map.size()) {
-	     mService->mAccRange = sensor->second[0].accel_range_scale_map.size() - 1;
-     }
-     // Limit GyroRangeIndex to valid bounds
-     if (mService->mGyroRange < 0) {
-	     mService->mGyroRange = 0;
-     } else if (mService->mGyroRange >= sensor->second[0].gyro_range_scale_map.size()) {
-	     mService->mGyroRange = sensor->second[0].gyro_range_scale_map.size() - 1;
-     }
-     if (type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+	normalizeSensorRange(type, sensor->second[0]);
+	if (type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
 	    rangeFile = mAccel + "/" + sensor->second[0].accel_range_name;
 	    SENSOR_LOGI(LOG_TAG "rangeFile %s \n", rangeFile.c_str());
 	    // Use AccRange as the index to get the third value in the map
 	    auto it = next(sensor->second[0].accel_range_scale_map.begin(), mService->mAccRange);
 	    if (it != sensor->second[0].accel_range_scale_map.end()) {
 		    scale_value = std::get<1>(it->second);
-		    sysfs_write_scale(rangeFile.c_str(), scale_value);
-		    SENSOR_LOGI(LOG_TAG "Accel scale_value written %d %f %f\n", mService->mAccRange,
-				    std::get<0>(it->second), scale_value);
-		    sysfs_read_scale(rangeFile.c_str(), &scale_value);
-		    SENSOR_LOGI(LOG_TAG "Accel scale_value read %f\n", scale_value);
+		    int ret = sysfs_write_scale(rangeFile.c_str(), scale_value);
+			if(ret != 0) {
+				SENSOR_LOGE(LOG_TAG "Accel scale_value write failed %d \n", ret);
+			}
+			else {
+				SENSOR_LOGI(LOG_TAG "Accel scale_value written %d %f %f\n", mService->mAccRange,
+						std::get<0>(it->second), scale_value);
+			}
+		    ret = sysfs_read_scale(rangeFile.c_str(), &scale_value);
+			if(ret != 0) {
+				SENSOR_LOGE(LOG_TAG "Accel scale_value read failed %d \n", ret);
+			}
+			else {
+		    	SENSOR_LOGI(LOG_TAG "Accel scale_value read %f\n", scale_value);
+			}
 		    // Find the corresponding key for the read scale value
 		    for (const auto& entry : sensor->second[0].accel_range_scale_map) {
-			    if (std::fabs(scale_value - std::get<1>(entry.second)) < epsilon) {
+			    if (std::fabs(scale_value - std::get<2>(entry.second)) < epsilon) {
 				    range = entry.first;
 				    SENSOR_LOGI(LOG_TAG "Accel range: %f\n", range);
-			    }
-		    }
-	    }
-     }
+				}
+			}
+		}
+	}
      if (type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED){
 	    rangeFile = mGyro + "/" + sensor->second[0].gyro_range_name;
-	    SENSOR_LOGI(LOG_TAG "rangeFile %s \n", rangeFile.c_str());
-	    // Use GyroRange as the index to get the third value in the map
-	    auto it = next(sensor->second[0].gyro_range_scale_map.begin(), mService->mGyroRange);
-	    if (it != sensor->second[0].gyro_range_scale_map.end()) {
-		    scale_value = std::get<1>(it->second);
-	            if (mSensorType == SENSOR_SMI230) mService->sensorActivate(sensor_id, SENSOR_ENABLE);
-		    sysfs_write_scale(rangeFile.c_str(), scale_value);
-		    SENSOR_LOGI(LOG_TAG "Gyro scale_value written %d %f %f\n", mService->mGyroRange,
-				    std::get<0>(it->second), scale_value);
-		    sysfs_read_scale(rangeFile.c_str(), &scale_value);
-		    SENSOR_LOGI(LOG_TAG "Gyro scale_value read %f\n", scale_value);
-	            if (mSensorType == SENSOR_SMI230) mService->sensorActivate(sensor_id, SENSOR_DISABLE);
+		SENSOR_LOGI(LOG_TAG "rangeFile %s \n", rangeFile.c_str());
+		// Use GyroRange as the index to get the third value in the map	
+		auto it = next(sensor->second[0].gyro_range_scale_map.begin(), mService->mGyroRange);
+		if (it != sensor->second[0].gyro_range_scale_map.end()) {
+			scale_value = std::get<1>(it->second);
+			if (mSensorType == SENSOR_SMI230) mService->sensorActivate(sensor_id, SENSOR_ENABLE);
+
+			int ret = sysfs_write_scale(rangeFile.c_str(), scale_value);
+			if(ret != 0) {
+				SENSOR_LOGE(LOG_TAG "Gyro scale_value write failed %d \n", ret);
+			}
+			else {
+		    	SENSOR_LOGI(LOG_TAG "Gyro scale_value written %d %f %f\n", mService->mGyroRange,
+						std::get<0>(it->second), scale_value);
+			}
+			
+			ret = sysfs_read_scale(rangeFile.c_str(), &scale_value);
+			if(ret != 0) {
+				SENSOR_LOGE(LOG_TAG "Gyro scale_value read failed %d \n", ret);
+			}
+			else {
+				SENSOR_LOGI(LOG_TAG "Gyro scale_value read %f\n", scale_value);
+			}
+			
+			if (mSensorType == SENSOR_SMI230) mService->sensorActivate(sensor_id, SENSOR_DISABLE);
 		    // Find the corresponding key for the read scale value
 		    for (const auto& entry : sensor->second[0].gyro_range_scale_map) {
-			    if (std::fabs(scale_value - std::get<1>(entry.second)) < epsilon) {
+			    if (std::fabs(scale_value - std::get<2>(entry.second)) < epsilon) {
 				    range = entry.first;
 				    SENSOR_LOGI(LOG_TAG "Gyro range: %f\n", range);
 			    }
