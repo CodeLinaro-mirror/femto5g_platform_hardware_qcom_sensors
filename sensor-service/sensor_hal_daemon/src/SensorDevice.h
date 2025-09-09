@@ -134,6 +134,7 @@ private:
 	SensorApiService* mService;
 	default_fir_coef_t mDefaultAccelCoef;
 	default_fir_coef_t mDefaultGyroCoef;
+	static bool mWakeupActive;
 };
 
 #endif //SENSOR_DEVICE_H

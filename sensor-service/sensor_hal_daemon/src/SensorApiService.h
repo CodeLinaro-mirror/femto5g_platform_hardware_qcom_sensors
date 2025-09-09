@@ -200,7 +200,6 @@ public:
     void onPowerEvent(PowerStateType powerState, SensorCapabilitiesMask mask);
 #endif
     static mutex mMutex;
-    static bool mWakeupActive;
     pthread_t mSensorThreadtid;
     pthread_t mBufferThreadtid;
     // Client propery database

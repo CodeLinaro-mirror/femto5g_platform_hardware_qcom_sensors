@@ -1320,7 +1320,7 @@ void SensorClientImpl::onReceive(const string& data) {
        default:
        {
           SENSOR_LOGE(LOG_TAG "<<< unknown message %d\n", pMsg->msgId);
-	  break;
+          break;
        }
    }
 }

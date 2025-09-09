@@ -53,7 +53,6 @@ SensorApiService - static members
 ******************************************************************************/
 SensorApiService* SensorApiService::mInstance = nullptr;
 mutex SensorApiService::mMutex;
-bool SensorApiService::mWakeupActive = false;
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
 static LocationClientApi* pLcaClient = nullptr;
 #endif
@@ -1499,17 +1498,9 @@ int SensorApiService::sensorWakeupEnableUtil(SensorHalDaemonClientHandler* pClie
         }
     }
     anyClientEnabled = max(anyClientEnabled, enable);
-    if (anyClientEnabled != mWakeupActive) {
-        ret = mSensorDevice->sensorWakeupEnable(sensor_id, wakeup, anyClientEnabled);
-        if (ret == SENSOR_RESPONSE_SUCCESS){
-            mWakeupActive = anyClientEnabled;
-            pClient->mWakeupEnable = enable;
-        }
-    }
-    else
-    {
+    ret = mSensorDevice->sensorWakeupEnable(sensor_id, wakeup, anyClientEnabled);
+    if (ret == SENSOR_RESPONSE_SUCCESS || ret == SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE){
         pClient->mWakeupEnable = enable;
-        ret = SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
     }
     return ret;
 }

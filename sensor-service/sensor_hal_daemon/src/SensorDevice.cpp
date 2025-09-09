@@ -44,6 +44,9 @@
 #endif
 #define LOG_TAG "SensorSvc_Device:"
 
+
+bool SensorDevice::mWakeupActive = false;
+
 SensorDevice::SensorInfo initASM330() {
    SensorDevice::SensorInfo sensor = {
 	   "ASM330",
@@ -753,6 +756,43 @@ void SensorDevice::sensorWakeupThread() {
 	  return false;
   }
 
+  auto handleWakeupEvent = [&]() {
+	auto it = mService->mClients.begin();
+	while (it != mService->mClients.end() &&
+		it != (unordered_map<string, SensorHalDaemonClientHandler*>::iterator)NULL) {
+		if (it->second && it->second->mWakeupEnable == true) {
+			rc= it->second->onSensorEventCb(sensor->second[0].accel_id, event);
+			// purge this client if failed
+			if (!rc) {
+				SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
+				lock_guard<mutex> lock(mService->mMutex);
+				it = mService->deleteClientbyName(it->first.c_str());
+			}
+			else
+				++it;
+		}
+		else {
+			++it;
+		}
+	}
+
+	//Check if wakeup needs to be disabled
+	{
+		lock_guard<mutex> lock(mService->mMutex);
+		bool wakeupEnabed = false;
+		for(auto it = mService->mClients.begin(); it != mService->mClients.end(); ++it) {
+			if (it->second && it->second->mWakeupEnable == true) {
+				wakeupEnabed = true;
+				break;
+			}
+		}
+		if(!wakeupEnabed) {
+			SENSOR_LOGI(LOG_TAG "no active clients : disable wakeup on motion\n");
+			sensorWakeupEnable(sensor->second[0].accel_id, {}, false);
+		}
+	}
+  };
+
   if (mSensorType == SENSOR_SMI230) {
 	  string wakeupfile = mAccel + "/" + "anymotion_status";
 	  int fd = open(wakeupfile.c_str(), O_RDONLY);
@@ -780,24 +820,8 @@ void SensorDevice::sensorWakeupThread() {
 			  SENSOR_LOGI(LOG_TAG "Wakeup status changed: buf %s id: %lld  ts: %lld\n",
 					  buf, (long long)event.id, (long long)event.timestamp);
 		  }
-		  auto it = mService->mClients.begin();
-		  while (it != mService->mClients.end() &&
-				  it != (unordered_map<string, SensorHalDaemonClientHandler*>::iterator)NULL) {
-			  if (it->second && it->second->mWakeupEnable == true) {
-				  rc= it->second->onSensorEventCb(sensor->second[0].accel_id, event);
-				  // purge this client if failed
-				  if (!rc) {
-					  SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
-					  lock_guard<mutex> lock(mService->mMutex);
-					  it = mService->deleteClientbyName(it->first.c_str());
-				  }
-				  else
-					  ++it;
-			  }
-			  else {
-				  ++it;
-			  }
-		  }
+
+		  handleWakeupEvent();
 	  }
 	  close(fd);
   }
@@ -833,24 +857,7 @@ void SensorDevice::sensorWakeupThread() {
 						  (unsigned long long)event.timestamp);
 			  }
 		  }
-		  auto it = mService->mClients.begin();
-		  while (it != mService->mClients.end() &&
-				  it != (unordered_map<string, SensorHalDaemonClientHandler*>::iterator)NULL) {
-			  if (it->second && it->second->mWakeupEnable == true) {
-				  rc= it->second->onSensorEventCb(sensor->second[0].accel_id, event);
-				  // purge this client if failed
-				  if (!rc) {
-					  SENSOR_LOGE(LOG_TAG "failed rc=%d purging client=%s\n", rc, it->first.c_str());
-					  lock_guard<mutex> lock(mService->mMutex);
-					  it = mService->deleteClientbyName(it->first.c_str());
-				  }
-				  else
-					  ++it;
-			  }
-			  else {
-				  ++it;
-			  }
-		  }
+		  handleWakeupEvent();
 	  }
 	  close(event_fd);
 	  close(dev_fd);
@@ -947,6 +954,10 @@ int SensorDevice::getSensorWakeupConfig(int sensor_id, struct wakeup_config_info
 
 int SensorDevice::sensorWakeupEnable(int sensor_id, struct wakeup_config wakeup, bool enable) {
   SENSOR_LOGI(LOG_TAG "sensorWakeupEnable\n");
+  if(enable == mWakeupActive)
+  {
+	return SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
+  }
   auto sensor = mSensorInfo.find(mSensorType);
   if (sensor == mSensorInfo.end()) {
 	  SENSOR_LOGE(LOG_TAG "Unsupported sensor type\n");
@@ -1072,6 +1083,7 @@ int SensorDevice::sensorWakeupEnable(int sensor_id, struct wakeup_config wakeup,
 	  wakeupPtr.wakeupfile = nullptr;
       }
   }
+  mWakeupActive = enable;
   return SENSOR_RESPONSE_SUCCESS;
 }
 
