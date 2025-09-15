@@ -966,8 +966,9 @@ int read_hal_rotation_matrix(char *path, char *file)
 	  }
   }
 
-fail:
   fclose(fd_config);
+
+fail:
   free(file_path_name);
   file_path_name = NULL;
 
