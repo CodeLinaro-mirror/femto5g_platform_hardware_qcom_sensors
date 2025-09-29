@@ -1180,11 +1180,11 @@ static uint8_t encode_datarate(int64_t sampling_period_ns)
     {
         return BSX_CONFSTR_50Hz;
     }
-    if (Hz > 12 && Hz <= 25)
+    if (Hz > 12.5 && Hz <= 25)
     {
         return BSX_CONFSTR_25Hz;
     }
-    if (Hz > 6 && Hz <= 12)
+    if (Hz > 6 && Hz <= 12.5)
     {
         return BSX_CONFSTR_12_5Hz;
     }
