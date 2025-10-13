@@ -180,7 +180,8 @@ private:
     SensormFifoReadCb       mSensormFifoReadCb;
     SelfTestResultCallback  mSelfTestResultCb;
     SensorEventCb           mSensorEventCb;
-    SensorWakeupConfigUpdateCb    mSensorWakeupCb;
+    SensorWakeupConfigUpdateCb    mSensorWakeupConfigUpdateCb;
+    SensorWakeupConfigUpdateCb    mSensorEnableWakeupConfigUpdateCb;
 
     //Ipc sender
 #ifdef FEATURE_EXTERNAL_AP
