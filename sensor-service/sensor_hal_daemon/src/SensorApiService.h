@@ -200,6 +200,7 @@ public:
     void onPowerEvent(PowerStateType powerState, SensorCapabilitiesMask mask);
 #endif
     static mutex mMutex;
+    static bool mWakeupActive;
     pthread_t mSensorThreadtid;
     pthread_t mBufferThreadtid;
     // Client propery database
@@ -247,6 +248,7 @@ public:
 #endif
     float nearBySamplingRate(float input_rates[], float target_rate);
     int   nearByBatchCount(int minBatchCount, int ReqBatchCount, float input_rate, float output_rate, int factor);
+    int   sensorWakeupEnableUtil(SensorHalDaemonClientHandler* pClient, int sensor_id, struct wakeup_config wakeup, bool enable);
 private:
     //API to SHD
     void  getSensorList(SensorAPIListReqMsg*);
