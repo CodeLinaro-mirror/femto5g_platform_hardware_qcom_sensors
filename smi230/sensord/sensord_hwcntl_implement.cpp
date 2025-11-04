@@ -2037,6 +2037,11 @@ static int32_t ap_hwcntl_init_ACC()
 	SENSOR_READ_CONF(SENSOR_CONF_PATH , &accrange, &gyrorange);
 
 	accl_range = accrange;
+        if(accrange > 3)
+                accl_range = 3;
+
+        if(accrange < 0)
+                accl_range = 0;
 
 	switch (accl_range) {
 	case 0:
@@ -2166,6 +2171,11 @@ static int32_t ap_hwcntl_init_GYRO()
         SENSOR_READ_CONF(SENSOR_CONF_PATH , &accrange, &gyrorange);
 
 	gyro_range = gyrorange;
+        if(gyrorange > 4)
+                gyro_range = 4;
+
+        if(gyrorange < 0)
+                gyro_range = 0;
 
         switch (gyro_range) {
         case 0:
