@@ -314,7 +314,12 @@ uint32_t ap_get_sensorlist(struct sensor_t const** p_sSensorList)
                 break;
         }
 
-        if(MAG_CHIP_AKM09912 ==  magn_chip || MAG_CHIP_AKM09911 ==  magn_chip)
+	if(GYR_CHIP_SMI230 == gyro_chip) {
+                bosch_all_sensors[SENSORLIST_INX_GYROSCOPE].maxRange = gyro_range;
+                bosch_all_sensors[SENSORLIST_INX_GYROSCOPE_UNCALIBRATED].maxRange = gyro_range;
+	}
+
+	if(MAG_CHIP_AKM09912 ==  magn_chip || MAG_CHIP_AKM09911 ==  magn_chip)
         {
             bosch_all_sensors[SENSORLIST_INX_MAGNETIC_FIELD].name = "AKM Magnetic Field Sensor";
             bosch_all_sensors[SENSORLIST_INX_MAGNETIC_FIELD].vendor = "AKM";
@@ -2059,6 +2064,7 @@ static int32_t ap_hwcntl_init_GYRO()
     char gyro_buf_dir_name[128];
     char gyro_buffer_access[128];
     const char *gyro_device_name = NULL;
+    int32_t pwr_cfg_read;
 
     if(GYR_CHIP_BMI160 == gyro_chip)
     {
@@ -2160,6 +2166,11 @@ static int32_t ap_hwcntl_init_GYRO()
                 break;
         }
 
+	ret += rd_sysfs_oneint("pwr_cfg", gyr_input_dir_name, &pwr_cfg_read);
+	PINFO("gyro pwr_cfg to normal before setting range %d pwr_cfg_read %d", SENSOR_GYRO_PM_NORMAL, pwr_cfg_read);
+	if (pwr_cfg_read != SENSOR_GYRO_PM_NORMAL)
+		ret += wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_NORMAL);
+
         PINFO("gyro range config %d", gyro_range);
         switch(gyro_range){
             case GYRO_CHIP_RANGCONF_125DPS:
@@ -2180,6 +2191,9 @@ static int32_t ap_hwcntl_init_GYRO()
             default:
                 break;
         }
+	if (pwr_cfg_read != SENSOR_GYRO_PM_NORMAL)
+		ret += wr_sysfs_oneint("pwr_cfg", gyr_input_dir_name, SENSOR_GYRO_PM_SUSPEND);
+
         if (ret < 0)
         {
             PERR("write_sysfs() fail, ret = %d", ret);
