@@ -183,9 +183,9 @@ ninja run_test
 This project is licensed under the Apache License 2.0 
 
 ## Related Projects
-SMI230 Linux IIO driver
-SMI240 Linux IIO driver  
-SMI330 Linux IIO driver
+- SMI230 Linux IIO driver
+- SMI240 Linux IIO driver  
+- SMI330 Linux IIO driver
 
 ---
 
