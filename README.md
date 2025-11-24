@@ -81,7 +81,7 @@ bosch-mems-legacy-hal/
 
 #### Component Details
 
-- **core**: Sensor core functionality adapted from [bosch-mems-android-hal/sensors/core](https://sourcecode.socialcoding.bosch.com/projects/BSEHSW/repos/bosch-mems-android-hal/browse/sensors/core) 
+- **core**: Sensor core functionality
   - Removed Android-specific logging
   - Adapted clock source for platform independence
 - **hal**: Reference implementation based on:
@@ -183,9 +183,9 @@ ninja run_test
 This project is licensed under the Apache License 2.0 
 
 ## Related Projects
-- [smi230-linux-driver-iio](../smi230-linux-driver-iio): SMI230 Linux IIO driver
-- [smi240-linux-driver-iio](../smi240-linux-driver-iio): SMI240 Linux IIO driver  
-- [smi330-linux-driver-iio](../smi330-linux-driver-iio): SMI330 Linux IIO driver
+SMI230 Linux IIO driver
+SMI240 Linux IIO driver  
+SMI330 Linux IIO driver
 
 ---
 
