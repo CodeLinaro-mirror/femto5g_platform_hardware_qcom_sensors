@@ -185,6 +185,7 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define SMI230_ACCEL_BYTES_PER_FIFO_SAMPLE  7
 #define SMI230_ACC_MAX_FIFO_BYTE	1024
 #define SMI230_ACC_MAX_FIFO_FRAME	(SMI230_ACC_MAX_FIFO_BYTE / SMI230_ACCEL_BYTES_PER_FIFO_SAMPLE)
+#define SMI230_ACC_MIN_FIFO_LEN	    10
 
 #define SMI230_GYRO_RANGE_125DPS	125
 #define SMI230_GYRO_RANGE_250DPS	250
@@ -193,6 +194,7 @@ EV_FF_STATUS        0x17 EV_MAX            0x1f EV_CNT            (EV_MAX+1)
 #define SMI230_GYRO_RANGE_2000DPS	2000
 
 #define SMI230_GYRO_MAX_FIFO_FRAME	100
+#define SMI230_GYRO_MIN_FIFO_LEN    10
 
 #define BMA2X2_RANGE_2G     3
 #define BMA2X2_RANGE_4G     5
@@ -852,8 +854,8 @@ static void ap_config_phyACC(bsx_f32_t sample_rate, uint16_t fifo_data_len)
         if (fifo_data_len > SMI230_ACC_MAX_FIFO_FRAME)
             fifo_data_len = SMI230_ACC_MAX_FIFO_FRAME;
 
-        if (fifo_data_len < 1)
-            fifo_data_len = 1;
+        if (fifo_data_len < SMI230_ACC_MIN_FIFO_LEN)
+            fifo_data_len = SMI230_ACC_MIN_FIFO_LEN;
 
         fifo_data_len_in_bytes = SMI230_ACCEL_BYTES_PER_FIFO_SAMPLE * fifo_data_len;
 
@@ -967,10 +969,10 @@ static void ap_config_phyGYR(bsx_f32_t sample_rate, uint16_t fifo_data_len)
 #ifdef SMI230_FIFO
         if (fifo_data_len > SMI230_GYRO_MAX_FIFO_FRAME)
             fifo_data_len = SMI230_GYRO_MAX_FIFO_FRAME;
-        if (fifo_data_len < 1)
-            fifo_data_len = 1;
+        if (fifo_data_len < SMI230_GYRO_MIN_FIFO_LEN)
+            fifo_data_len = SMI230_GYRO_MIN_FIFO_LEN;
 
-	PINFO("write gyro wm as %d", fifo_data_len);
+	    PINFO("write gyro wm as %d", fifo_data_len);
         ret = wr_sysfs_oneint("fifo_wm", gyr_input_dir_name, fifo_data_len);
 #endif
 	}
