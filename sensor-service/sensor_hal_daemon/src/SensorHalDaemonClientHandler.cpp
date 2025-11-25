@@ -255,12 +255,12 @@ void SensorHalDaemonClientHandler::cleanup() {
 	delete mMlcCaseList;
         mMlcCaseList = nullptr;
    }
+
    //Disable Tracking Status
    mTracking = false;
    mAccTracking = false;
    mGyroTracking = false;
    mMlcEnable = false;
-   mWakeupEnable = false;
 }
 
 /******************************************************************************

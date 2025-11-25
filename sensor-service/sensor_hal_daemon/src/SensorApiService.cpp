@@ -53,7 +53,6 @@ SensorApiService - static members
 ******************************************************************************/
 SensorApiService* SensorApiService::mInstance = nullptr;
 mutex SensorApiService::mMutex;
-
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
 static LocationClientApi* pLcaClient = nullptr;
 #endif
@@ -818,6 +817,11 @@ unordered_map<string, SensorHalDaemonClientHandler*>::iterator SensorApiService:
          mSensor[i].BatchCount = 0;
        }
     }
+    if(pClient->mWakeupEnable){
+        for(int i=0; i < mSensorCount; i++) {
+            sensorWakeupEnableUtil(pClient, mSensor[i].sensor_id, {}, false);
+        }
+    }
 
     SENSOR_LOGI(LOG_TAG ">-- deleteClient client=%s\n", clientname.c_str());
     return itr;
@@ -1470,12 +1474,35 @@ void SensorApiService::getsensorWakeupConfUpdate(SensorAPIWakeupConfigReqMsg*  p
 			 pMsg->sensor_id, wakeup.threshold, wakeup.duration, wakeup.odr);
 	    pClient->onSensorWakeupConfigUpdateCb(pMsg->sensor_id, wakeup);
     } else {
-           ret = SENSOR_ERROR_WAKEUP_NOT_ENABLED;
+        ret = SENSOR_ERROR_WAKEUP_NOT_ENABLED;
     }
 fail:
     //send response back to client
     pClient->mPendingMessages.push(E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID);
     pClient->onResponseCb(ret, E_SENSORAPI_SENSOR_WAKEUP_UPDATE_REQ_MSG_ID);
+}
+
+int SensorApiService::sensorWakeupEnableUtil(SensorHalDaemonClientHandler* pClient,
+            int sensor_id, struct wakeup_config wakeup, bool enable)
+{
+    if(pClient == NULL)
+        return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+
+    int ret = 0;
+    bool anyClientEnabled = false;
+    //Check the enable request of all clients
+    for (auto each : mClients) {
+        if(each.second->mName != pClient->mName){
+	        anyClientEnabled = max(anyClientEnabled, each.second->mWakeupEnable);
+	        SENSOR_LOGD(LOG_TAG "<-- enable %d each.second->mWakeupEnable %d \n", anyClientEnabled, each.second->mWakeupEnable);
+        }
+    }
+    anyClientEnabled = max(anyClientEnabled, enable);
+    ret = mSensorDevice->sensorWakeupEnable(sensor_id, wakeup, anyClientEnabled);
+    if (ret == SENSOR_RESPONSE_SUCCESS || ret == SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE){
+        pClient->mWakeupEnable = enable;
+    }
+    return ret;
 }
 
 /******************************************************************************
@@ -1486,7 +1513,6 @@ void SensorApiService::sensorWakeupEnable(SensorAPIWakeupEnableReqMsg*  pMsg) {
     int ret = 0;
     bool SensorId = false;
     int sensor_id =  pMsg->sensor_id;
-    static bool mWakeupActive = false;
     bool anyClientEnabled = false;
     struct wakeup_config wakeup;
 
@@ -1524,27 +1550,10 @@ void SensorApiService::sensorWakeupEnable(SensorAPIWakeupEnableReqMsg*  pMsg) {
 	   goto fail;
     }
 
-    //Check the enable request of all clients
-    for (auto each : mClients) {
-        if(each.second->mName != pClient->mName){
-	        anyClientEnabled = max(anyClientEnabled, each.second->mWakeupEnable);
-	        SENSOR_LOGD(LOG_TAG "<-- enable %d each.second->mWakeupEnable %d \n", anyClientEnabled, each.second->mWakeupEnable);
-        }
-    }
-    anyClientEnabled = max(anyClientEnabled, pMsg->enable);
-    if (anyClientEnabled != mWakeupActive) {
-	    ret = mSensorDevice->sensorWakeupEnable(pMsg->sensor_id, pMsg->wakeup, anyClientEnabled);
-	    if (ret == SENSOR_RESPONSE_SUCCESS){
-		    mWakeupActive = anyClientEnabled;
-            pClient->mWakeupEnable = pMsg->enable;
-        }
-    }
-    else {
-	   ret = SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE;
-    }
+    ret = sensorWakeupEnableUtil(pClient, pMsg->sensor_id, pMsg->wakeup, pMsg->enable);
 
-    //notify already configured value to clients
-    if ((ret == SENSOR_ERROR_ALREADY_IN_REQUESTED_STATE || ret == SENSOR_RESPONSE_SUCCESS) && pMsg->enable == true) {
+    //notify configured value to clients
+    if (pClient->mWakeupEnable == true) {
         mSensorDevice->getSensorWakeupConfigInfo(pMsg->sensor_id, &wakeup);
         SENSOR_LOGI(LOG_TAG ">>> id: %d wakeup threshold %f duration %d odr %f \n",
             pMsg->sensor_id, wakeup.threshold, wakeup.duration, wakeup.odr);
