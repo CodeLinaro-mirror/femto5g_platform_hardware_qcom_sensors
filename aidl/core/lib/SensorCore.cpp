@@ -709,12 +709,14 @@ void SensorCore::SensorCore_configSensor(int32_t in_sensorHandle, int64_t in_sam
 	  if (mSensorList[i].getSensorId() == in_sensorHandle) {
 		  SENSOR_LOGI(SENSOR_TAG "Sensor %d configure for sampling rate %f and batch count %d\n", mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(), mSensorList[i].getMinBatchCount());
 		  int batch_count = mSensorList[i].getMaxSamplingRate() * 0.1;
-		  SENSOR_LOGI(SENSOR_TAG "mSensorList[i].getMaxSamplingRate() %d, batch_count %d ENABLE_10Hz %d \n", mSensorList[i].getMaxSamplingRate(), batch_count, ENABLE_10Hz);
+		  SENSOR_LOGI(SENSOR_TAG "mSensorList[i].getMaxSamplingRate() %f, batch_count %d ENABLE_10Hz %d \n", mSensorList[i].getMaxSamplingRate(), batch_count, ENABLE_10Hz);
 		  if(ENABLE_10Hz == 1) {
+			  SENSOR_LOGI(SENSOR_TAG "Enable 10Hz Batching %d\n", ENABLE_10Hz);
 			  myProxy->SensorConfigReq(mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(),
 					                                    batch_count, callStatus, resp, &info);
 		  }
 		  else {
+			SENSOR_LOGI(SENSOR_TAG "Disabled 10Hz Batching %d\n", ENABLE_10Hz);
 		  	myProxy->SensorConfigReq(mSensorList[i].getSensorId(), mSensorList[i].getMaxSamplingRate(),
 					  mSensorList[i].getMinBatchCount(), callStatus, resp, &info);
 		  }
