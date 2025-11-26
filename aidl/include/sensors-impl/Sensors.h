@@ -124,6 +124,8 @@ class Sensors : public BnSensors, public ISensorsEventCallback, public SensorCor
     }
     void onNewSensorsData(std::vector<SensorCoreData> &sensorData) override;
     int SensorCore_flush(int32_t in_sensorHandle) override;
+    int SensorPlacement(int32_t in_sensorHandle) override;
+    int32_t mAdditionalInfoSerial = 0;
 
   protected:
     // Add a new sensor

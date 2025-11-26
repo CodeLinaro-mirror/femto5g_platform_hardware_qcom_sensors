@@ -40,7 +40,11 @@ using namespace std;
 int DEBUG_LEVEL = 0;
 int ENABLE_10Hz = 0;
 
-static float rot[3][3];
+float SensorCore::rot[3][3] = {};
+float SensorCore::location[3] = {};
+
+int init_sensor_location_vector(float (&location)[3]);
+
 static uint16_t roll;
 static uint16_t pitch;
 static uint16_t yaw;
@@ -70,6 +74,13 @@ struct SensorTrackingOption mSensorTrackingOption [] = {{ACCEL_UNCALIBRATED_SENS
 	                                                {GYRO_UNCALIBRATED_SENSOR_ID,state},
 							{HEADING_SENSOR_ID,state}
 						       };
+
+int64_t SensorCore::nowBoottimeNanos() {
+    timespec ts{};
+    clock_gettime(CLOCK_BOOTTIME, &ts);
+    return static_cast<int64_t>(ts.tv_sec) * 1000000000LL +
+           static_cast<int64_t>(ts.tv_nsec);
+}
 
 void parseSensorReturnT(SensorInterfaceTypes::SensorReturnT resp) {
    switch(resp) {
@@ -383,6 +394,15 @@ static void PrintSensorList(vector<SensorInterfaceTypes::SensorInfoT> sensor, in
     return;
 }
 
+int init_sensor_location_vector(float (&location) [3])
+{
+  location[0] = 0.0f;
+  location[1] = 0.0f;
+  location[2] = 0.0f;
+
+  return 0;
+}
+
 // This API is called to initialise rotational matrix
 int init_sensor_rotation_matrix(float (*rot) [3])
 {
@@ -421,6 +441,52 @@ int calculate_sensor_rotation_matrix(uint16_t rolld, uint16_t pitchd, uint16_t y
   rot[2][2] = cos(pitch) * cos(roll);
 
   return 0;
+}
+
+int read_sensor_placement_matrix(float (&location) [3])
+{
+  char *file_path_name = NULL;
+  FILE *fd_config = NULL;
+  int fsize = 0;
+  int size;
+  char buffer[BUFSIZ];
+  char *line = NULL;
+  int err = 0;
+
+  file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+  if (!file_path_name) {
+            err = -errno;
+            SENSOR_LOGE(SENSOR_TAG "Unable to allocate memory (errno %d)\n", err);
+            return -ENOMEM;
+  }
+
+  fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
+  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  SENSOR_LOGI(SENSOR_TAG "Hal Config file_path_name %s\n", file_path_name);
+  fd_config = fopen(file_path_name, "r");
+  if (fd_config == NULL) {
+      err = -errno;
+      SENSOR_LOGE(SENSOR_TAG "Sensor Filed to open %s (errno %d)\n",
+                      file_path_name, err);
+      goto fail;
+  }
+
+  while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {
+      if(strstr(buffer, "imu_sensor_placement = ")) {
+          line = strstr(buffer, "[");
+          if(line != NULL){
+              size = sscanf(&line[1], "%f,%f,%f", &location[0], &location[1], &location[2]);
+              SENSOR_LOGI(SENSOR_TAG "Read hal config file successful, location[0] %f, location[1] %f, location[2] %f\n", location[0], location[1], location[2]);
+          }
+          break;
+      }
+  }
+  fclose(fd_config);
+fail:
+  free(file_path_name);
+  file_path_name = NULL;
+
+  return err;
 }
 
 // This API is called to read rotational matrix
@@ -475,6 +541,7 @@ void SensorCore::SensorCore_Init() {
     regSigHandler();
 
     init_sensor_rotation_matrix(rot);
+    init_sensor_location_vector(location);
     if ( !read_sensor_rotation_matrix(&roll, &pitch, &yaw) ) {
         if(yaw < RM_MIN || pitch < RM_MIN || roll < RM_MIN || yaw > RM_MAX || pitch > RM_MAX || roll > RM_MAX){
             SENSOR_LOGE(SENSOR_TAG "Error: Euler Angles Invalid Range\n");
@@ -488,6 +555,8 @@ void SensorCore::SensorCore_Init() {
                             rot[2][0], rot[2][1], rot[2][2]);
         }
     }
+
+    read_sensor_placement_matrix(location);
 
     /* GPTP */
     loadGptpLibFile();
