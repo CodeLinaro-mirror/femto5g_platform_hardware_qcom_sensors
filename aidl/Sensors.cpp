@@ -56,6 +56,9 @@ namespace android {
 namespace hardware {
 namespace sensors {
 
+std::atomic<bool> mFlushPending = false;
+int32_t flushHandle;
+
 void Sensors::onNewSensorsData(std::vector<SensorCoreData> &sensorData){
    bool containsWakeUpEvents = false;
    if (!mInitLock.try_lock()) {
@@ -131,11 +134,42 @@ void Sensors::onNewSensorsData(std::vector<SensorCoreData> &sensorData){
 
    } //end of for loop
 
+
+// Check if flush was requested
+    if (mFlushPending.load()) {
+        Event flushEvent = {};
+        flushEvent.sensorHandle = flushHandle;
+        flushEvent.sensorType = SensorType::META_DATA;
+
+        using MetaDataEventType =
+            ::aidl::android::hardware::sensors::Event::EventPayload::MetaData::MetaDataEventType;
+
+        Event::EventPayload::MetaData meta = {
+            .what = MetaDataEventType::META_DATA_FLUSH_COMPLETE,
+
+	};
+
+        flushEvent.payload.set<Event::EventPayload::Tag::meta>(meta);
+        eventsList.push_back(flushEvent);
+
+        mFlushPending.store(false);  // Reset the flag
+        SENSOR_LOGI(SENSOR_TAG "Flush complete event posted");
+    }
+
+
    //send data to android framework
    postEvents(eventsList, containsWakeUpEvents);
 
    mInitLock.unlock();
    return;
+}
+
+int Sensors::SensorCore_flush(int32_t in_sensorHandle) {
+   SENSOR_LOGI(SENSOR_TAG "Set sensor flush to true\n");
+   flushHandle = in_sensorHandle;
+   mFlushPending.store(true);
+
+   return 0;
 }
 
 ScopedAStatus Sensors::activate(int32_t in_sensorHandle, bool in_enabled) {
@@ -168,6 +202,7 @@ ScopedAStatus Sensors::configDirectReport(int32_t /* in_sensorHandle */,
 
 ScopedAStatus Sensors::flush(int32_t in_sensorHandle) {
    SENSOR_LOGI(SENSOR_TAG "Sensor flush Call in_sensorHandle %d\n", in_sensorHandle);
+   SensorCore_flush(in_sensorHandle);
    return ScopedAStatus::ok();
 }
 

@@ -14,3 +14,6 @@ imu_sensor_euler_angles = [1800,0000,0900]
 # DEBUG LEVELS: 0 - none, 1 - Error, 2 - Warning, 3 - Info
 #               4 - Debug
 DEBUG_LEVEL=3
+################################################
+# Enable 10Hz Batching
+ENABLE_10Hz=1

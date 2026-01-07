@@ -80,6 +80,7 @@ public:
     void SensorCore_configSensor(int32_t in_sensorHandle, int64_t in_samplingPeriodNs,int64_t in_maxReportLatencyNs);
     uint64_t SensorCore_getBootTimeFromPtpTime(uint64_t ptp_time_ns);
     void SensorCore_Deinit();
+    virtual int SensorCore_flush(int32_t in_sensorHandle) = 0;
     virtual ~SensorCore() {}
     virtual void onNewSensorsData(std::vector<SensorCoreData> &data) = 0;
 

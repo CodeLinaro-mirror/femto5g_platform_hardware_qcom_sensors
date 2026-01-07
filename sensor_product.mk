@@ -30,5 +30,10 @@ endif #USE_SENSOR_HAL_VER
 ifeq ($(ENABLE_SENSOR_CONFIGS), true)
 PRODUCT_COPY_FILES += \
         frameworks/native/data/etc/android.hardware.sensor.accelerometer.xml:vendor/etc/permissions/android.hardware.sensor.accelerometer.xml \
-        frameworks/native/data/etc/android.hardware.sensor.gyroscope.xml:vendor/etc/permissions/android.hardware.sensor.gyroscope.xml
+        frameworks/native/data/etc/android.hardware.sensor.gyroscope.xml:vendor/etc/permissions/android.hardware.sensor.gyroscope.xml \
+        frameworks/native/data/etc/android.hardware.sensor.accelerometer_limited_axes.xml:vendor/etc/permissions/android.hardware.sensor.accelerometer_limited_axes.xml \
+        frameworks/native/data/etc/android.hardware.sensor.accelerometer_limited_axes_uncalibrated.xml:vendor/etc/permissions/android.hardware.sensor.accelerometer_limited_axes_uncalibrated.xml \
+        frameworks/native/data/etc/android.hardware.sensor.gyroscope_limited_axes.xml:vendor/etc/permissions/android.hardware.sensor.gyroscope_limited_axes.xml \
+        frameworks/native/data/etc/android.hardware.sensor.gyroscope_limited_axes_uncalibrated.xml:vendor/etc/permissions/android.hardware.sensor.gyroscope_limited_axes_uncalibrated.xml \
+        frameworks/native/data/etc/android.hardware.sensor.heading.xml:vendor/etc/permissions/android.hardware.sensor.heading.xml
 endif
