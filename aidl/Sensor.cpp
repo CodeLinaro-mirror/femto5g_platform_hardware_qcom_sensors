@@ -208,7 +208,7 @@ AccelSensor::AccelSensor(int32_t sensorHandle, ISensorsEventCallback* callback) 
     mSensorInfo.version = 1;
     mSensorInfo.type = SensorType::ACCELEROMETER;
     mSensorInfo.typeAsString = "";
-    mSensorInfo.maxRange = 19.6f;  // +/- 2g
+    mSensorInfo.maxRange = 39.2f;  // +/- 4g
     mSensorInfo.resolution = 0.002393;
     mSensorInfo.power = 0.001f;          // mA
     mSensorInfo.minDelayUs = (1.0f/100) * 1000000L;  // microseconds
@@ -236,7 +236,7 @@ AccelUncalSensor::AccelUncalSensor(int32_t sensorHandle, ISensorsEventCallback* 
     mSensorInfo.version = 1;
     mSensorInfo.type = SensorType::ACCELEROMETER_UNCALIBRATED;
     mSensorInfo.typeAsString = "";
-    mSensorInfo.maxRange = 19.6f;  // +/- 2g
+    mSensorInfo.maxRange = 39.2f;  // +/- 4g
     mSensorInfo.resolution = 0.002393;
     mSensorInfo.power = 0.001f;          // mA
     mSensorInfo.minDelayUs = (1.0f/100) * 1000000L;  // microseconds
