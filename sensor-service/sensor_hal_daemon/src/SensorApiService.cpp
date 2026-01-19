@@ -1970,8 +1970,8 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
 		/*  Adjusting batch rate to reduce the irq frquency when sensor operating at
 		    higher sampling rate
 		*/
-		if (mMaxGyroSampleRate == 100 && mMinGyroBatchCount < 2)
-			mMinGyroBatchCount = 2;
+		if (mMaxAccSampleRate == 100 && mMinAccBatchCount < 2)
+			mMinAccBatchCount = 2;
 		else if (mMaxAccSampleRate == 200 && mMinAccBatchCount < 4)
 			mMinAccBatchCount = 4;
 		else if (mMaxAccSampleRate == 400 && mMinAccBatchCount < 8)
