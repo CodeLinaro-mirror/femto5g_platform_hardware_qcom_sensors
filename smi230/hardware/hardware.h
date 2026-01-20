@@ -1,7 +1,4 @@
 /*
- * Copyright (c) 2021 The Linux Foundation. All rights reserved.
- * Not a contribution.
- *
  * Copyright (C) 2008 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -203,6 +200,12 @@ typedef struct hw_device_t {
     int (*close)(struct hw_device_t* device);
 
 } hw_device_t;
+
+#ifdef __cplusplus
+#define TO_HW_DEVICE_T_OPEN(x) reinterpret_cast<struct hw_device_t**>(x)
+#else
+#define TO_HW_DEVICE_T_OPEN(x) (struct hw_device_t**)(x)
+#endif
 
 /**
  * Name of the hal_module_info

@@ -91,21 +91,18 @@ enum BSX4_SENSORLIST_INX
 };
 
 /*!bosch sensor generic power mode enum */
-enum BST_DEV_OP_MODE
+enum BST_DEV_ACC_OP_MODE
 {
     SENSOR_PM_NORMAL = 0,
-    SENSOR_PM_LP1 = 1,
-    SENSOR_PM_SUSPEND = 3,
-    SENSOR_PM_LP2 = 2
+    SENSOR_PM_SUSPEND = 3
 };
 
 enum BST_DEV_GYRO_OP_MODE
 {
     SENSOR_GYRO_PM_NORMAL = 0,
-    SENSOR_GYRO_PM_LP1 = 2,
-    SENSOR_GYRO_PM_SUSPEND = 1,
-    SENSOR_GYRO_PM_LP2 = 3
+    SENSOR_GYRO_PM_SUSPEND = 1
 };
+
 
 #define SENSOR_TYPE_BOSCH_ACTIVITY_RECOGNITION              (SENSOR_TYPE_DEVICE_PRIVATE_BASE + 31)
 #define SENSOR_STRING_TYPE_BOSCH_AR "com.bosch-BoschSensor.www.activityrecognition"
@@ -123,6 +120,10 @@ enum BST_DEV_GYRO_OP_MODE
 #define SENSOR_TYPE_BOSCH_GAS_RESIST                (SENSOR_TYPE_BOSCH_ACTIVITY_RECOGNITION + 4)
 #define SENSOR_STRING_TYPE_BOSCH_GAS_RESIST         "com.bosch-BoschSensor.www.GAS"
 
+#define BSX_CONFSTR_2000Hz  18
+#define BSX_CONFSTR_1600Hz  17
+#define BSX_CONFSTR_1000Hz  16
+#define BSX_CONFSTR_800Hz  15
 #define BSX_CONFSTR_400Hz  1
 #define BSX_CONFSTR_200Hz  2
 #define BSX_CONFSTR_100Hz  3
@@ -147,6 +148,18 @@ enum BST_DEV_GYRO_OP_MODE
 #define CONVERT_DATARATE_CODE(code, rate) \
     switch (code)\
     {\
+        case BSX_CONFSTR_2000Hz:\
+            rate = 2000;\
+            break;\
+        case BSX_CONFSTR_1600Hz:\
+            rate = 1600;\
+            break;\
+        case BSX_CONFSTR_1000Hz:\
+            rate = 1000;\
+            break;\
+        case BSX_CONFSTR_800Hz:\
+            rate = 800;\
+            break;\
         case BSX_CONFSTR_400Hz:\
             rate = 400;\
             break;\
