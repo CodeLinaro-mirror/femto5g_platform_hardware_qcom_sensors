@@ -45,12 +45,6 @@
 
 #define HAL_DAEMON_VERSION "1.1.0"
 
-void sighandler(int signum) {
-	SENSOR_LOGI(LOG_TAG "Recived signum %d\n", signum);
-	SensorApiService::destroy();
-	exit(0);
-}
-
 // this function will block until the directory specified in
 // dirName has been created
 static inline void waitForDir(const char* dirName) {
@@ -193,9 +187,50 @@ void PrintSensorConfigParameters(configParamToRead configParamRead)
 	configParamRead.DebugLevel, configParamRead.EnableFIR);
 }
 
+static void block_sigterm()
+{
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGTERM);
+
+    // Block SIGTERM in current thread (and all future threads)
+    int rc = pthread_sigmask(SIG_BLOCK, &set, nullptr);
+    if(rc != 0)
+	    SENSOR_LOGE(LOG_TAG "pthread_sigmask failed rc=%d\n", rc);
+
+}
+
+static void* sigterm_wait_thread(void*)
+{
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGTERM);
+
+    int sig = 0;
+    int rc = sigwait(&set, &sig);
+    if(rc == 0 && sig == SIGTERM){
+	SENSOR_LOGI(LOG_TAG "SIGTERM received, shutting down...\n");
+        SensorApiService::destroy();
+    }
+    else
+        SENSOR_LOGE(LOG_TAG "sigwait failed rc=%d sig=%d\n", rc, sig);
+
+    exit(0);
+}
+
 //MAIN
 int main(int argc, char *argv[])
 {
+    block_sigterm();
+    pthread_t sig_thread;
+    int rc = pthread_create(&sig_thread, nullptr, sigterm_wait_thread, nullptr);
+    if(rc == 0){
+        pthread_setname_np(sig_thread, "sigterm_wait_main_func");
+        pthread_detach(sig_thread);
+    }
+    else
+        SENSOR_LOGE(LOG_TAG "pthread_create failed rc=%d\n", rc);
+
     configParamToRead configParamRead = {};
     configParamRead.EnableFIR = 0; //By default, use moving average
 
@@ -209,11 +244,6 @@ int main(int argc, char *argv[])
     waitForDir(SOCKET_SENSOR_CLIENT_DIR);
 
     SENSOR_LOGI(LOG_TAG "starting sensor_hal_daemon\n");
-
-    struct sigaction action;
-    (void)memset(&action, 0, sizeof(action));
-    action.sa_handler = sighandler;
-    (void)sigaction(SIGTERM, &action, NULL);
 
     // start listening for client events - will not return
     if (!SensorApiService::getInstance(configParamRead)) {

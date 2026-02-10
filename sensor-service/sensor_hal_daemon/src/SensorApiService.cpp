@@ -236,6 +236,15 @@ SensorApiService - Destructors
 SensorApiService::~SensorApiService() {
     SENSOR_LOGI(LOG_TAG "SensorApiService Destructor is called\n");
 
+    for(int i = 0 ; i < mSensorCount; i++)  {
+        SENSOR_LOGI(LOG_TAG ">-- Destructor invoked, disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
+        (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
+    }
+
+    if(mSensorType == 3 || mSensorType == 4){
+        mpoll_dev_v0->common.close(&mpoll_dev_v0->common);
+    }
+
 #ifdef SENSOR_IVSS_ENABLED
     std::shared_ptr<CommonAPI::Runtime> runtime = CommonAPI::Runtime::get();
     std::string domain = "local";
@@ -248,52 +257,47 @@ SensorApiService::~SensorApiService() {
     bool successfullyUnRegistered = runtime->unregisterService(domain, v1::com::qualcomm::qti::sensor::SensorInterface::getInterface(), instance);
     while (!successfullyUnRegistered && retryCount < maxRetries) {
         SENSOR_LOGE(LOG_TAG "UnRegister SOMEIP Service Failed, trying again in 100 milliseconds...\n");
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-	successfullyUnRegistered = runtime->unregisterService(domain, v1::com::qualcomm::qti::sensor::SensorInterface::getInterface(), instance);
-	retryCount++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        successfullyUnRegistered = runtime->unregisterService(domain, v1::com::qualcomm::qti::sensor::SensorInterface::getInterface(), instance);
+        retryCount++;
     }
     if (successfullyUnRegistered) {
         SENSOR_LOGI(LOG_TAG "Successfully UnRegistered SOMEIP Service!\n");
     } else {
-	SENSOR_LOGE(LOG_TAG "Failed to UnRegister SOMEIP Service after retries!\n");
+        SENSOR_LOGE(LOG_TAG "Failed to UnRegister SOMEIP Service after retries!\n");
     }
 #endif
 
-    for(int i = 0 ; i < mSensorCount; i++)  {
-        SENSOR_LOGI(LOG_TAG ">-- Destructor invoked, disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
-        (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
-    }
-
-    if(mSensorType == 3 || mSensorType == 4){
-        mpoll_dev_v0->common.close(&mpoll_dev_v0->common);
-    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // stop ipc receiver thread
     if (nullptr != mIpcReceiver) {
         mIpcReceiver->stop();
         delete mIpcReceiver;
+	mIpcReceiver = nullptr;
     }
 
     if (nullptr != mQsockReceiver) {
         mQsockReceiver->stop();
         delete mQsockReceiver;
+	mQsockReceiver = nullptr;
     }
 
     //Delete mSensor memory
     if (nullptr != mSensor) {
-	delete mSensor;
+	delete[] mSensor;
 	mSensor = nullptr;
     }
 
     //Delete mSensorList memory
     if (nullptr != mSensorList) {
-	delete mSensorList;
+	delete[] mSensorList;
 	mSensorList = nullptr;
     }
 
     //Delete mSesnorMlcCaseList memory
     if (nullptr != mSesnorMlcCaseList) {
-        delete mSesnorMlcCaseList;
+	std::free(mSesnorMlcCaseList);
         mSesnorMlcCaseList = nullptr;
     }
 
