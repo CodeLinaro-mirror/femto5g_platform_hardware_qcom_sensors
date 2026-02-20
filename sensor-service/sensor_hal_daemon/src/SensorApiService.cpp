@@ -1565,20 +1565,6 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
         timestamp = Gyrotimestamp;
     }
 
-    for(int i = 0 ; i < mSensorCount; i++)  {
-	    if (sensor_id == mSensor[i].sensor_id) {
-	        if (mSensor[i].Activate == SENSOR_ENABLE){
-		    int64_t SamplingRate = FREQUENCY_TO_NS(mSensor[i].SamplingRate);
-		    int64_t BatchingRate =  mSensor[i].BatchCount * SamplingRate  * mBatchConst;
-
-		    SENSOR_LOGI(LOG_TAG ">-- onSelfTest Re-Configure sensor sensor_id %d sampling Rate %lld BatchingRate %lld\n",
-				    mSensor[i].sensor_id, SamplingRate, BatchingRate);
-		    (void)sensor_set_batch(mSensor[i].sensor_id, SamplingRate, BatchingRate); //configure the sensor
-		    (void)sensor_activate(mSensor[i].sensor_id, SENSOR_ENABLE); //Enable the sensor
-	        }
-	    }
-    }
-
 fail:
     if(mSensorType == 1 || mSensorType == 4){
         if(AccelTest == 1) {
