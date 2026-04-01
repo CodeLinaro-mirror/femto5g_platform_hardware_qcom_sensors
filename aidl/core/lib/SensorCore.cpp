@@ -37,7 +37,7 @@
 using namespace v1::com::qualcomm::qti::sensor;
 using namespace std;
 
-int DEBUG_LEVEL = 0;
+int DEBUG_LEVEL = 1;
 int ENABLE_10Hz = 0;
 
 float SensorCore::rot[3][3] = {};
@@ -197,24 +197,10 @@ void DeInitHandles()
    return;
 }
 
-void signalHandler(int signal)
+void cleanup()
 {
-   SENSOR_LOGI(SENSOR_TAG "signalHandler\n");
+   SENSOR_LOGI(SENSOR_TAG "cleanup Handler\n");
    DeInitHandles();
-   exit(0);
-   return;
-}
-
-void regSigHandler()
-{
-   struct sigaction mySigAction = {};
-
-   mySigAction.sa_handler = signalHandler;
-   sigemptyset(&mySigAction.sa_mask);
-   sigaction(SIGHUP, &mySigAction, NULL);
-   sigaction(SIGTERM, &mySigAction, NULL);
-   sigaction(SIGINT, &mySigAction, NULL);
-   sigaction(SIGPIPE, &mySigAction, NULL);
    return;
 }
 
@@ -537,8 +523,6 @@ fail:
 }
 
 void SensorCore::SensorCore_Init() {
-
-    regSigHandler();
 
     init_sensor_rotation_matrix(rot);
     init_sensor_location_vector(location);

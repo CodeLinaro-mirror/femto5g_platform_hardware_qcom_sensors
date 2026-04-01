@@ -43,6 +43,7 @@ using std::vector;
 using std::string;
 
 int getSensorDebugLevel();
+void cleanup();
 
 // Define the SensorCoreData struct
 struct SensorCoreData {
