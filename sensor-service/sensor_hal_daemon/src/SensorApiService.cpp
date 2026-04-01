@@ -82,6 +82,8 @@
 #define SMI130LIB "/usr/lib/libsmi130sensors.so.1"
 #define SMI230LIB "/usr/lib/libsmi230sensors.so.1"
 
+#define SENSOR_SMI230_GYRO_SUSPEND 20
+#define SENSOR_SMI230_GYRO_NORMAL 0
 /******************************************************************************
 SensorApiService - static members
 ******************************************************************************/
@@ -1959,11 +1961,19 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 float samplingRate[6] = {100, 200, 400};
                 int gyro_range[5] = {125, 250, 500, 1000, 2000};
 		char rangeFilePath[SEARCH_PATH_SIZE]={'\0'};
+		char pwrFilePath[SEARCH_PATH_SIZE]={'\0'};
+		int pwr_state = SENSOR_SMI230_GYRO_SUSPEND;
 		find_path(DYN_INPUT_TYPE, rangeFilePath, "SMI230GYRO", sizeof(rangeFilePath));
+
+		/* Check if Sensor is already Enabled */
+		(void)strlcpy(pwrFilePath, rangeFilePath, sizeof(pwrFilePath));
+		(void)strlcat(pwrFilePath, "pwr_cfg", sizeof(rangeFilePath));
+		(void)sysfs_read_int(pwrFilePath, &pwr_state);
+
 		(void)strlcat(rangeFilePath, "range", sizeof(rangeFilePath));
-		sensor_activate(s->sensor_id, SENSOR_ENABLE);
+		if(pwr_state != SENSOR_SMI230_GYRO_NORMAL) sensor_activate(s->sensor_id, SENSOR_ENABLE);
 		(void)sysfs_read_int(rangeFilePath, &s->range);
-		sensor_activate(s->sensor_id, SENSOR_DISABLE);
+		if(pwr_state != SENSOR_SMI230_GYRO_NORMAL) sensor_activate(s->sensor_id, SENSOR_DISABLE);
                 (void)memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
                 mMaxGyroSampleRate = NearBySamplingRate(samplingRate, mMaxGyroSampleRate);
                 s->maxSamplingRate = mMaxGyroSampleRate;
