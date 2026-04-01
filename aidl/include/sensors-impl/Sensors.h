@@ -40,6 +40,8 @@
 #include <sys/types.h>
 #include "Sensor.h"
 #include <SensorCore.h>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace aidl {
 namespace android {
@@ -126,6 +128,14 @@ class Sensors : public BnSensors, public ISensorsEventCallback, public SensorCor
     int SensorCore_flush(int32_t in_sensorHandle) override;
     int SensorPlacement(int32_t in_sensorHandle) override;
     int32_t mAdditionalInfoSerial = 0;
+    bool isValidHandle(int32_t handle) const;
+    std::unordered_map<int32_t, ::aidl::android::hardware::sensors::SensorInfo> mSensorInfoMap;
+    std::mutex mLock;
+    std::unordered_map<int32_t, bool> mEnabled;
+    std::mutex mFlushLock;
+    std::unordered_map<int32_t, uint32_t> mFlushPendingCount;  // handle -> number of pending flush-complete events
+    std::mutex mPlacementLock;
+    std::unordered_set<int32_t> mPlacementPending;  // handles needing SensorPlacement()
 
   protected:
     // Add a new sensor

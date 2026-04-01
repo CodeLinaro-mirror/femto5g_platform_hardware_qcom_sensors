@@ -138,35 +138,42 @@ void Sensors::onNewSensorsData(std::vector<SensorCoreData> &sensorData){
 
    } //end of for loop
 
+   // Append flush-complete events (one per flush() call)
+   {
+       std::lock_guard<std::mutex> lk(mFlushLock);
 
-// Check if flush was requested
-    if (mFlushPending.load()) {
-        Event flushEvent = {};
-        flushEvent.sensorHandle = flushHandle;
-        flushEvent.sensorType = SensorType::META_DATA;
+       using MetaDataEventType =
+           ::aidl::android::hardware::sensors::Event::EventPayload::MetaData::MetaDataEventType;
 
-        using MetaDataEventType =
-            ::aidl::android::hardware::sensors::Event::EventPayload::MetaData::MetaDataEventType;
+       for (auto& [handle, count] : mFlushPendingCount) {
+           for (uint32_t i = 0; i < count; i++) {
+               Event flushEvent = {};
+               flushEvent.sensorHandle = handle;
+               flushEvent.sensorType = SensorType::META_DATA;
 
-        Event::EventPayload::MetaData meta = {
-            .what = MetaDataEventType::META_DATA_FLUSH_COMPLETE,
+               Event::EventPayload::MetaData meta = {
+                   .what = MetaDataEventType::META_DATA_FLUSH_COMPLETE,
+               };
 
-	};
-
-        flushEvent.payload.set<Event::EventPayload::Tag::meta>(meta);
-        eventsList.push_back(flushEvent);
-
-        mFlushPending.store(false);  // Reset the flag
-	AdditionalFlag = true;
-        SENSOR_LOGI(SENSOR_TAG "Flush complete event posted");
-    }
-
+               flushEvent.payload.set<Event::EventPayload::Tag::meta>(meta);
+               eventsList.push_back(flushEvent);
+           }
+       }
+       mFlushPendingCount.clear();
+   }
    //send data to android framework
    postEvents(eventsList, containsWakeUpEvents);
 
-   if (AdditionalFlag == true){
-      SensorPlacement(flushHandle);
-      AdditionalFlag = false;
+   std::vector<int32_t> toPlace;
+   {
+       std::lock_guard<std::mutex> lk(mPlacementLock);
+       toPlace.assign(mPlacementPending.begin(), mPlacementPending.end());
+       mPlacementPending.clear();
+   }
+
+   // Call outside lock
+   for (int32_t h : toPlace) {
+       SensorPlacement(h);
    }
 
    mInitLock.unlock();
@@ -175,8 +182,15 @@ void Sensors::onNewSensorsData(std::vector<SensorCoreData> &sensorData){
 
 int Sensors::SensorCore_flush(int32_t in_sensorHandle) {
    SENSOR_LOGI(SENSOR_TAG "Set sensor flush to true\n");
-   flushHandle = in_sensorHandle;
-   mFlushPending.store(true);
+   {
+        std::lock_guard<std::mutex> lk(mFlushLock);
+        mFlushPendingCount[in_sensorHandle]++; // one completion per flush() call
+   }
+
+   {
+        std::lock_guard<std::mutex> lk(mPlacementLock);
+        mPlacementPending.insert(in_sensorHandle);
+   }
 
    return 0;
 }
@@ -263,9 +277,21 @@ int Sensors::SensorPlacement(int32_t in_sensorHandle) {
    return 0;
 }
 
+bool Sensors::isValidHandle(int32_t handle) const {
+    return mSensorInfoMap.find(handle) != mSensorInfoMap.end();
+}
+
 ScopedAStatus Sensors::activate(int32_t in_sensorHandle, bool in_enabled) {
    SENSOR_LOGI(SENSOR_TAG "Sensor activate Call in_sensorHandle: %d, in_enabled: %d \n", in_sensorHandle, in_enabled);
+   if (!isValidHandle(in_sensorHandle)) {
+           SENSOR_LOGE(SENSOR_TAG "activate: invalid handle=%d\n", in_sensorHandle);
+           return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+   }
    if(SensorServiceAvailable) {
+	   {
+                std::lock_guard<std::mutex> lk(mLock);
+                mEnabled[in_sensorHandle] = in_enabled;
+           }
            SensorCore_acitvateSensor(in_sensorHandle, in_enabled);
            if (in_enabled) {
 	    SensorPlacement(in_sensorHandle);
@@ -280,6 +306,21 @@ ScopedAStatus Sensors::activate(int32_t in_sensorHandle, bool in_enabled) {
 
 ScopedAStatus Sensors::batch(int32_t in_sensorHandle, int64_t in_samplingPeriodNs, int64_t  in_maxReportLatencyNs ) {
    SENSOR_LOGI(SENSOR_TAG "Sensor batch Call in_sensorHandle:%d in_samplingPeriodNs %lld, in_maxReportLatencyNs %lld\n", in_sensorHandle, in_samplingPeriodNs,in_maxReportLatencyNs);
+   auto it = mSensorInfoMap.find(in_sensorHandle);
+   if (it == mSensorInfoMap.end()) {
+        return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+   }
+   const auto &info = it->second;
+
+   // Convert us → ns
+   const int64_t minDelayNs =
+        (info.minDelayUs > 0) ? (static_cast<int64_t>(info.minDelayUs) * 1000LL) : 0;
+
+   // Condition checks for sampling period
+   if (in_samplingPeriodNs < 0 ||  in_maxReportLatencyNs < 0) {
+        return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+   }
+
    SensorCore_configSensor(in_sensorHandle, in_samplingPeriodNs, in_maxReportLatencyNs);
    SensorPlacement(in_sensorHandle);
    return ScopedAStatus::ok();
@@ -297,6 +338,19 @@ ScopedAStatus Sensors::configDirectReport(int32_t /* in_sensorHandle */,
 
 ScopedAStatus Sensors::flush(int32_t in_sensorHandle) {
    SENSOR_LOGI(SENSOR_TAG "Sensor flush Call in_sensorHandle %d\n", in_sensorHandle);
+   {
+       std::lock_guard<std::mutex> lk(mLock);
+       auto it = mEnabled.find(in_sensorHandle);
+       bool enabled = (it != mEnabled.end()) ? it->second : false;
+
+       if (!enabled) {
+           SENSOR_LOGE(SENSOR_TAG "flush: handle=%d is inactive, returning error\n",
+                       in_sensorHandle);
+           // VTS wants isOk()==false here
+           return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_STATE);
+       }
+   }
+
    SensorCore_flush(in_sensorHandle);
    return ScopedAStatus::ok();
 }
@@ -321,7 +375,7 @@ ScopedAStatus Sensors::getSensorsList(std::vector<SensorInfo>* _aidl_return) {
 		  sensor->second->getSensorInfo().version = mSensorList.sensorVersion;
 		  sensor->second->getSensorInfo().maxRange = mSensorList.maxRange;
 		  sensor->second->getSensorInfo().minDelayUs = (1.0f/mSensorList.maxSamplingRate) * 1000000L;
-		  sensor->second->getSensorInfo().maxDelayUs = (1.0f/mSensorList.odr[0])          * 1000000L;
+		  sensor->second->getSensorInfo().maxDelayUs = (1.0f/mSensorList.maxSamplingRate) * 1000000L;
 
 		  // ---- Advertise AdditionalInfo capability if eligible ----
                  SensorInfo& si = sensor->second->getSensorInfo();
@@ -336,7 +390,7 @@ ScopedAStatus Sensors::getSensorsList(std::vector<SensorInfo>* _aidl_return) {
 		  sensor->second->getSensorInfo().version = mSensorList.sensorVersion;
 		  sensor->second->getSensorInfo().maxRange = mSensorList.maxRange;
 		  sensor->second->getSensorInfo().minDelayUs = (1.0f/mSensorList.maxSamplingRate) * 1000000L;
-		  sensor->second->getSensorInfo().maxDelayUs = (1.0f/mSensorList.odr[0])          * 1000000L;
+		  sensor->second->getSensorInfo().maxDelayUs = (1.0f/mSensorList.maxSamplingRate) * 1000000L;
 
 		  // Calibrated accel is of type ACCELEROMETER -> eligible; set flag.
                  sensor->second->getSensorInfo().flags |= SensorInfo::SENSOR_FLAG_BITS_ADDITIONAL_INFO;
@@ -348,12 +402,15 @@ ScopedAStatus Sensors::getSensorsList(std::vector<SensorInfo>* _aidl_return) {
 		  sensor->second->getSensorInfo().version = mSensorList.sensorVersion;
 		  sensor->second->getSensorInfo().maxRange = mSensorList.maxRange;
 		  sensor->second->getSensorInfo().minDelayUs = (1.0f/mSensorList.maxSamplingRate) * 1000000L;
-		  sensor->second->getSensorInfo().maxDelayUs = (1.0f/mSensorList.odr[0])          * 1000000L;
+		  sensor->second->getSensorInfo().maxDelayUs = (1.0f/mSensorList.maxSamplingRate) * 1000000L;
 
 		  // Calibrated gyro is of type GYROSCOPE -> eligible; set flag.
                  sensor->second->getSensorInfo().flags |= SensorInfo::SENSOR_FLAG_BITS_ADDITIONAL_INFO;
 	       }
 	     }
+	     if ((SensorType)mSensorList.type == SensorType::HEADING){
+                    sensor->second->getSensorInfo().maxRange = 2.0f * M_PI;
+             }
      }
    }
    else {
@@ -370,6 +427,8 @@ ScopedAStatus Sensors::getSensorsList(std::vector<SensorInfo>* _aidl_return) {
 
 
    for (const auto& sensor : mSensors) {
+	   const SensorInfo& info = sensor.second->getSensorInfo();
+	   mSensorInfoMap[info.sensorHandle] = info;
 	   SENSOR_LOGI(SENSOR_TAG "SensorInfo version:%d | name: %s | vendor: %s | maxRange: %f | resoluton: %f | sensorHandle: %d | minDelayUs: %d | maxDelayUs: %d | type:%d | flags:0x%x\n\n", sensor.second->getSensorInfo().version, sensor.second->getSensorInfo().name.c_str(), sensor.second->getSensorInfo().vendor.c_str(), sensor.second->getSensorInfo().maxRange, sensor.second->getSensorInfo().resolution, sensor.second->getSensorInfo().sensorHandle, sensor.second->getSensorInfo().minDelayUs, sensor.second->getSensorInfo().maxDelayUs, sensor.second->getSensorInfo().type, sensor.second->getSensorInfo().flags);
 	   _aidl_return->push_back(sensor.second->getSensorInfo());
    }
@@ -438,7 +497,16 @@ ScopedAStatus Sensors::registerDirectChannel(const ISensors::SharedMemInfo& /* i
 
 ScopedAStatus Sensors::setOperationMode(OperationMode in_mode) {
     SENSOR_LOGI(SENSOR_TAG "%s\n", __func__);
-    return ScopedAStatus::ok();
+    switch (in_mode) {
+            case ISensors::OperationMode::NORMAL:
+                           return ScopedAStatus::ok();
+
+            case ISensors::OperationMode::DATA_INJECTION:
+                           return ScopedAStatus::fromExceptionCode(EX_UNSUPPORTED_OPERATION);
+
+            default:
+                           return ScopedAStatus::fromExceptionCode(EX_ILLEGAL_ARGUMENT);
+    }
 }
 
 ScopedAStatus Sensors::unregisterDirectChannel(int32_t /* in_channelHandle */) {
