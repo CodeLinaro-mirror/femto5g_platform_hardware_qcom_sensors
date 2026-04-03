@@ -68,6 +68,8 @@
 #include <dlfcn.h>
 #include <string.h>
 
+#define SENSOR_CONTROL_REQ_TIMEOUT 15
+
 namespace sensor_client {
 
 /******************************************************************************
@@ -271,7 +273,7 @@ int SensorClientImpl::sensorControl(int sensor_id, sensor_state state) {
 	 (void)pthread_mutex_unlock (&mSensorLibMutex);
 	 return SENSOR_ERROR_IPC_FAILED;
       }
-      mTimeout = timeout(3);
+      mTimeout = timeout(SENSOR_CONTROL_REQ_TIMEOUT);
       ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       (void)pthread_mutex_unlock (&mSensorLibMutex);
       if (ret == ETIMEDOUT)
@@ -332,7 +334,7 @@ int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batc
 	 (void)pthread_mutex_unlock (&mSensorLibMutex);
 	 return SENSOR_ERROR_IPC_FAILED;
       }
-      mTimeout = timeout(3);
+      mTimeout = timeout(SENSOR_CONTROL_REQ_TIMEOUT);
       ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       (void)pthread_mutex_unlock (&mSensorLibMutex);
       if (ret == ETIMEDOUT)
@@ -384,7 +386,7 @@ int SensorClientImpl::startTracking(int sensor_id, SensorDataReadCb sensorreadCa
 	 (void)pthread_mutex_unlock (&mSensorLibMutex);
          return SENSOR_ERROR_IPC_FAILED;
       }
-      mTimeout = timeout(3);
+      mTimeout = timeout(SENSOR_CONTROL_REQ_TIMEOUT);
       ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       (void)pthread_mutex_unlock (&mSensorLibMutex);
       if (ret == ETIMEDOUT)
@@ -473,7 +475,7 @@ int SensorClientImpl::sensorMLCEventEnable(char *mlc_case_name, bool enable,
          (void)pthread_mutex_unlock (&mSensorLibMutex);
          return SENSOR_ERROR_IPC_FAILED;
       }
-      mTimeout = timeout(3);
+      mTimeout = timeout(SENSOR_CONTROL_REQ_TIMEOUT);
       ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       (void)pthread_mutex_unlock (&mSensorLibMutex);
       if (ret == ETIMEDOUT)
@@ -546,7 +548,7 @@ int SensorClientImpl::startBufferDataRead(bool enable, SensorBufferDataReadCb se
               (void)pthread_mutex_unlock (&mSensorLibMutex);
 	      return SENSOR_ERROR_IPC_FAILED;
       }
-      mTimeout = timeout(3);
+      mTimeout = timeout(SENSOR_CONTROL_REQ_TIMEOUT);
       ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       (void)pthread_mutex_unlock (&mSensorLibMutex);
       if (ret == ETIMEDOUT)
@@ -606,7 +608,7 @@ int SensorClientImpl::selfTest(int sensor_id, SelfTestType selfTestType, int req
          (void)pthread_mutex_unlock (&mSensorLibMutex);
          return SENSOR_ERROR_IPC_FAILED;
       }
-      mTimeout = timeout(3);
+      mTimeout = timeout(SENSOR_CONTROL_REQ_TIMEOUT);
       ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
       (void)pthread_mutex_unlock (&mSensorLibMutex);
       if (ret == ETIMEDOUT){
@@ -649,7 +651,7 @@ int SensorClientImpl::setEulerAngles(uint16_t rolld, uint16_t pitchd, uint16_t y
 		    (void)pthread_mutex_unlock (&mSensorLibMutex);
 		    return SENSOR_ERROR_IPC_FAILED;
 	    }
-	    mTimeout = timeout(3);
+	    mTimeout = timeout(SENSOR_CONTROL_REQ_TIMEOUT);
 	    ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
 	    (void)pthread_mutex_unlock (&mSensorLibMutex);
 	    if (ret == ETIMEDOUT)
@@ -698,7 +700,7 @@ int SensorClientImpl::getSensorWakeupConfInfoLimits(int sensor_id, struct wakeup
 		    (void)pthread_mutex_unlock (&mSensorLibMutex);
 		    return SENSOR_ERROR_IPC_FAILED;
 	    }
-	    mTimeout = timeout(3);
+	    mTimeout = timeout(SENSOR_CONTROL_REQ_TIMEOUT);
 	    ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
 	    (void)pthread_mutex_unlock (&mSensorLibMutex);
 	    if (ret == ETIMEDOUT)
@@ -755,7 +757,7 @@ int SensorClientImpl::getSensorWakeupConfUpdate(int sensor_id, SensorWakeupConfi
 		    (void)pthread_mutex_unlock (&mSensorLibMutex);
 		    return SENSOR_ERROR_IPC_FAILED;
 	    }
-	    mTimeout = timeout(3);
+	    mTimeout = timeout(SENSOR_CONTROL_REQ_TIMEOUT);
 	    ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
 	    (void)pthread_mutex_unlock (&mSensorLibMutex);
 	    if (ret == ETIMEDOUT)
@@ -799,7 +801,7 @@ int SensorClientImpl::sensorWakeupEnable(int sensor_id, struct wakeup_config wak
 		    (void)pthread_mutex_unlock (&mSensorLibMutex);
 		    return SENSOR_ERROR_IPC_FAILED;
 	    }
-	    mTimeout = timeout(3);
+	    mTimeout = timeout(SENSOR_CONTROL_REQ_TIMEOUT);
 	    ret = pthread_cond_timedwait(&mSensorLibCond, &mSensorLibMutex, &mTimeout);
 	    (void)pthread_mutex_unlock (&mSensorLibMutex);
 	    if (ret == ETIMEDOUT)
