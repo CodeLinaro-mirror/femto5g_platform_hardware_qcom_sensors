@@ -9,12 +9,14 @@ ifeq ($(ENABLE_AIDL_SENSOR),true)
 ifeq ($(filter $(TARGET_BOARD_PLATFORM), gen4),$(TARGET_BOARD_PLATFORM)) #gen4_gvm -> lemans, monaco HQX. gen4_au -> lemans metal
 ifneq ($(ENABLE_HYP), false)
 ifneq ( ,$(filter _sdvcomm _cdccomm, $(TARGET_BOARD_DERIVATIVE_SUFFIX)))
+ifneq ($(TARGET_SOMEIP_ENABLE), false)
 PRODUCT_PACKAGES += android.hardware.sensors@aidl-service-qc
 PRODUCT_PACKAGES += vsomeip-sensor_client.json
 PRODUCT_PACKAGES += vsomeip-sensor_test_client.json
 PRODUCT_PACKAGES += SensorInterfaceClient
 PRODUCT_PACKAGES += hal_config
 ENABLE_SENSOR_CONFIGS := true
+endif#TARGET_SOMEIP_ENABLE
 endif
 endif
 

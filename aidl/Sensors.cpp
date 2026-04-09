@@ -68,7 +68,7 @@ void Sensors::onNewSensorsData(std::vector<SensorCoreData> &sensorData){
    Event SensorEvents = {};
 
    for (auto& data : sensorData) {
-       SENSOR_LOGD(SENSOR_TAG "Sensor ID: %d Type: %d Timestamp: %lld, GPTP Timestamp: %lld, xyz:%f %f %f bias: %f %f %f\n", data.sensorId, data.Type ,data.timestamp, data.gptptimestamp, data.xyz[0], data.xyz[1], data.xyz[2], data.xyz[3],data.xyz[4],data.xyz[5]);
+       SENSOR_LOGD(SENSOR_TAG "Sensor ID: %d Type: %d Timestamp: %ld, GPTP Timestamp: %ld, xyz:%f %f %f bias: %f %f %f\n", data.sensorId, data.Type ,data.timestamp, data.gptptimestamp, data.xyz[0], data.xyz[1], data.xyz[2], data.xyz[3],data.xyz[4],data.xyz[5]);
 
        memset(&SensorEvents, 0, sizeof(SensorEvents));
        SensorEvents.sensorType = (SensorType)data.Type;
@@ -185,7 +185,7 @@ ScopedAStatus Sensors::activate(int32_t in_sensorHandle, bool in_enabled) {
 }
 
 ScopedAStatus Sensors::batch(int32_t in_sensorHandle, int64_t in_samplingPeriodNs, int64_t  in_maxReportLatencyNs ) {
-   SENSOR_LOGI(SENSOR_TAG "Sensor batch Call in_sensorHandle:%d in_samplingPeriodNs %lld, in_maxReportLatencyNs %lld\n", in_sensorHandle, in_samplingPeriodNs,in_maxReportLatencyNs);
+   SENSOR_LOGI(SENSOR_TAG "Sensor batch Call in_sensorHandle:%d in_samplingPeriodNs %ld, in_maxReportLatencyNs %ld\n", in_sensorHandle, in_samplingPeriodNs,in_maxReportLatencyNs);
    SensorCore_configSensor(in_sensorHandle, in_samplingPeriodNs, in_maxReportLatencyNs);
    return ScopedAStatus::ok();
 }
