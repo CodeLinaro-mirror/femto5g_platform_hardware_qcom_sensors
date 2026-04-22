@@ -1390,7 +1390,7 @@ void SensorApiService::getsensorWakeupConfInfoLimits(SensorAPIWakeupConfigReqMsg
     if (!pClient) {
 	    SENSOR_LOGE(LOG_TAG ">-- getsensorWakeupConfInfoLimits invlalid client=%s\n", pMsg->mSocketName);
 	    ret = SENSOR_ERROR_INVALID_CLIENT;
-	    goto fail;
+	    return;
     }
     //Input parameter check
     if (mSensorCount != 0) {
@@ -1439,7 +1439,7 @@ void SensorApiService::getsensorWakeupConfUpdate(SensorAPIWakeupConfigReqMsg*  p
     if (!pClient) {
 	    SENSOR_LOGE(LOG_TAG ">-- getsensorWakeupConfUpdate invlalid client=%s\n", pMsg->mSocketName);
 	    ret = SENSOR_ERROR_INVALID_CLIENT;
-	    goto fail;
+	    return;
     }
     //Input parameter check
     if (mSensorCount != 0) {

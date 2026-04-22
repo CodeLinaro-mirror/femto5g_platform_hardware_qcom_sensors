@@ -583,6 +583,7 @@ bool SensorDevice::sensorDevSelfTest(int sensor_id, int type, SelfTestType selfT
 		if (self_test_fd == NULL) {
 			SENSOR_LOGE(LOG_TAG "NULL");
 			result = Failed;
+			break;
 		}
 		if (selfTestType == Positive || selfTestType == All)  {
 			int ret = fprintf(self_test_fd, "%s", "positive-sign");
@@ -632,6 +633,7 @@ bool SensorDevice::sensorDevSelfTest(int sensor_id, int type, SelfTestType selfT
 		if (self_test_fd == NULL) {
 			SENSOR_LOGE(LOG_TAG "NULL");
 			result = Failed;
+			break;
 		}
 		rewind(self_test_fd);
 		fgets(buffer_string, sizeof(buffer_string), self_test_fd);
@@ -661,6 +663,7 @@ bool SensorDevice::sensorDevSelfTest(int sensor_id, int type, SelfTestType selfT
                 if (self_test_fd == NULL) {
                         SENSOR_LOGE(LOG_TAG "NULL");
                         result = Failed;
+			break;
                 }
                 rewind(self_test_fd);
                 if(fgets(buffer_string, sizeof(buffer_string), self_test_fd) != NULL) {
