@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: sensor-dlt-log
+Description: sensor dlt log library
+Version: @VERSION@
+Libs: -L${libdir} -lsensor_dlt_log
+Cflags: -I${includedir} -I${includedir}/sensor-dlt-log

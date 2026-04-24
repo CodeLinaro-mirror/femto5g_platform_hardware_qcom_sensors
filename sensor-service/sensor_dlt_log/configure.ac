@@ -1,13 +1,13 @@
-# configure.ac -- Autoconf script for gps sensors
+# configure.ac -- Autoconf script for sensor-dlt-log
 #
 # Process this file with autoconf to produce a configure script
 
 # Requires autoconf tool later than 2.61
 AC_PREREQ(2.61)
-# Initialize the gps sensors package version 1.0.0
-AC_INIT([libsensors],1.0.0)
+# Initialize the sensor_dlt_log package version 1.0.0
+AC_INIT([sensor-dlt-log],1.0.0)
 # Does not strictly follow GNU Coding standards
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 # Disables auto rebuilding of configure, Makefile.ins
 AM_MAINTAINER_MODE
 # Verifies the --srcdir is correct by checking for the path
@@ -58,31 +58,14 @@ if (test "x${with_glib}" = "xyes"); then
 fi
 
 AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
-AM_CONDITIONAL(CONFIG_ST_HAL_HAS_SELFTEST_FUNCTIONS, test "x${with_st}" = "xyes")
 
-AC_ARG_WITH([dltlogging],
-        AC_HELP_STRING([--with-dltlogging], [with DLT logging enabled]))
-
-AM_CONDITIONAL(USE_DLT, test "x${with_dltlogging}" = "xyes")
-
-if (test "x${with_dltlogging}" = "xyes"); then
-        PKG_CHECK_MODULES([DLTLOG], [automotive-dlt])
-        AC_SUBST([DLTLOG_CFLAGS])
-        AC_SUBST([DLTLOG_LIBS])
-
-        PKG_CHECK_MODULES([SENSORDLTLOGLIB], [sensor-dlt-log])
-        AC_SUBST([SENSORDLTLOGLIB_CFLAGS])
-        AC_SUBST([SENSORDLTLOGLIB_LIBS])
-fi
+PKG_CHECK_MODULES([DLTLOG], [automotive-dlt])
+AC_SUBST([DLTLOG_CFLAGS])
+AC_SUBST([DLTLOG_LIBS])
 
 AC_CONFIG_FILES([ \
         Makefile \
-        bmi160/Makefile \
-        iam20680/Makefile \
-        st/Makefile \
-        smi130/HAL_DataReady/Makefile \
-        smi230/Makefile \
-        libsensors.pc \
+        sensor-dlt-log.pc
         ])
 
 AC_OUTPUT

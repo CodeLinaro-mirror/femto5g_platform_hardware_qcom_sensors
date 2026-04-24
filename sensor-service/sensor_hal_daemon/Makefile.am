@@ -20,6 +20,11 @@ AM_CFLAGS += $(COMMONAPI_SOMEIP_CFLAGS) $(COMMONAPI_CFLAGS) $(SENSORFIDL_CFLAGS)
 requiredlibs += $(COMMONAPI_LIBS) $(COMMONAPI_SOMEIP_LIBS) $(SENSORFIDL_LIBS) -lCommonAPI -lc
 endif
 
+if USE_DLT
+AM_CFLAGS += -DUSE_DLT $(DLTLOG_CFLAGS) $(SENSORDLTLOGLIB_CFLAGS)
+requiredlibs += $(DLTLOG_LIBS) $(SENSORDLTLOGLIB_LIBS)
+endif
+
 ##########################################################################
 # Build sensor_hal_daemon
 ##########################################################################

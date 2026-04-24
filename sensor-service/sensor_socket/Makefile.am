@@ -16,6 +16,11 @@ requiredlibs = \
 	       $(QMIFW_LIBS) \
                $(SENSORUTILLIB_LIBS)
 
+if USE_DLT
+AM_CFLAGS += -DUSE_DLT $(DLTLOG_CFLAGS) $(SENSORDLTLOGLIB_CFLAGS)
+requiredlibs += $(DLTLOG_LIBS) $(SENSORDLTLOGLIB_LIBS)
+endif
+
 h_sources = \
 	    ./SensorIpc.h \
 	    ./SensorQsocket.h

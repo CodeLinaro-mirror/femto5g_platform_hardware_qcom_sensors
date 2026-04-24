@@ -25,8 +25,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #ifndef __SENSOR_LOG__
@@ -44,30 +44,79 @@ extern int DEBUG_LEVEL;
 
 #define LOGCAT_ENABLED
 
-#define IF_SENSOR_LOGE if(( DEBUG_LEVEL >= 1) && ( DEBUG_LEVEL <= 5))
-#define IF_SENSOR_LOGW if(( DEBUG_LEVEL >= 2) && ( DEBUG_LEVEL <= 5))
-#define IF_SENSOR_LOGI if(( DEBUG_LEVEL >= 3) && ( DEBUG_LEVEL <= 5))
-#define IF_SENSOR_LOGD if(( DEBUG_LEVEL >= 4) && ( DEBUG_LEVEL <= 5))
-#define IF_SENSOR_LOGV if(( DEBUG_LEVEL >= 5) && ( DEBUG_LEVEL <= 5))
-
+/* Choose fallback logging */
 #ifdef LOGCAT_ENABLED
-#define SENSOR_LOGE(...) IF_SENSOR_LOGE { ALOGE(__VA_ARGS__); }
-#define SENSOR_LOGW(...) IF_SENSOR_LOGW { ALOGW(__VA_ARGS__); }
-#define SENSOR_LOGI(...) IF_SENSOR_LOGI { ALOGI(__VA_ARGS__); }
-#define SENSOR_LOGD(...) IF_SENSOR_LOGD { ALOGD(__VA_ARGS__); }
-#define SENSOR_LOGV(...) IF_SENSOR_LOGV { ALOGV(__VA_ARGS__); }
+#define SENSOR_FALLBACK_LOGE(...) ALOGE(__VA_ARGS__)
+#define SENSOR_FALLBACK_LOGW(...) ALOGW(__VA_ARGS__)
+#define SENSOR_FALLBACK_LOGI(...) ALOGI(__VA_ARGS__)
+#define SENSOR_FALLBACK_LOGD(...) ALOGD(__VA_ARGS__)
+#define SENSOR_FALLBACK_LOGV(...) ALOGV(__VA_ARGS__)
 #else
-#define SENSOR_LOGE(...) IF_SENSOR_LOGE { printf(__VA_ARGS__); }
-#define SENSOR_LOGW(...) IF_SENSOR_LOGW { printf(__VA_ARGS__); }
-#define SENSOR_LOGI(...) IF_SENSOR_LOGI { printf(__VA_ARGS__); }
-#define SENSOR_LOGD(...) IF_SENSOR_LOGD { printf(__VA_ARGS__); }
-#define SENSOR_LOGV(...) IF_SENSOR_LOGV { printf(__VA_ARGS__); }
+#define SENSOR_FALLBACK_LOGE(...) printf(__VA_ARGS__)
+#define SENSOR_FALLBACK_LOGW(...) printf(__VA_ARGS__)
+#define SENSOR_FALLBACK_LOGI(...) printf(__VA_ARGS__)
+#define SENSOR_FALLBACK_LOGD(...) printf(__VA_ARGS__)
+#define SENSOR_FALLBACK_LOGV(...) printf(__VA_ARGS__)
+#endif
+
+/* Final logging macros */
+#ifdef USE_DLT
+
+#include "SensorDltLog.h"
+
+#define SENSOR_LOGE(...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_ERROR, __VA_ARGS__); \
+        else \
+            SENSOR_FALLBACK_LOGE(__VA_ARGS__); \
+    } while (0)
+
+#define SENSOR_LOGW(...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_WARN, __VA_ARGS__); \
+        else \
+            SENSOR_FALLBACK_LOGW(__VA_ARGS__); \
+    } while (0)
+
+#define SENSOR_LOGI(...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_INFO, __VA_ARGS__); \
+        else \
+            SENSOR_FALLBACK_LOGI(__VA_ARGS__); \
+    } while (0)
+
+#define SENSOR_LOGD(...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_DEBUG, __VA_ARGS__); \
+        else \
+            SENSOR_FALLBACK_LOGD(__VA_ARGS__); \
+    } while (0)
+
+#define SENSOR_LOGV(...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_VERBOSE, __VA_ARGS__); \
+        else \
+            SENSOR_FALLBACK_LOGV(__VA_ARGS__); \
+    } while (0)
+
+#else  /* USE_DLT not defined */
+
+#define SENSOR_LOGE(...) SENSOR_FALLBACK_LOGE(__VA_ARGS__)
+#define SENSOR_LOGW(...) SENSOR_FALLBACK_LOGW(__VA_ARGS__)
+#define SENSOR_LOGI(...) SENSOR_FALLBACK_LOGI(__VA_ARGS__)
+#define SENSOR_LOGD(...) SENSOR_FALLBACK_LOGD(__VA_ARGS__)
+#define SENSOR_LOGV(...) SENSOR_FALLBACK_LOGV(__VA_ARGS__)
+
 #endif
 
 #define MAX_FIR_COEF_ORDER          20
 
 void SetSensorDebugLevel(int debug_level);
-
 int SensorReadDebugLevel();
 
 /**

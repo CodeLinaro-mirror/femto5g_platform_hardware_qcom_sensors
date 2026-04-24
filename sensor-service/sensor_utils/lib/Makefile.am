@@ -9,11 +9,17 @@ AM_CFLAGS = \
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -std=c++11
 
+requiredlibs =
+if USE_DLT
+AM_CFLAGS += -DUSE_DLT $(DLTLOG_CFLAGS) $(SENSORDLTLOGLIB_CFLAGS)
+requiredlibs += $(DLTLOG_LIBS) $(SENSORDLTLOGLIB_LIBS)
+endif
+
 h_sources = \
 	    SensorThread.h \
 	    SensorLog.h \
 	    SensorUtils.h \
-        SensorDiagLog.h
+	    SensorDiagLog.h
 
 c_sources = \
 	    SensorThread.cpp \

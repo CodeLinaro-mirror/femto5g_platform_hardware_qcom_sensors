@@ -15,6 +15,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef __SENSORD_PLTF_H
@@ -59,12 +63,72 @@ extern "C"
 #define PDEBUG(fmt, args...) BS_LOG(LOG_LEVEL_D, BS_LOG_FORMAT(fmt, "[DEBUG]"), ##args)
 */
 
-#define PLADON(fmt, args...) ALOGD("[VERBOSE] Sensor: " fmt "\n", ##args)
-#define PNOTE(fmt, args...) ALOGI("[VERBOSE] Sensor: " fmt "\n", ##args)
-#define PERR(fmt, args...) ALOGE("[VERBOSE] Sensor: " fmt "\n", ##args)
-#define PWARN(fmt, args...) ALOGW("[VERBOSE] Sensor: " fmt "\n", ##args)
-#define PINFO(fmt, args...) ALOGI("[VERBOSE] Sensor: " fmt "\n", ##args)
-#define PDEBUG(fmt, args...) ALOGD("[VERBOSE] Sensor: " fmt "\n", ##args)
+#ifdef USE_DLT
+#include <SensorDltLog.h>
+#endif
+
+#define SENSOR_PREFIX "[VERBOSE] Sensor: "
+
+#ifdef USE_DLT
+
+#define PLADON(fmt, args...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_DEBUG, SENSOR_PREFIX fmt "\n", ##args); \
+        else \
+            ALOGD(SENSOR_PREFIX fmt "\n", ##args); \
+    } while (0)
+
+#define PNOTE(fmt, args...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_INFO, SENSOR_PREFIX fmt "\n", ##args); \
+        else \
+            ALOGI(SENSOR_PREFIX fmt "\n", ##args); \
+    } while (0)
+
+#define PERR(fmt, args...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_ERROR, SENSOR_PREFIX fmt "\n", ##args); \
+        else \
+            ALOGE(SENSOR_PREFIX fmt "\n", ##args); \
+    } while (0)
+
+#define PWARN(fmt, args...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_WARN, SENSOR_PREFIX fmt "\n", ##args); \
+        else \
+            ALOGW(SENSOR_PREFIX fmt "\n", ##args); \
+    } while (0)
+
+#define PINFO(fmt, args...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_INFO, SENSOR_PREFIX fmt "\n", ##args); \
+        else \
+            ALOGI(SENSOR_PREFIX fmt "\n", ##args); \
+    } while (0)
+
+#define PDEBUG(fmt, args...) \
+    do { \
+        if (DLT_ENABLE) \
+            logtodlt(DLT_LOG_DEBUG, SENSOR_PREFIX fmt "\n", ##args); \
+        else \
+            ALOGD(SENSOR_PREFIX fmt "\n", ##args); \
+    } while (0)
+
+#else  /* USE_DLT not defined at all */
+
+#define PLADON(fmt, args...)  ALOGD(SENSOR_PREFIX fmt "\n", ##args)
+#define PNOTE(fmt, args...)   ALOGI(SENSOR_PREFIX fmt "\n", ##args)
+#define PERR(fmt, args...)    ALOGE(SENSOR_PREFIX fmt "\n", ##args)
+#define PWARN(fmt, args...)   ALOGW(SENSOR_PREFIX fmt "\n", ##args)
+#define PINFO(fmt, args...)   ALOGI(SENSOR_PREFIX fmt "\n", ##args)
+#define PDEBUG(fmt, args...)  ALOGD(SENSOR_PREFIX fmt "\n", ##args)
+
+#endif
 
 extern int64_t sensord_get_tmstmp_ns(void);
 extern void trace_log(uint32_t level, const char *fmt, ...);

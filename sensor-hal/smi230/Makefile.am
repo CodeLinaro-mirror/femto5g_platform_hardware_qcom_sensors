@@ -12,6 +12,12 @@ AM_CFLAGS = \
 
 ACLOCAL_AMFLAGS = -I m4
 
+requiredlibs =
+if USE_DLT
+AM_CFLAGS += -DUSE_DLT $(DLTLOG_CFLAGS) $(SENSORDLTLOGLIB_CFLAGS)
+requiredlibs += $(DLTLOG_LIBS) $(SENSORDLTLOGLIB_LIBS)
+endif
+
 libsmi230sensors_la_SOURCES = \
                               ./hal/sensors.cpp \
                               ./hal/BoschSensor.cpp \
@@ -36,7 +42,7 @@ libsmi230sensors_la_CFLAGS = $(AM_CFLAGS)
 libsmi230sensors_la_LDFLAGS = -lpthread -shared -version-info 1:0:0
 libsmi230sensors_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
-libsmi230sensors_la_LIBADD = -lstdc++ -llog
+libsmi230sensors_la_LIBADD = $(requiredlibs) -lstdc++ -llog
 
 #Create and Install libraries
 lib_LTLIBRARIES = libsmi230sensors.la
