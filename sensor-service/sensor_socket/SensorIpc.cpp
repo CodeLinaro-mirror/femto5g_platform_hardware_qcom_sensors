@@ -51,7 +51,7 @@ namespace sensor_socket {
 
 bool SensorIpc::startListeningNonBlocking(const std::string& name) {
     mIpcName = name;
-    return Sensor_ThreadCreate(&mIpcThread, startListeningNonBlockingThread, this, "SensorIpc-");
+    return Sensor_ThreadCreate(&mIpcThread, startListeningNonBlockingThread, this, "SensorIpc-", true);
 }
 
 void* SensorIpc::startListeningNonBlockingThread(void *arg) {
@@ -135,7 +135,6 @@ bool SensorIpc::startListeningBlocking(const std::string& name) {
         SENSOR_LOGE(LOG_TAG "cannot close socket:%s\n", strerror(errno));
     }
     (void)unlink(name.c_str());
-    pthread_exit((void *)0);
     return stopRequested;
 }
 
