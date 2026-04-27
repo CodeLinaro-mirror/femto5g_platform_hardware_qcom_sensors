@@ -83,7 +83,7 @@ namespace sensor_socket {
 bool SensorQsocket::startListeningNonBlocking(const std::string& name, int ServiceIdToWatch) {
     mQsocketName = name;
     mServiceIdToWatch = ServiceIdToWatch;
-    return Sensor_ThreadCreate(&mQsocketThread, startListeningNonBlockingThread, this, "SensorQsocket-");
+    return Sensor_ThreadCreate(&mQsocketThread, startListeningNonBlockingThread, this, "SensorQsocket-", true);
 }
 
 void* SensorQsocket::startListeningNonBlockingThread(void *arg) {
@@ -181,7 +181,6 @@ bool SensorQsocket::startListeningBlocking(const std::string& name, int ServiceI
         SENSOR_LOGE(LOG_TAG "cannot close socket:%s\n", strerror(errno));
     }
 
-    pthread_exit((void *)0);
     return stopRequested;
 }
 
@@ -296,7 +295,7 @@ bool SensorQsocket::sendData(int fd, const qsockaddr_ipcr& addr, const uint8_t d
 bool SensorQsocket::startListeningNonBlocking(const std::string& name, int ServiceIdToWatch) {
     mQsocketName = name;
     mServiceIdToWatch = ServiceIdToWatch;
-    return Sensor_ThreadCreate(&mQsocketThread, startListeningNonBlockingThread, this, "SensorQsocket-");
+    return Sensor_ThreadCreate(&mQsocketThread, startListeningNonBlockingThread, this, "SensorQsocket-", true);
 }
 
 void* SensorQsocket::startListeningNonBlockingThread(void *arg) {
@@ -463,7 +462,6 @@ bool SensorQsocket::startListeningBlocking(const std::string& name, int ServiceI
     if (::close(fd)) {
         SENSOR_LOGE(LOG_TAG "cannot close socket:%s\n", strerror(errno));
     }
-    pthread_exit((void *)0);
     return stopRequested;
 }
 
