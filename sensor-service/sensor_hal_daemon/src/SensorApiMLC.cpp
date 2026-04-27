@@ -328,7 +328,7 @@ bool SensorDevice::loadMLC(const char *mcl_fw_name)
 
 	if(mService->mSensorMlcCaseCount > 0) {
 		//Create the thread to read mlc case events
-		if (!Sensor_ThreadCreate(&mMlcThreadtid, mlcPollEvents, this, "SensorMlcEventsRead-")) {
+		if (!Sensor_ThreadCreate(&mMlcThreadtid, mlcPollEvents, this, "SensorMlcEventsRead-", true)) {
 			SENSOR_LOGE(LOG_TAG "Sensor Mlc Events Read thread failed \n");
 			return false;
 		}

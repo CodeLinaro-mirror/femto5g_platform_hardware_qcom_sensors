@@ -53,6 +53,8 @@ SensorApiService - static members
 ******************************************************************************/
 SensorApiService* SensorApiService::mInstance = nullptr;
 mutex SensorApiService::mMutex;
+bool SensorApiService::mRequestStop = true;
+
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
 static LocationClientApi* pLcaClient = nullptr;
 #endif
@@ -188,12 +190,8 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     (void)mQsockReceiver->start(true);
 }
 
-/******************************************************************************
-SensorApiService - Destructors
-******************************************************************************/
-SensorApiService::~SensorApiService() {
-    SENSOR_LOGI(LOG_TAG "SensorApiService Destructor is called\n");
-
+void SensorApiService::stopInternal()
+{
     for(int i = 0 ; i < mSensorCount; i++)  {
         SENSOR_LOGI(LOG_TAG ">--Disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
         (void)sensorActivate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
@@ -201,22 +199,38 @@ SensorApiService::~SensorApiService() {
 
     //Delete mSensorDevice memory
     if (nullptr != mSensorDevice) {
-	delete mSensorDevice;
-	mSensorDevice = nullptr;
+        delete mSensorDevice;
+        mSensorDevice = nullptr;
     }
 
-    // stop ipc receiver thread
     if (nullptr != mIpcReceiver) {
         mIpcReceiver->stop();
         delete mIpcReceiver;
-	mIpcReceiver = nullptr;
+        mIpcReceiver = nullptr;
     }
 
     if (nullptr != mQsockReceiver) {
         mQsockReceiver->stop();
         delete mQsockReceiver;
-	mQsockReceiver = nullptr;
+        mQsockReceiver = nullptr;
     }
+    return;
+}
+
+void SensorApiService::requestStop()
+{
+    mRequestStop = false;
+    if (mInstance != nullptr)
+        mInstance->stopInternal();
+
+    return;
+}
+
+/******************************************************************************
+SensorApiService - Destructors
+******************************************************************************/
+SensorApiService::~SensorApiService() {
+    SENSOR_LOGI(LOG_TAG "SensorApiService Destructor is called\n");
 
     //Delete mSensor memory
     if (nullptr != mSensor) {
@@ -455,14 +469,14 @@ bool SensorApiService::openSensor(const configParamToRead & configParamRead)
    }
 
    //Create the thread to send data to all clients.
-   if (!Sensor_ThreadCreate(&mSensorThreadtid, sendSensorDataToClients, this, "SensorPoll-")) {
+   if (!Sensor_ThreadCreate(&mSensorThreadtid, sendSensorDataToClients, this, "SensorPoll-", true)) {
       SENSOR_LOGE(LOG_TAG "Sensor Poll Data thread failed \n");
       return false;
    }
 
    //Create the thread to send buffer data to all clients if buffering supported by sensor.
    if(mBufferSupported == true) {
-      if (!Sensor_ThreadCreate(&mBufferThreadtid, bufferDataprocessTask, this, "SensorBufferRead-")) {
+      if (!Sensor_ThreadCreate(&mBufferThreadtid, bufferDataprocessTask, this, "SensorBufferRead-", true)) {
 	     SENSOR_LOGE(LOG_TAG "Sensor Buffer Data read thread failed \n");
 	     return false;
      }

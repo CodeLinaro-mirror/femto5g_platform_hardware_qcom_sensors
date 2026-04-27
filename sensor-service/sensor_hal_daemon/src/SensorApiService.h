@@ -180,6 +180,9 @@ public:
     virtual ~SensorApiService();
     // APIs can be invoked by IPC
     void processClientMsg(const string& data);
+    static void requestStop();
+    void stopInternal();
+
     // from IPC receiver
     void onListenerReady(SocketType socketType);
     void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender);
@@ -189,6 +192,8 @@ public:
     int  sensorActivate(int sensor_id , int enable);
     int  sensorSetBatch(int sensor_id, int64_t delay, int64_t latency);
     // other APIs
+    pthread_t sig_thread;
+    static bool mRequestStop;
     int  newClient(SensorAPIClientRegisterReqMsg*);
     void deleteClient(SensorAPIClientDeregisterReqMsg*);
     int  startTracking(SensorAPIStartTrackingReqMsg*);
