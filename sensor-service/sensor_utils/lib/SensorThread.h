@@ -36,6 +36,6 @@
 #include <errno.h>
 #include <SensorLog.h>
 
-bool Sensor_ThreadCreate(pthread_t *tid, void *thread_function(void *), void *arg, const char* thread_name);
+bool Sensor_ThreadCreate(pthread_t *tid, void *thread_function(void *), void *arg, const char* thread_name, bool thread_detach);
 
 #endif //__SENSOR_THREAD__
