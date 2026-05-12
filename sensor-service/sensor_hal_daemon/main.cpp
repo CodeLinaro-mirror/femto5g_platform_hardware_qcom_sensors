@@ -35,15 +35,12 @@
 #include <unistd.h>
 #include <sys/prctl.h>
 #include <sys/capability.h>
+#include <atomic>
 #include <SensorApiService.h>
 
 #define HAL_DAEMON_VERSION "1.0.0"
 
-void sighandler(int signum) {
-	SENSOR_LOGI(LOG_TAG "Recived signum %d\n", signum);
-	SensorApiService::destroy();
-	exit(0);
-}
+std::atomic<bool> shutdown_due_to_sigterm{false};
 
 // this function will block until the directory specified in
 // dirName has been created
@@ -58,7 +55,7 @@ static inline void waitForDir(const char* dirName) {
         }
         usleep(100000); //100ms
     }
-    SENSOR_LOGI(LOG_TAG "done\n");
+    SENSOR_LOGI(LOG_TAG "WaitForDir done\n");
 }
 
 //Read all parameters defined etc/sensors.conf
@@ -166,9 +163,50 @@ void PrintSensorConfigParameters(configParamToRead configParamRead)
 	configParamRead.DebugLevel);
 }
 
+static void block_sigterm()
+{
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGTERM);
+
+    // Block SIGTERM in current thread (and all future threads)
+    int rc = pthread_sigmask(SIG_BLOCK, &set, nullptr);
+         if(rc != 0)
+       	    SENSOR_LOGE(LOG_TAG "pthread_sigmask failed rc=%d\n", rc);
+
+}
+
+static void* sigterm_wait_thread(void*)
+{
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, nullptr);
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, nullptr);
+
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGTERM);
+
+    int sig = 0;
+    int rc = sigwait(&set, &sig);
+    if(rc == 0 && sig == SIGTERM){
+       	SENSOR_LOGI(LOG_TAG "SIGTERM received, shutting down...\n");
+	shutdown_due_to_sigterm.store(true, std::memory_order_release);
+        SensorApiService::requestStop();
+    }
+    else
+        SENSOR_LOGE(LOG_TAG "sigwait failed rc=%d sig=%d\n", rc, sig);
+
+    return nullptr;
+}
+
 //MAIN
 int main(int argc, char *argv[])
 {
+    block_sigterm();
+    pthread_t sig_thread;
+    bool rc = Sensor_ThreadCreate(&sig_thread, sigterm_wait_thread, NULL, "sigterm_wait_main_func", false);
+    if(rc == false)
+       SENSOR_LOGE(LOG_TAG "pthread_create failed rc=%d\n", rc);
+
     configParamToRead configParamRead = {};
 
     // read configuration file
@@ -182,17 +220,20 @@ int main(int argc, char *argv[])
 
     SENSOR_LOGI(LOG_TAG "starting sensor_hal_daemon\n");
 
-    struct sigaction action;
-    memset(&action, 0, sizeof(action));
-    action.sa_handler = sighandler;
-    sigaction(SIGTERM, &action, NULL);
-
     // start listening for client events - will not return
-    if (!SensorApiService::getInstance(configParamRead)) {
-        SENSOR_LOGI(LOG_TAG "Failed to start SensorApiService.\n");
-    }
+    (void)SensorApiService::getInstance(configParamRead);
 
-    // should not reach here...
+    if(SensorApiService::mStopNeeded == true)
+        SensorApiService::requestStop();
+
+    // If shutdown was NOT caused by SIGTERM, cancel sigwait thread
+    if (!shutdown_due_to_sigterm.load(std::memory_order_acquire) && rc == true)
+        pthread_cancel(sig_thread);
+
+    if (rc == true)
+        pthread_join(sig_thread, nullptr);
+
+    SensorApiService::destroy();
     SENSOR_LOGI(LOG_TAG "done\n");
     exit(0);
 }

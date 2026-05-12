@@ -45,7 +45,7 @@ namespace sensor_util {
 
 bool SensorIpc::startListeningNonBlocking(const std::string& name) {
     mIpcName = name;
-    return Sensor_ThreadCreate(&mIpcThread, startListeningNonBlockingThread, this, "SensorIpc-");
+    return Sensor_ThreadCreate(&mIpcThread, startListeningNonBlockingThread, this, "SensorIpc-", true);
 }
 
 void* SensorIpc::startListeningNonBlockingThread(void *arg) {

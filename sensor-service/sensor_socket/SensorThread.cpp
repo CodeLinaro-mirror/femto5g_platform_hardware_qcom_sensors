@@ -37,7 +37,7 @@
 #define LOG_TAG "SensorSvc_SensorThread:"
 
 //Create The Thread
-bool Sensor_ThreadCreate(pthread_t *tid, void *thread_function(void *), void *arg, const char* thread_name)
+bool Sensor_ThreadCreate(pthread_t *tid, void *thread_function(void *), void *arg, const char* thread_name, bool thread_detach)
 {
   uint32_t t;
   t = pthread_create(tid, NULL, *thread_function, arg);
@@ -49,10 +49,14 @@ bool Sensor_ThreadCreate(pthread_t *tid, void *thread_function(void *), void *ar
   else
     pthread_setname_np(*tid, thread_name);
 
-  t = pthread_detach(*tid);
-  if (t) {
-    SENSOR_LOGE(LOG_TAG "Pthread detach failed for %s with rc = %d\n",thread_function, t);
-    SENSOR_LOGE(LOG_TAG "The error value in pthread detach is %s\n",strerror(errno));
+  if (thread_detach == true) {
+      t = pthread_detach(*tid);
+      if (t) {
+        SENSOR_LOGE(LOG_TAG "Pthread detach failed for %s with rc = %d\n",thread_function, t);
+        SENSOR_LOGE(LOG_TAG "The error value in pthread detach is %s\n",strerror(errno));
+	return false;
+      }
   }
+
   return true;
 }
