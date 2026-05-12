@@ -186,6 +186,8 @@ public:
 
     // APIs can be invoked by IPC
     void processClientMsg(const std::string& data);
+    static void requestStop();
+    void stopInternal();
 
     // from IPC receiver
     void onListenerReady();
@@ -209,6 +211,8 @@ public:
     pthread_t mSensorThreadtid;
     pthread_t mBufferThreadtid;
     pthread_t mMlcThreadtid;
+    pthread_t sig_thread;
+    static bool mStopNeeded;
     // Client propery database
     std::unordered_map<std::string, SensorHalDaemonClientHandler*> mClients;
     std::unordered_map<uint32_t, ConfigReqClientData> mConfigReqs;
