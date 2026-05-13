@@ -45,6 +45,12 @@
 
 namespace sensor_socket {
 
+enum SocketType {
+    IPC_SOCKET	= 0,
+    Q_SOCKET	= 1,
+    ANY_SOCKET	= 2
+};
+
 class SensorIpcSender;
 
 class SensorIpc {

@@ -181,7 +181,7 @@ public:
     // APIs can be invoked by IPC
     void processClientMsg(const string& data);
     // from IPC receiver
-    void onListenerReady();
+    void onListenerReady(SocketType socketType);
     void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender);
     //API to Sensor Lib
     bool openSensor(const configParamToRead & configParamRead);
