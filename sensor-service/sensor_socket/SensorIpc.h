@@ -40,6 +40,12 @@
 
 namespace sensor_util {
 
+enum SocketType {
+    IPC_SOCKET	= 0,
+    Q_SOCKET	= 1,
+    ANY_SOCKET	= 2
+};
+
 class SensorIpcSender;
 
 class SensorIpc {
@@ -89,7 +95,7 @@ protected:
 
     // SensorIpc client can overwrite this function to get notification
     // when the socket for SensorIpc is ready to receive messages.
-    inline virtual void onListenerReady() {}
+    inline virtual void onListenerReady(SocketType socketType) {}
 
 private:
     static bool sendData(int fd, const sockaddr_un& addr,
