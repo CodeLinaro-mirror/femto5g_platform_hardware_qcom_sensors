@@ -309,7 +309,7 @@ SensorApiService::~SensorApiService() {
 /******************************************************************************
   SensorApiService - onListenerReady send HAL READY message to all clients.
 ******************************************************************************/
-void SensorApiService::onListenerReady() {
+void SensorApiService::onListenerReady(SocketType socketType) {
 
     // traverse client sockets directory - then broadcast READY message
     SENSOR_LOGI(LOG_TAG ">-- onListenerReady Finding client sockets...\n");
@@ -331,13 +331,25 @@ void SensorApiService::onListenerReady() {
         if ('.' == (dp->d_name[0])) {
             continue;
         }
+
+        // IPC listener → IPC sockets only
+        if (socketType == IPC_SOCKET && !S_ISSOCK(sbuf.st_mode)) {
+            SENSOR_LOGV("onListenerReady called by IPC_SOCKET but Socket is QSocket");
+            continue;
+        }
+        // QSocket listener → NOT IPC sockets
+        if (socketType == Q_SOCKET && S_ISSOCK(sbuf.st_mode)) {
+            SENSOR_LOGV("onListenerReady called by Q_SOCKET but Socket is IPCSocket");
+            continue;
+        }
+
         const char* clientName = NULL;
         if (0 == fname.compare(0, fnamebase.size(), fnamebase)) {
             clientName = fname.c_str();
             SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s\n", clientName);
         }
         if (NULL != clientName) {
-            SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName);
+            SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName, socketType);
             SensorAPIHalReadyIndMsg msg(SERVICE_NAME);
             SENSOR_LOGD(LOG_TAG "<-- Sending ready to socket: %s, msg size %d\n", clientName, sizeof(msg));
             (void)pIpcSender->send(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
