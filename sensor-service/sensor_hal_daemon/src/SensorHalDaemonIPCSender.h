@@ -45,14 +45,14 @@ class SensorHalDaemonIPCSender
 {
 public:
     //Constructor Function
-    inline SensorHalDaemonIPCSender(const char* destSocket) :
+    inline SensorHalDaemonIPCSender(const char* destSocket, SocketType socketType) :
             mIpcSender(nullptr),
 	    mQsockSender(nullptr) {
-	if (strncmp(destSocket, SOCKET_SENSOR_CLIENT_DIR,
+	if (socketType != Q_SOCKET && strncmp(destSocket, SOCKET_SENSOR_CLIENT_DIR,
 		sizeof(SOCKET_SENSOR_CLIENT_DIR)-1) == 0 ) {
 	    mIpcSender = new SensorIpcSender(destSocket);
 	}
-	else {
+	else if(socketType != IPC_SOCKET) {
             uint32_t serviceId = atoi(destSocket);
             const char* instance_ptr = strchr(destSocket, '.');
             if (nullptr != instance_ptr) {

@@ -217,7 +217,7 @@ public:
     void processClientMsg(const std::string& data);
 
     // from IPC receiver
-    void onListenerReady();
+    void onListenerReady(SocketType socketType);
     void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender);
 
     // other APIs
