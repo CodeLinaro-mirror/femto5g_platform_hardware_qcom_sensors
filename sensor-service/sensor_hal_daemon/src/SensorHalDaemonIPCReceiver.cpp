@@ -42,7 +42,7 @@ void SensorHalDaemonIPCReceiver::onReceive(const string& data) {
 }
 
 void SensorHalDaemonIPCReceiver::onListenerReady() {
-    mService->onListenerReady();
+    mService->onListenerReady(IPC_SOCKET);
 }
 
 /******************************************************************************
@@ -53,7 +53,7 @@ void SensorHalDaemonQsockReceiver::onReceive(const string& data) {
 }
 
 void SensorHalDaemonQsockReceiver::onListenerReady() {
-    mService->onListenerReady();
+    mService->onListenerReady(Q_SOCKET);
 }
 
 void SensorHalDaemonQsockReceiver::onServiceStatusChange(int serviceId,
