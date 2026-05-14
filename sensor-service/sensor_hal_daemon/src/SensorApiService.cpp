@@ -245,32 +245,59 @@ SensorApiService::~SensorApiService() {
         mpoll_dev_v0->common.close(&mpoll_dev_v0->common);
     }
 
+#ifdef SENSOR_IVSS_ENABLED
+    std::shared_ptr<CommonAPI::Runtime> runtime = CommonAPI::Runtime::get();
+    std::string domain = "local";
+    std::string instance = "com.qualcomm.qti.sensor.SensorInterface";
+    std::string connection = "sensor-fidl-service";
+
+    int retryCount = 0;
+    const int maxRetries = 10;
+
+    bool successfullyUnRegistered = runtime->unregisterService(domain, v1::com::qualcomm::qti::sensor::SensorInterface::getInterface(), instance);
+    while (!successfullyUnRegistered && retryCount < maxRetries) {
+        SENSOR_LOGE(LOG_TAG "UnRegister SOMEIP Service Failed, trying again in 100 milliseconds...\n");
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        successfullyUnRegistered = runtime->unregisterService(domain, v1::com::qualcomm::qti::sensor::SensorInterface::getInterface(), instance);
+        retryCount++;
+    }
+    if (successfullyUnRegistered) {
+        SENSOR_LOGI(LOG_TAG "Successfully UnRegistered SOMEIP Service!\n");
+    } else {
+        SENSOR_LOGE(LOG_TAG "Failed to UnRegister SOMEIP Service after retries!\n");
+    }
+#endif
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
     // stop ipc receiver thread
     if (nullptr != mIpcReceiver) {
         mIpcReceiver->stop();
         delete mIpcReceiver;
+	mIpcReceiver = nullptr;
     }
 
     if (nullptr != mQsockReceiver) {
         mQsockReceiver->stop();
         delete mQsockReceiver;
+	mQsockReceiver = nullptr;
     }
 
     //Delete mSensor memory
     if (nullptr != mSensor) {
-	delete mSensor;
+	delete[] mSensor;
 	mSensor = nullptr;
     }
 
     //Delete mSensorList memory
     if (nullptr != mSensorList) {
-	delete mSensorList;
+	delete[] mSensorList;
 	mSensorList = nullptr;
     }
 
     //Delete mSesnorMlcCaseList memory
     if (nullptr != mSesnorMlcCaseList) {
-        delete mSesnorMlcCaseList;
+	std::free(mSesnorMlcCaseList);
         mSesnorMlcCaseList = nullptr;
     }
 
