@@ -422,8 +422,8 @@ HeadingSensor::HeadingSensor(int32_t sensorHandle, ISensorsEventCallback* callba
     mSensorInfo.maxRange = 2.0f * M_PI;
     mSensorInfo.resolution = 1.0f;
     mSensorInfo.power = 0.001f;
-    mSensorInfo.minDelayUs = (1.0f/100) * 1000000L;  // microseconds
-    mSensorInfo.maxDelayUs = (1.0f/100) * 1000000L;
+    mSensorInfo.minDelayUs = (1.0f/10) * 1000000L;  // microseconds
+    mSensorInfo.maxDelayUs = (1.0f/10) * 1000000L;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";

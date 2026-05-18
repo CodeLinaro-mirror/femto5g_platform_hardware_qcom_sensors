@@ -26,7 +26,9 @@
 #include <utils/SystemClock.h>
 
 #define HAL_CONFIGURATION_FILE "hal_config"
-#define HAL_CONFIGURATION_PATH "/vendor/etc"
+#define VENDOR_CONFIGURATION_FILE "/vendor/etc"
+#define DATA_CONFIGURATION_FILE "/data/vendor/etc"
+static const char *hal_configuration_path = NULL;
 
 #define RM_MIN 0
 #define RM_MAX 3600
@@ -127,14 +129,32 @@ int getSensorDebugLevel() {
    char *line = NULL;
    int err = 0;
 
-   file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+   // Select HAL config path based on availability and readability
+   if (access(DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE, F_OK | R_OK) == 0) {
+       FILE *test = fopen(DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE, "r");
+       if (test) {
+               fclose(test);
+               hal_configuration_path = DATA_CONFIGURATION_FILE;
+               SENSOR_LOGI(SENSOR_TAG "Using HAL config from " DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE "\n");
+       }
+       else {
+               hal_configuration_path = VENDOR_CONFIGURATION_FILE;
+               SENSOR_LOGE(SENSOR_TAG "Failed to open " DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE " errno=%d (%s), falling back to " VENDOR_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE "\n", errno, strerror(errno));
+       }
+   }
+   else {
+       hal_configuration_path = VENDOR_CONFIGURATION_FILE;
+       SENSOR_LOGI(SENSOR_TAG "Using HAL config from " VENDOR_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE "\n");
+   }
+
+   file_path_name = (char *)calloc(strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
    if (!file_path_name) {
              err = -errno;
              return -ENOMEM;
    }
 
-   fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-   snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+   fsize = strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE);
+   snprintf(file_path_name, fsize + 2, "%s/%s", hal_configuration_path, HAL_CONFIGURATION_FILE);
    fd_config = fopen(file_path_name, "r");
    if (fd_config == NULL) {
             err = -errno;
@@ -254,7 +274,12 @@ static void onCapabilitiesCb(SensorInterfaceTypes::SensorServiceStateMaskT mask)
 
 static void dump_live_event(SensorInterfaceTypes::SensorImuEventT *e)
 {
-  static int64_t acc_ts = 0;
+  if (!e) {
+      SENSOR_LOGE(SENSOR_TAG "dump_live_event: null event pointer\n");
+      return;
+  }
+
+   static int64_t acc_ts = 0;
   static int64_t gyro_ts = 0;
   static int64_t head_ts = 0;
   static int AccCount = 0, GyroCount = 0;
@@ -297,7 +322,12 @@ static void dump_live_event(SensorInterfaceTypes::SensorImuEventT *e)
 
 static void  onSensorImuDataReadCb(vector<SensorInterfaceTypes::SensorImuEventT> events, uint32_t count)
 {
-  int i =0;
+  if (count == 0 || events.empty()) {
+      SENSOR_LOGE(SENSOR_TAG "onSensorImuDataReadCb: Invalid event count %d or empty events\n", count);
+      return;
+  }
+
+   int i =0;
   static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_cur = 0;
   static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0;
   bool retPtp = false;
@@ -327,15 +357,20 @@ static void  onSensorImuDataReadCb(vector<SensorInterfaceTypes::SensorImuEventT>
 
 static void  onSensorHeadingDataReadCb(vector<SensorInterfaceTypes::SensorHeadEventT> events, uint32_t count)
 {
-  int i =0;
+  if (count == 0 || events.empty()) {
+      SENSOR_LOGE(SENSOR_TAG "onSensorHeadingDataReadCb: Invalid event count %d or empty events\n", count);
+      return;
+  }
+
+   int i =0;
   static uint64_t ts_prv_head = 0, ts_cur = 0;
   static uint64_t head_sensor_ts = 0;
   static int64_t head_ts = 0;
   static int HeadCount = 0;
-  bool retPtp = false;
-  if ((nullptr != gPTPReqIf) && (nullptr != gPTPReqIf->gptpGetCurPtpTimeIf)) {
-	  retPtp = gPTPReqIf->gptpGetCurPtpTimeIf(&ts_cur);
-  }
+   bool retPtp = false;
+   if ((nullptr != gPTPReqIf) && (nullptr != gPTPReqIf->gptpGetCurPtpTimeIf)) {
+          retPtp = gPTPReqIf->gptpGetCurPtpTimeIf(&ts_cur);
+   }
 
   int sensor_id = events[0].getSensorId();
 
@@ -439,15 +474,15 @@ int read_sensor_placement_matrix(float (&location) [3])
   char *line = NULL;
   int err = 0;
 
-  file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+  file_path_name = (char *)calloc(strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
   if (!file_path_name) {
             err = -errno;
             SENSOR_LOGE(SENSOR_TAG "Unable to allocate memory (errno %d)\n", err);
             return -ENOMEM;
   }
 
-  fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  fsize = strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE);
+  snprintf(file_path_name, fsize + 2, "%s/%s", hal_configuration_path, HAL_CONFIGURATION_FILE);
   SENSOR_LOGI(SENSOR_TAG "Hal Config file_path_name %s\n", file_path_name);
   fd_config = fopen(file_path_name, "r");
   if (fd_config == NULL) {
@@ -486,15 +521,15 @@ int read_sensor_rotation_matrix(uint16_t *roll, uint16_t *pitch, uint16_t *yaw)
   char *line = NULL;
   int err = 0;
 
-  file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+  file_path_name = (char *)calloc(strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
   if (!file_path_name) {
             err = -errno;
             SENSOR_LOGE(SENSOR_TAG "Unable to allocate memory (errno %d)\n", err);
             return -ENOMEM;
   }
 
-  fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  fsize = strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE);
+  snprintf(file_path_name, fsize + 2, "%s/%s", hal_configuration_path, HAL_CONFIGURATION_FILE);
   SENSOR_LOGI(SENSOR_TAG "Hal Config file_path_name %s\n", file_path_name);
   fd_config = fopen(file_path_name, "r");
   if (fd_config == NULL) {
@@ -624,9 +659,13 @@ void SensorCore::SensorCore_Init() {
        SENSOR_LOGI(SENSOR_TAG "<<--Received SensorConfigUpdateCb id: %d SamplingRate : %f BatchCount: %d\n", sensor_id, SamplingRate, BatchCount);
     });
 
-    imuDataSubscription = myProxy->getSensorImuDataReadEvent().subscribe(
-       [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorImuEventT > events, uint32_t count) {
-       onSensorImuDataReadCb(events, count);
+     imuDataSubscription = myProxy->getSensorImuDataReadEvent().subscribe(
+        [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorImuEventT > events, uint32_t count) {
+        if (count == 0 || events.empty()) {
+            SENSOR_LOGE(SENSOR_TAG "IMU event callback: Invalid count %d or empty events\n", count);
+            return;
+        }
+        onSensorImuDataReadCb(events, count);
        vector<SensorCoreData> idlSensorEventsData;
        SensorCoreData idlSensorEvents = {};
        for (int i=0 ;i <count; i++){
@@ -649,9 +688,13 @@ void SensorCore::SensorCore_Init() {
        onNewSensorsData(idlSensorEventsData);
     });
 
-    headingDataSubscription = myProxy->getSensorHeadingDataReadEvent().subscribe(
-       [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorHeadEventT > events, uint32_t count) {
-       onSensorHeadingDataReadCb(events, count);
+     headingDataSubscription = myProxy->getSensorHeadingDataReadEvent().subscribe(
+        [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorHeadEventT > events, uint32_t count) {
+        if (count == 0 || events.empty()) {
+            SENSOR_LOGE(SENSOR_TAG "Heading event callback: Invalid count %d or empty events\n", count);
+            return;
+        }
+        onSensorHeadingDataReadCb(events, count);
        vector<SensorCoreData> idlSensorEventsData;
        SensorCoreData idlSensorEvents = {};
        for (int i=0 ;i <count; i++){
