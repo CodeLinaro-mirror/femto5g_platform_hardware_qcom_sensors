@@ -2085,7 +2085,7 @@ void SensorApiService::EnableHeadingSensor() {
     SENSOR_LOGI(LOG_TAG "<<< start heading sensor session\n");
     GnssReportCbs reportcbs = {};
     reportcbs.gnssLocationCallback = GnssLocationCb(onGnssLocationCb);
-    (void)pLcaClient->startPositionSession(100, reportcbs, onLocationResponseCb);
+    (void)pLcaClient->startPositionSession(HEADING_ODR_IN_MS, reportcbs, onLocationResponseCb);
 }
 
 void SensorApiService::DisableHeadingSensor() {
@@ -2109,15 +2109,19 @@ static void SensorApiService::onLocationResponseCb(location_client::LocationResp
 
 void SensorApiService::onSensorHeadingDataReadCb(float heading, float accuracy, uint64_t ts) {
    std::lock_guard<std::mutex> lock(mMutex);
-   float heading_degree = heading * (180.0f/M_PI); // Calculate Heading Degree
-   float accuracy_degree = accuracy * (180.0f/M_PI); // Calculate Accuracy Degree
+   float heading_degree;
+   float accuracy_degree;
+   heading_degree = heading * (180.0f/M_PI); // Calculate Heading Degree
+   heading_degree = (heading_degree < 0) ? 360.0f + heading_degree : heading_degree; // Normalize to [0, 360)
+   accuracy_degree = accuracy * (180.0f/M_PI); // Calculate Accuracy Degree
+   SENSOR_LOGD(LOG_TAG "<<< Heading degree yaw <%f %f> ts %lld\n", heading_degree, accuracy_degree, ts);
 #ifdef SENSOR_IVSS_ENABLED
    myService->onSensorHeadingDataReadCb(heading_degree, accuracy_degree, ts);
 #endif
 }
 
 static void SensorApiService::onGnssLocationCb(const location_client::GnssLocation& location) {
-   SENSOR_LOGI(LOG_TAG "<<< Location yaw <%f %f> ts %lld\n", location.bodyFrameData.yaw, location.bodyFrameData.yawUnc, location.elapsedRealTimeNs);
+   SENSOR_LOGD(LOG_TAG "<<< Heading Location yaw <%f %f> ts %lld\n", location.bodyFrameData.yaw, location.bodyFrameData.yawUnc, location.elapsedRealTimeNs);
    mInstance->onSensorHeadingDataReadCb(location.bodyFrameData.yaw, location.bodyFrameData.yawUnc, location.elapsedRealTimeNs);
 }
 #endif
