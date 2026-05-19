@@ -78,6 +78,8 @@
 
 #define SELFTEST_WAIT_TIME 3600000000000LL
 
+#define HEADING_ODR_IN_MS 100
+
 #ifdef POWERMANAGER_ENABLED
 #include <PowerEvtHandler.h>
 #endif
