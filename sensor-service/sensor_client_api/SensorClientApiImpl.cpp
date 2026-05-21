@@ -242,23 +242,21 @@ int SensorClientImpl::sensorControl(int sensor_id, sensor_state state) {
     if (state < SENSOR_DISABLE ||  state > SENSOR_HPM)
 	    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
 
-    if (mSensorCount != 0) {
-      for (int i=0; i < mSensorCount; i++) {
-	 if (mSensorList[i].sensor_id == sensor_id) {
-	    SensorId = true;
-	    if (state == SENSOR_ENABLE || state == SENSOR_DISABLE)
-		    mSensorTrackingOption[i].state = state;
-	    break;
-	 }
-      }
-      if (SensorId != true ) {
-         return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
-      }
-    }
-    else
-      return SENSOR_ERROR_NO_SENSORS_FOUND;
-
     if (SENSOR_CLIENT_SESSION_ID_INVALID != mClientId) {
+      if (mSensorCount != 0) {
+          for (int i=0; i < mSensorCount; i++) {
+             if (mSensorList[i].sensor_id == sensor_id) {
+                SensorId = true;
+                break;
+             }
+          }
+          if (SensorId != true ) {
+             return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
+          }
+      }
+      else
+          return SENSOR_ERROR_NO_SENSORS_FOUND;
+
       (void)pthread_mutex_lock (&mSensorLibMutex);
       //Enable/Disable the sensor
       SensorAPIEnableReqMsg msg (mSocketName, sensor_id, state);
@@ -273,8 +271,17 @@ int SensorClientImpl::sensorControl(int sensor_id, sensor_state state) {
       (void)pthread_mutex_unlock (&mSensorLibMutex);
       if (ret == ETIMEDOUT)
 	      return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
-      else
-	      return mRespReturn;
+      // Update state only after SHD confirms success
+      if (mRespReturn == SENSOR_RESPONSE_SUCCESS) {
+          for (int i=0; i < mSensorCount; i++) {
+              if (mSensorList[i].sensor_id == sensor_id) {
+                  if (state == SENSOR_ENABLE || state == SENSOR_DISABLE)
+                          mSensorTrackingOption[i].state = state;
+                  break;
+              }
+          }
+      }
+      return mRespReturn;
     }
     else
 	return SENSOR_ERROR_INVALID_CLIENT;
@@ -307,9 +314,6 @@ int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batc
             SensorId = true;
 	    if (batch_count <= 0 || sampling_rate <=0)
 		    return SENSOR_ERROR_INVALID_INPUT_PARAMETER;
-	    mSensorTrackingOption[i].sampling_rate = sampling_rate;
-	    mSensorTrackingOption[i].batch_count = batch_count;
-	    mSensorTrackingOption[i].rotate = rotate;
             break;
          }
       }
@@ -334,8 +338,18 @@ int SensorClientImpl::startBatching(int sensor_id, float sampling_rate, int batc
       (void)pthread_mutex_unlock (&mSensorLibMutex);
       if (ret == ETIMEDOUT)
 	      return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
-      else
-	      return mRespReturn;
+      // Update tracking options only after SHD confirms success
+      if (mRespReturn == SENSOR_RESPONSE_SUCCESS) {
+         for (int i=0; i < mSensorCount; i++) {
+            if (mSensorList[i].sensor_id == sensor_id) {
+               mSensorTrackingOption[i].sampling_rate = sampling_rate;
+               mSensorTrackingOption[i].batch_count = batch_count;
+               mSensorTrackingOption[i].rotate = rotate;
+               break;
+            }
+         }
+      }
+      return mRespReturn;
     }
     else
 	return SENSOR_ERROR_INVALID_CLIENT;
@@ -357,7 +371,6 @@ int SensorClientImpl::startTracking(int sensor_id, SensorDataReadCb sensorreadCa
       for (int i=0; i < mSensorCount; i++) {
          if (mSensorList[i].sensor_id == sensor_id) {
 	    SensorId = true;
-	    mSensorTrackingOption[i].mSensorDataReadCb = sensorreadCallback;
 	    break;
          }
       }
@@ -386,8 +399,16 @@ int SensorClientImpl::startTracking(int sensor_id, SensorDataReadCb sensorreadCa
       (void)pthread_mutex_unlock (&mSensorLibMutex);
       if (ret == ETIMEDOUT)
 	      return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
-      else
-	      return mRespReturn;
+      // Update callback only after SHD confirms success
+      if (mRespReturn == SENSOR_RESPONSE_SUCCESS) {
+         for (int i=0; i < mSensorCount; i++) {
+            if (mSensorList[i].sensor_id == sensor_id) {
+               mSensorTrackingOption[i].mSensorDataReadCb = sensorreadCallback;
+               break;
+            }
+         }
+      }
+      return mRespReturn;
     }
     else
 	return SENSOR_ERROR_INVALID_CLIENT;
@@ -447,8 +468,6 @@ int SensorClientImpl::sensorMLCEventEnable(char *mlc_case_name, bool enable,
       for (int i=0; i < mSensorMlcCaseCount; i++) {
 	    if (strcmp(mSensorMlcCaseList[i].name, mlc_case_name) == 0) {
 		    mlc_case = true;
-		    mSensorMLCEventCbs[i].mSensorMLCEventCb = sensorMlcEventCallback;
-		    mSensorMLCEventCbs[i].enable = enable;
 		    break;
 	    }
       }
@@ -475,8 +494,17 @@ int SensorClientImpl::sensorMLCEventEnable(char *mlc_case_name, bool enable,
       (void)pthread_mutex_unlock (&mSensorLibMutex);
       if (ret == ETIMEDOUT)
 	      return SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT;
-      else
-	      return mRespReturn;
+      // Update MLC callbacks only after SHD confirms success
+      if (mRespReturn == SENSOR_RESPONSE_SUCCESS) {
+         for (int i=0; i < mSensorMlcCaseCount; i++) {
+	       if (strcmp(mSensorMlcCaseList[i].name, mlc_case_name) == 0) {
+		       mSensorMLCEventCbs[i].mSensorMLCEventCb = sensorMlcEventCallback;
+		       mSensorMLCEventCbs[i].enable = enable;
+		       break;
+	       }
+         }
+      }
+      return mRespReturn;
     }
     else
 	    return SENSOR_ERROR_INVALID_CLIENT;
