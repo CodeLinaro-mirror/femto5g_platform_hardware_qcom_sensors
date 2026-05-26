@@ -221,7 +221,7 @@ public:
     void stopInternal();
 
     // from IPC receiver
-    void onListenerReady();
+    void onListenerReady(SocketType socketType);
     void onServiceStatusChange(int serviceId, int instanceId, int status, const SensorQsocketSender& refSender);
 
     // other APIs
