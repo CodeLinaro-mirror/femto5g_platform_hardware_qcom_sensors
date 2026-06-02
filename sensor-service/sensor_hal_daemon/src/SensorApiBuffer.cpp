@@ -214,7 +214,7 @@ int SensorApiService::readTempASM(float *temperature)
 */
 int SensorApiService::readTempIAM(float *temperature)
 {
-  int data;
+  int data = 0;
   uint64_t timeStamp;
   if ( NULL == mTempFilePtr.iamTempFile.dataFile )
   {
@@ -951,7 +951,7 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
   int count = 0;
   bool enable = true;
   sensors_event_t events[60];
-  sensors_event_t zevents[2];
+  sensors_event_t zevents[2] = {0};
 
   std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator it = mClients.find(clientname);
 

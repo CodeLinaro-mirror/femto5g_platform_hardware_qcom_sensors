@@ -293,12 +293,12 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 	(void)mlc_info(iio_device_number);
 	(void)memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
 	mSesnorMlcCaseList = (struct sensor_mlc_case_list*) malloc(sizeof(struct sensor_mlc_case_list));
-	if (mSesnorMlcCaseList == nullptr) {
-		return false;
-	}
 
 	mSensorMlcCaseCount = 0;
 	for (int i = mlc_case_device_number; i < iio_device_number+12; i++) {
+		if (mSesnorMlcCaseList == nullptr) {
+			return false;
+		}
 		if(find_mlc_case_iio_device_number(i)) {
 			if (mlc_start_index)
 				mlc_case_device_start_index = i;
