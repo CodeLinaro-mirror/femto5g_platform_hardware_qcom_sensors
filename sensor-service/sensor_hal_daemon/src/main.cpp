@@ -41,11 +41,12 @@
 #include <unistd.h>
 #include <sys/prctl.h>
 #include <sys/capability.h>
+#include <atomic>
 #include <SensorApiService.h>
 
 #define HAL_DAEMON_VERSION "1.1.0"
 
-bool shutdown_due_to_sigterm = false;
+std::atomic<bool> shutdown_due_to_sigterm{false};
 
 // this function will block until the directory specified in
 // dirName has been created
@@ -215,7 +216,7 @@ static void* sigterm_wait_thread(void*)
     int rc = sigwait(&set, &sig);
     if(rc == 0 && sig == SIGTERM){
 	SENSOR_LOGI(LOG_TAG "SIGTERM received, shutting down...\n");
-	shutdown_due_to_sigterm = true;
+	shutdown_due_to_sigterm.store(true, std::memory_order_release);
 	SensorApiService::requestStop();
     }
     else
@@ -254,7 +255,7 @@ int main(int argc, char *argv[])
         SensorApiService::requestStop();
 
     // If shutdown was NOT caused by SIGTERM, cancel sigwait thread
-    if (!shutdown_due_to_sigterm && rc == true)
+    if (!shutdown_due_to_sigterm.load(std::memory_order_acquire) && rc == true)
         pthread_cancel(sig_thread);
 
     if (rc == true)
