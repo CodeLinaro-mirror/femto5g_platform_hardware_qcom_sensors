@@ -180,7 +180,7 @@ public:
     {
 	    SENSOR_LOGI(LOG_TAG "new SensorHalDaemonClientHandler \n");
 	    if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) != 0) {
-	    mIpcSender = new SensorHalDaemonIPCSender(mName.c_str());
+	    mIpcSender = new SensorHalDaemonIPCSender(mName.c_str(), ANY_SOCKET);
 	    // Create a file name with instanceId. The file handle
             // will be used by hal daemon when it crashes to figure out
             // the running clients.
