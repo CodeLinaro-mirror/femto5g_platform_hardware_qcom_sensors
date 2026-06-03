@@ -187,9 +187,17 @@ void SensorClientImpl::destroy() {
         delete mSensorList;
         mSensorList = nullptr;
     }
+    if (mSensorTrackingOption) {
+        delete[] mSensorTrackingOption;
+        mSensorTrackingOption = nullptr;
+    }
     if (mSensorMlcCaseList) {
         delete mSensorMlcCaseList;
 	mSensorMlcCaseList = nullptr;
+    }
+    if (mSensorMLCEventCbs) {
+        delete[] mSensorMLCEventCbs;
+        mSensorMLCEventCbs = nullptr;
     }
     (void)pthread_mutex_destroy(&mSensorLibMutex);
     (void)pthread_condattr_destroy(&mSensorLibattr);
