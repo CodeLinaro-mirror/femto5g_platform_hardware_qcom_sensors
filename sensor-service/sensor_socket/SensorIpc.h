@@ -100,7 +100,7 @@ protected:
 
     // SensorIpc client can overwrite this function to get notification
     // when the socket for SensorIpc is ready to receive messages.
-    inline virtual void onListenerReady(SocketType socketType) {}
+    inline virtual void onListenerReady() {}
 
 private:
     static bool sendData(int fd, const sockaddr_un& addr,
