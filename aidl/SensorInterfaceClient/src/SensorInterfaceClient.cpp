@@ -187,26 +187,26 @@ static void dump_live_event(SensorInterfaceTypes::SensorImuEventT *e)
   if((e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED ) || 
 		  (e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED ) ) {
 	  const SensorInterfaceTypes::SensorUncalibratedEventT & data = e->getData();
-	  printf("Accel Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
+	  printf("Accel Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %" PRIu64 " %" PRIu64 " latency(ms)=%" PRIu64 " odr(ms)=%" PRId64 "\n",
 			      AccCount++,
 			      data.getXUncalib(), data.getYUncalib(), data.getZUncalib(),
 			      data.getXBias(), data.getYBias(), data.getZBias(),
-			      e->getTimestamp(), e->getGptpTimestamp(),
-			      (currPTPtime - e->getGptpTimestamp())/1000000,
-			      (e->getGptpTimestamp()- acc_ts)/1000000);
+			      static_cast<uint64_t>(e->getTimestamp()), static_cast<uint64_t>(e->getGptpTimestamp()),
+			      static_cast<uint64_t>((currPTPtime - e->getGptpTimestamp())/1000000),
+			      static_cast<int64_t>((e->getGptpTimestamp()- acc_ts)/1000000));
 	  acc_ts = e->getGptpTimestamp();
   }
   else if((e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_GYROSCOPE_UNCALIBRATED ) || 
 		  (e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_GYROSCOPE ) ) {
 	  const SensorInterfaceTypes::SensorUncalibratedEventT & data = e->getData();
-	  printf("Gyro Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
+	  printf("Gyro Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %" PRIu64 " %" PRIu64 " latency(ms)=%" PRIu64 " odr(ms)=%" PRId64 "\n",
 			      GyroCount++,
 			      data.getXUncalib(), data.getYUncalib(), data.getZUncalib(),
 			      data.getXBias(), data.getYBias(), data.getZBias(),
-			      e->getTimestamp(),
-			      e->getGptpTimestamp(),
-			      (currPTPtime - e->getGptpTimestamp())/1000000,
-			      (e->getGptpTimestamp()-gyro_ts)/1000000);
+			      static_cast<uint64_t>(e->getTimestamp()),
+			      static_cast<uint64_t>(e->getGptpTimestamp()),
+			      static_cast<uint64_t>((currPTPtime - e->getGptpTimestamp())/1000000),
+			      static_cast<int64_t>((e->getGptpTimestamp()-gyro_ts)/1000000));
 	  gyro_ts = e->getGptpTimestamp();
   }
   else {
@@ -228,14 +228,14 @@ static void  onSensorImuDataReadCb(vector<SensorInterfaceTypes::SensorImuEventT>
   }
   if (sensor_id == ACCEL_UNCALIBRATED_SENSOR_ID) {
 	  acc_sensor_ts = events[count-1].getGptpTimestamp();
-	  printf( "Sensor ACC Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
-			  sensor_id, count, (ts_cur - ts_prv_acc)/1000000, ts_cur, (ts_cur - acc_sensor_ts)/1000000);
+	  printf( "Sensor ACC Live: sensor_id %d: count %u batch_delta(ms)=%" PRIu64 " cur_gptp_ts %" PRIu64 " latency(ms)=%" PRIu64 "\n",
+			  sensor_id, count, static_cast<uint64_t>((ts_cur - ts_prv_acc)/1000000), ts_cur, static_cast<uint64_t>((ts_cur - acc_sensor_ts)/1000000));
 	  ts_prv_acc = ts_cur;
   }
   if (sensor_id == GYRO_UNCALIBRATED_SENSOR_ID) {
 	  gyro_sensor_ts = events[count-1].getGptpTimestamp();
-	  printf( "Sensor GYRO Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
-			  sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, ts_cur, (ts_cur - gyro_sensor_ts)/1000000);
+	  printf( "Sensor GYRO Live: sensor_id %d: count %u batch_delta(ms)=%" PRIu64 " cur_gptp_ts %" PRIu64 " latency(ms)=%" PRIu64 "\n",
+			  sensor_id, count, static_cast<uint64_t>((ts_cur - ts_prv_gyro)/1000000), ts_cur, static_cast<uint64_t>((ts_cur - gyro_sensor_ts)/1000000));
 	  ts_prv_gyro = ts_cur;
   }
   for ( i = 0; i < count ; i++){
@@ -260,19 +260,19 @@ static void  onSensorHeadingDataReadCb(vector<SensorInterfaceTypes::SensorHeadEv
 
   if (sensor_id == HEADING_SENSOR_ID) {
 	  head_sensor_ts = events[count-1].getGptpTimestamp();
-	  printf( "Sensor HEAD Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
-			  sensor_id, count, (ts_cur - ts_prv_head)/1000000, ts_cur, (ts_cur - head_sensor_ts)/1000000);
+	  printf( "Sensor HEAD Live: sensor_id %d: count %u batch_delta(ms)=%" PRIu64 " cur_gptp_ts %" PRIu64 " latency(ms)=%" PRIu64 "\n",
+			  sensor_id, count, static_cast<uint64_t>((ts_cur - ts_prv_head)/1000000), ts_cur, static_cast<uint64_t>((ts_cur - head_sensor_ts)/1000000));
 	  ts_prv_head = ts_cur;
   }
   for ( i = 0; i < count ; i++) {
 	  if(events[i].getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_HEADING ) {
 	     const SensorInterfaceTypes::SensorHeadingEventT & head = events[i].getData();
-	     printf("Head Live event:%d heading and accuracy<%f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
+	     printf("Head Live event:%d heading and accuracy<%f %f> timestamp<boot,gptp> %" PRIu64 " %" PRIu64 " latency(ms)=%" PRIu64 " odr(ms)=%" PRId64 "\n",
 				  HeadCount++,
 				  head.getHeading(), head.getAccuracy(),
-				  events[i].getTimestamp(), events[i].getGptpTimestamp(),
-				  (ts_cur - events[i].getGptpTimestamp())/1000000,
-				  (events[i].getGptpTimestamp()- head_ts)/1000000);
+				  static_cast<uint64_t>(events[i].getTimestamp()), static_cast<uint64_t>(events[i].getGptpTimestamp()),
+				  static_cast<uint64_t>((ts_cur - events[i].getGptpTimestamp())/1000000),
+				  static_cast<int64_t>((events[i].getGptpTimestamp()- head_ts)/1000000));
 	     head_ts = events[i].getGptpTimestamp();
 	  }
   }

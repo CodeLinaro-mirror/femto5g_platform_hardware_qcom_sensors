@@ -270,26 +270,26 @@ static void dump_live_event(SensorInterfaceTypes::SensorImuEventT *e)
   if((e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED ) ||
 		  (e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED ) ) {
      const SensorInterfaceTypes::SensorUncalibratedEventT & data = e->getData();
-     SENSOR_LOGD(SENSOR_TAG "Accel Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
+     SENSOR_LOGD(SENSOR_TAG "Accel Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %" PRIu64 " %" PRIu64 " latency(ms)=%" PRIu64 " odr(ms)=%" PRId64 "\n",
 			  AccCount++,
 			  data.getXUncalib(), data.getYUncalib(), data.getZUncalib(),
 			  data.getXBias(), data.getYBias(), data.getZBias(),
-			  e->getTimestamp(), e->getGptpTimestamp(),
-			  (currPTPtime - e->getGptpTimestamp())/1000000,
-			  (e->getGptpTimestamp()- acc_ts)/1000000);
+			  static_cast<uint64_t>(e->getTimestamp()), static_cast<uint64_t>(e->getGptpTimestamp()),
+			  static_cast<uint64_t>((currPTPtime - e->getGptpTimestamp())/1000000),
+			  static_cast<int64_t>((e->getGptpTimestamp()- acc_ts)/1000000));
      acc_ts = e->getGptpTimestamp();
   }
   else if((e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_GYROSCOPE_UNCALIBRATED ) ||
 		  (e->getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_GYROSCOPE ) ) {
       const SensorInterfaceTypes::SensorUncalibratedEventT & data = e->getData();
-      SENSOR_LOGD(SENSOR_TAG "Gyro Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
+      SENSOR_LOGD(SENSOR_TAG "Gyro Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f> timestamp<boot,gptp> %" PRIu64 " %" PRIu64 " latency(ms)=%" PRIu64 " odr(ms)=%" PRId64 "\n",
 			  GyroCount++,
 			  data.getXUncalib(), data.getYUncalib(), data.getZUncalib(),
 			  data.getXBias(), data.getYBias(), data.getZBias(),
-			  e->getTimestamp(),
-			  e->getGptpTimestamp(),
-			  (currPTPtime - e->getGptpTimestamp())/1000000,
-			  (e->getGptpTimestamp()-gyro_ts)/1000000);
+			  static_cast<uint64_t>(e->getTimestamp()),
+			  static_cast<uint64_t>(e->getGptpTimestamp()),
+			  static_cast<uint64_t>((currPTPtime - e->getGptpTimestamp())/1000000),
+			  static_cast<int64_t>((e->getGptpTimestamp()-gyro_ts)/1000000));
       gyro_ts = e->getGptpTimestamp();
   }
   else {
@@ -312,14 +312,14 @@ static void  onSensorImuDataReadCb(vector<SensorInterfaceTypes::SensorImuEventT>
   }
   if (sensor_id == ACCEL_UNCALIBRATED_SENSOR_ID) {
 	  acc_sensor_ts = events[count-1].getGptpTimestamp();
-	  SENSOR_LOGD(SENSOR_TAG "Sensor ACC Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
-			  sensor_id, count, (ts_cur - ts_prv_acc)/1000000, ts_cur, (ts_cur - acc_sensor_ts)/1000000);
+	  SENSOR_LOGD(SENSOR_TAG "Sensor ACC Live: sensor_id %d: count %u batch_delta(ms)=%" PRIu64 " cur_gptp_ts %" PRIu64 " latency(ms)=%" PRIu64 "\n",
+			  sensor_id, count, static_cast<uint64_t>((ts_cur - ts_prv_acc)/1000000), ts_cur, static_cast<uint64_t>((ts_cur - acc_sensor_ts)/1000000));
 	  ts_prv_acc = ts_cur;
   }
   if (sensor_id == GYRO_UNCALIBRATED_SENSOR_ID ) {
 	  gyro_sensor_ts = events[count-1].getGptpTimestamp();
-	  SENSOR_LOGD(SENSOR_TAG "Sensor GYRO Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
-			  sensor_id, count, (ts_cur - ts_prv_gyro)/1000000, ts_cur, (ts_cur - gyro_sensor_ts)/1000000);
+	  SENSOR_LOGD(SENSOR_TAG "Sensor GYRO Live: sensor_id %d: count %u batch_delta(ms)=%" PRIu64 " cur_gptp_ts %" PRIu64 " latency(ms)=%" PRIu64 "\n",
+			  sensor_id, count, static_cast<uint64_t>((ts_cur - ts_prv_gyro)/1000000), ts_cur, static_cast<uint64_t>((ts_cur - gyro_sensor_ts)/1000000));
 	  ts_prv_gyro = ts_cur;
   }
   for ( i = 0; i < count ; i++){
@@ -344,19 +344,19 @@ static void  onSensorHeadingDataReadCb(vector<SensorInterfaceTypes::SensorHeadEv
 
   if (sensor_id == HEADING_SENSOR_ID) {
 	  head_sensor_ts = events[count-1].getGptpTimestamp();
-	  SENSOR_LOGD(SENSOR_TAG "Sensor HEAD Live: sensor_id %d: count %d batch_delta(ms)=%lld cur_gptp_ts %lld latency(ms)=%lld\n",
-			  sensor_id, count, (ts_cur - ts_prv_head)/1000000, ts_cur, (ts_cur - head_sensor_ts)/1000000);
+	  SENSOR_LOGD(SENSOR_TAG "Sensor HEAD Live: sensor_id %d: count %u batch_delta(ms)=%" PRIu64 " cur_gptp_ts %" PRIu64 " latency(ms)=%" PRIu64 "\n",
+			  sensor_id, count, static_cast<uint64_t>((ts_cur - ts_prv_head)/1000000), ts_cur, static_cast<uint64_t>((ts_cur - head_sensor_ts)/1000000));
 	  ts_prv_head = ts_cur;
   }
   for ( i = 0; i < count ; i++) {
 	  if(events[i].getType() == SensorInterfaceTypes::SensorTypeT::SENSOR_TYPE_HEADING ) {
 	     const SensorInterfaceTypes::SensorHeadingEventT & head = events[i].getData();
-	     SENSOR_LOGD(SENSOR_TAG "Head Live event:%d heading and accuracy<%f %f> timestamp<boot,gptp> %lld %lld latency(ms)=%lld odr(ms)=%lld\n",
+	     SENSOR_LOGD(SENSOR_TAG "Head Live event:%d heading and accuracy<%f %f> timestamp<boot,gptp> %" PRIu64 " %" PRIu64 " latency(ms)=%" PRIu64 " odr(ms)=%" PRId64 "\n",
 				  HeadCount++,
 				  head.getHeading(), head.getAccuracy(),
-				  events[i].getTimestamp(), events[i].getGptpTimestamp(),
-				  (ts_cur - events[i].getGptpTimestamp())/1000000,
-				  (events[i].getGptpTimestamp()- head_ts)/1000000);
+				  static_cast<uint64_t>(events[i].getTimestamp()), static_cast<uint64_t>(events[i].getGptpTimestamp()),
+				  static_cast<uint64_t>((ts_cur - events[i].getGptpTimestamp())/1000000),
+				  static_cast<int64_t>((events[i].getGptpTimestamp()- head_ts)/1000000));
 	     head_ts = events[i].getGptpTimestamp();
 	  }
   }
@@ -456,8 +456,8 @@ int read_sensor_rotation_matrix(uint16_t *roll, uint16_t *pitch, uint16_t *yaw)
       if(strstr(buffer, "imu_sensor_euler_angles = ")) {
           line = strstr(buffer, "[");
           if(line != NULL){
-              size = sscanf(&line[1], "%d,%d,%d", roll, pitch, yaw);
-              SENSOR_LOGI(SENSOR_TAG "Read hal config file successful, roll %d, pitch %d, yaw %d\n", roll, pitch, yaw);
+              size = sscanf(&line[1], "%" SCNu16 ",%" SCNu16 ",%" SCNu16, roll, pitch, yaw);
+              SENSOR_LOGI(SENSOR_TAG "Read hal config file successful, roll %" PRIu16 ", pitch %" PRIu16 ", yaw %" PRIu16 "\n", *roll, *pitch, *yaw);
           }
           break;
       }
@@ -480,7 +480,7 @@ void SensorCore::SensorCore_Init() {
             SENSOR_LOGE(SENSOR_TAG "Error: Euler Angles Invalid Range\n");
         }
         else {
-            SENSOR_LOGI(SENSOR_TAG "Sensor Euler angles <roll %d, pitch %d, yaw %d>\n", roll, pitch, yaw);
+            SENSOR_LOGI(SENSOR_TAG "Sensor Euler angles <roll %" PRIu16 ", pitch %" PRIu16 ", yaw %" PRIu16 ">\n", roll, pitch, yaw);
             calculate_sensor_rotation_matrix(roll, pitch, yaw, rot);
             SENSOR_LOGI(SENSOR_TAG "Sensor rotation matrix: \t%5.2f %5.2f %5.2f\t%5.2f %5.2f %5.2f\t%5.2f %5.2f %5.2f\n",
                             rot[0][0], rot[0][1], rot[0][2],
@@ -696,7 +696,7 @@ void SensorCore::SensorCore_acitvateSensor(int32_t in_sensorHandle, bool in_enab
 }
 
 void SensorCore::SensorCore_configSensor(int32_t in_sensorHandle, int64_t in_samplingPeriodNs,int64_t in_maxReportLatencyNs) {
-    SENSOR_LOGI(SENSOR_TAG  "==== Calling SensorConfigReq ====>> sensor_id: %d in_samplingPeriodNs %lld in_maxReportLatencyNs %lld\n", in_sensorHandle, in_samplingPeriodNs, in_maxReportLatencyNs);
+    SENSOR_LOGI(SENSOR_TAG  "==== Calling SensorConfigReq ====>> sensor_id: %d in_samplingPeriodNs %" PRId64 " in_maxReportLatencyNs %" PRId64 "\n", in_sensorHandle, in_samplingPeriodNs, in_maxReportLatencyNs);
 
     //Configure uncalibrated sensor when calibrated request received
     if (in_sensorHandle == ACCEL_CALIBRATED_SENSOR_ID)
@@ -742,7 +742,7 @@ uint64_t SensorCore::SensorCore_getBootTimeFromPtpTime(uint64_t ptp_time_ns)
 	   GptpInitialized = true;
    }
    gPTPReqIf->gptpGetBootTimeFromPtpTimeIf(&boot_time_ns, ptp_time_ns);
-   SENSOR_LOGD(SENSOR_TAG "gptpGetBootTimeFromPtpTimeIf Sensor gptp ts %lld boot time %lld now_ns %lld\n", ptp_time_ns, boot_time_ns, android::elapsedRealtimeNano());
+   SENSOR_LOGD(SENSOR_TAG "gptpGetBootTimeFromPtpTimeIf Sensor gptp ts %" PRIu64 " boot time %" PRIu64 " now_ns %" PRId64 "\n", ptp_time_ns, boot_time_ns, static_cast<int64_t>(android::elapsedRealtimeNano()));
    return boot_time_ns;
 }
 
