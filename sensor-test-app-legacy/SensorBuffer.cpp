@@ -985,7 +985,7 @@ void SensorBuffread(int mSensorType)
 	int acccount = 0;
 	int gyrocount = 0;
 	sensors_event_t events[2];
-	sensors_event_t	zevents[2] = {0};
+	sensors_event_t	zevents[2];
 	while(1)
 	{
 		/* Open Accel Bufferd Sensor input device */

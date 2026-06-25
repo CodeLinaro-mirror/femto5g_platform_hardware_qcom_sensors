@@ -951,7 +951,7 @@ bool SensorApiService::ReadSensorBufferData(const std::string clientname) {
   int count = 0;
   bool enable = true;
   sensors_event_t events[60];
-  sensors_event_t zevents[2] = {0};
+  sensors_event_t zevents[2];
 
   std::unordered_map<std::string, SensorHalDaemonClientHandler*>::iterator it = mClients.find(clientname);
 

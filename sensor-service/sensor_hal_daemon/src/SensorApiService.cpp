@@ -89,6 +89,8 @@ SensorApiService - static members
 ******************************************************************************/
 SensorApiService* SensorApiService::mInstance = nullptr;
 std::mutex SensorApiService::mMutex;
+bool SensorApiService::mRequestStop = true;
+
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
 static LocationClientApi* pLcaClient = nullptr;
 #endif
@@ -232,20 +234,45 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     (void)mQsockReceiver->start(true);
 }
 
+void SensorApiService::stopInternal()
+{
+     for(int i = 0 ; i < mSensorCount; i++)  {
+         SENSOR_LOGI(LOG_TAG ">-- Destructor invoked, disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
+         (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
+     }
+
+     if(mSensorType == SENSOR_SMI130 || mSensorType == SENSOR_SMI230){
+         mpoll_dev_v0->common.close(&mpoll_dev_v0->common);
+     }
+
+    if (nullptr != mIpcReceiver) {
+        mIpcReceiver->stop();
+        delete mIpcReceiver;
+        mIpcReceiver = nullptr;
+    }
+
+    if (nullptr != mQsockReceiver) {
+        mQsockReceiver->stop();
+        delete mQsockReceiver;
+        mQsockReceiver = nullptr;
+    }
+    return;
+}
+
+void SensorApiService::requestStop()
+{
+    mRequestStop = false;
+    if (mInstance != nullptr)
+        mInstance->stopInternal();
+
+    return;
+}
+
 /******************************************************************************
 SensorApiService - Destructors
 ******************************************************************************/
 SensorApiService::~SensorApiService() {
     SENSOR_LOGI(LOG_TAG "SensorApiService Destructor is called\n");
-
-    for(int i = 0 ; i < mSensorCount; i++)  {
-        SENSOR_LOGI(LOG_TAG ">-- Destructor invoked, disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
-        (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
-    }
-
-    if(mSensorType == 3 || mSensorType == 4){
-        mpoll_dev_v0->common.close(&mpoll_dev_v0->common);
-    }
 
 #ifdef SENSOR_IVSS_ENABLED
     std::shared_ptr<CommonAPI::Runtime> runtime = CommonAPI::Runtime::get();
@@ -271,19 +298,6 @@ SensorApiService::~SensorApiService() {
 #endif
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    // stop ipc receiver thread
-    if (nullptr != mIpcReceiver) {
-        mIpcReceiver->stop();
-        delete mIpcReceiver;
-	mIpcReceiver = nullptr;
-    }
-
-    if (nullptr != mQsockReceiver) {
-        mQsockReceiver->stop();
-        delete mQsockReceiver;
-	mQsockReceiver = nullptr;
-    }
 
     //Delete mSensor memory
     if (nullptr != mSensor) {
@@ -551,14 +565,14 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
      mMlcSupported = true;
 
    //Create the thread to send data to all clients.
-   if (!Sensor_ThreadCreate(&mSensorThreadtid, send_sensor_data_to_clients, this, "SensorPoll-")) {
+   if (!Sensor_ThreadCreate(&mSensorThreadtid, send_sensor_data_to_clients, this, "SensorPoll-", true)) {
       SENSOR_LOGE(LOG_TAG "Sensor Poll Data thread failed \n");
       return false;
    }
 
    //Create the thread to send buffer data to all clients if buffering supported by sensor.
    if(mBufferSupported == true) {
-      if (!Sensor_ThreadCreate(&mBufferThreadtid, bufferDataprocessTask, this, "SensorBufferRead-")) {
+      if (!Sensor_ThreadCreate(&mBufferThreadtid, bufferDataprocessTask, this, "SensorBufferRead-", true)) {
 	     SENSOR_LOGE(LOG_TAG "Sensor Buffer Data read thread failed \n");
 	     return false;
      }
@@ -1583,20 +1597,6 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
         timestamp = Gyrotimestamp;
     }
 
-    for(int i = 0 ; i < mSensorCount; i++)  {
-	    if (sensor_id == mSensor[i].sensor_id) {
-	        if (mSensor[i].Activate == SENSOR_ENABLE){
-		    int64_t SamplingRate = FREQUENCY_TO_NS(mSensor[i].SamplingRate);
-		    int64_t BatchingRate =  mSensor[i].BatchCount * SamplingRate  * mBatchConst;
-
-		    SENSOR_LOGI(LOG_TAG ">-- onSelfTest Re-Configure sensor sensor_id %d sampling Rate %lld BatchingRate %lld\n",
-				    mSensor[i].sensor_id, SamplingRate, BatchingRate);
-		    (void)sensor_set_batch(mSensor[i].sensor_id, SamplingRate, BatchingRate); //configure the sensor
-		    (void)sensor_activate(mSensor[i].sensor_id, SENSOR_ENABLE); //Enable the sensor
-	        }
-	    }
-    }
-
 fail:
     if(mSensorType == 1 || mSensorType == 4){
         if(AccelTest == 1) {
@@ -2134,7 +2134,7 @@ void SensorApiService::EnableHeadingSensor() {
     SENSOR_LOGI(LOG_TAG "<<< start heading sensor session\n");
     GnssReportCbs reportcbs = {};
     reportcbs.gnssLocationCallback = GnssLocationCb(onGnssLocationCb);
-    (void)pLcaClient->startPositionSession(100, reportcbs, onLocationResponseCb);
+    (void)pLcaClient->startPositionSession(HEADING_ODR_IN_MS, reportcbs, onLocationResponseCb);
 }
 
 void SensorApiService::DisableHeadingSensor() {
@@ -2158,15 +2158,19 @@ static void SensorApiService::onLocationResponseCb(location_client::LocationResp
 
 void SensorApiService::onSensorHeadingDataReadCb(float heading, float accuracy, uint64_t ts) {
    std::lock_guard<std::mutex> lock(mMutex);
-   float heading_degree = heading * (180.0f/M_PI); // Calculate Heading Degree
-   float accuracy_degree = accuracy * (180.0f/M_PI); // Calculate Accuracy Degree
+   float heading_degree;
+   float accuracy_degree;
+   heading_degree = heading * (180.0f/M_PI); // Calculate Heading Degree
+   heading_degree = (heading_degree < 0) ? 360.0f + heading_degree : heading_degree; // Normalize to [0, 360)
+   accuracy_degree = accuracy * (180.0f/M_PI); // Calculate Accuracy Degree
+   SENSOR_LOGD(LOG_TAG "<<< Heading degree yaw <%f %f> ts %lld\n", heading_degree, accuracy_degree, ts);
 #ifdef SENSOR_IVSS_ENABLED
    myService->onSensorHeadingDataReadCb(heading_degree, accuracy_degree, ts);
 #endif
 }
 
 static void SensorApiService::onGnssLocationCb(const location_client::GnssLocation& location) {
-   SENSOR_LOGI(LOG_TAG "<<< Location yaw <%f %f> ts %lld\n", location.bodyFrameData.yaw, location.bodyFrameData.yawUnc, location.elapsedRealTimeNs);
+   SENSOR_LOGD(LOG_TAG "<<< Heading Location yaw <%f %f> ts %lld\n", location.bodyFrameData.yaw, location.bodyFrameData.yawUnc, location.elapsedRealTimeNs);
    mInstance->onSensorHeadingDataReadCb(location.bodyFrameData.yaw, location.bodyFrameData.yawUnc, location.elapsedRealTimeNs);
 }
 #endif

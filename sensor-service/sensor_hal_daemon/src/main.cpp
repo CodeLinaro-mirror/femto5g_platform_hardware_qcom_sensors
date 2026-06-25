@@ -41,9 +41,12 @@
 #include <unistd.h>
 #include <sys/prctl.h>
 #include <sys/capability.h>
+#include <atomic>
 #include <SensorApiService.h>
 
 #define HAL_DAEMON_VERSION "1.1.0"
+
+std::atomic<bool> shutdown_due_to_sigterm{false};
 
 // this function will block until the directory specified in
 // dirName has been created
@@ -202,6 +205,9 @@ static void block_sigterm()
 
 static void* sigterm_wait_thread(void*)
 {
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, nullptr);
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, nullptr);
+
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGTERM);
@@ -210,12 +216,13 @@ static void* sigterm_wait_thread(void*)
     int rc = sigwait(&set, &sig);
     if(rc == 0 && sig == SIGTERM){
 	SENSOR_LOGI(LOG_TAG "SIGTERM received, shutting down...\n");
-        SensorApiService::destroy();
+	shutdown_due_to_sigterm.store(true, std::memory_order_release);
+	SensorApiService::requestStop();
     }
     else
         SENSOR_LOGE(LOG_TAG "sigwait failed rc=%d sig=%d\n", rc, sig);
 
-    exit(0);
+    return nullptr;
 }
 
 //MAIN
@@ -223,12 +230,8 @@ int main(int argc, char *argv[])
 {
     block_sigterm();
     pthread_t sig_thread;
-    int rc = pthread_create(&sig_thread, nullptr, sigterm_wait_thread, nullptr);
-    if(rc == 0){
-        pthread_setname_np(sig_thread, "sigterm_wait_main_func");
-        pthread_detach(sig_thread);
-    }
-    else
+    bool rc = Sensor_ThreadCreate(&sig_thread, sigterm_wait_thread, NULL, "sigterm_wait_main_func", false);
+    if(rc == false)
         SENSOR_LOGE(LOG_TAG "pthread_create failed rc=%d\n", rc);
 
     configParamToRead configParamRead = {};
@@ -246,11 +249,18 @@ int main(int argc, char *argv[])
     SENSOR_LOGI(LOG_TAG "starting sensor_hal_daemon\n");
 
     // start listening for client events - will not return
-    if (!SensorApiService::getInstance(configParamRead)) {
-        SENSOR_LOGI(LOG_TAG "Failed to start SensorApiService.\n");
-    }
+    (void)SensorApiService::getInstance(configParamRead);
 
-    // should not reach here...
+    if(SensorApiService::mRequestStop == true)
+        SensorApiService::requestStop();
+
+    // If shutdown was NOT caused by SIGTERM, cancel sigwait thread
+    if (!shutdown_due_to_sigterm.load(std::memory_order_acquire) && rc == true)
+        pthread_cancel(sig_thread);
+
+    if (rc == true)
+          pthread_join(sig_thread, nullptr);
+
     SensorApiService::destroy();
     SENSOR_LOGI(LOG_TAG "done\n");
     exit(0);

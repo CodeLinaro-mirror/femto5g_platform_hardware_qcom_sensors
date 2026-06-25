@@ -293,12 +293,12 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 	(void)mlc_info(iio_device_number);
 	(void)memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
 	mSesnorMlcCaseList = (struct sensor_mlc_case_list*) malloc(sizeof(struct sensor_mlc_case_list));
+	if (mSesnorMlcCaseList == nullptr) {
+		return false;
+	}
 
 	mSensorMlcCaseCount = 0;
 	for (int i = mlc_case_device_number; i < iio_device_number+12; i++) {
-		if (mSesnorMlcCaseList == nullptr) {
-			return false;
-		}
 		if(find_mlc_case_iio_device_number(i)) {
 			if (mlc_start_index)
 				mlc_case_device_start_index = i;
@@ -307,12 +307,12 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 			(void)get_mlc_case_name(i, mlc_file_name);
 			(void)strlcpy(&mSesnorMlcCaseList[mSensorMlcCaseCount].name[0], mlc_file_name, MAX_PATH_SIZE);
 			mSensorMlcCaseCount++;
+			mSesnorMlcCaseList = (struct sensor_mlc_case_list*) realloc(mSesnorMlcCaseList,
+					(mSensorMlcCaseCount+1) * sizeof(struct sensor_mlc_case_list));
 			if (mSesnorMlcCaseList == nullptr) {
 				return false;
 			}
 
-			mSesnorMlcCaseList = (struct sensor_mlc_case_list*) realloc(mSesnorMlcCaseList,
-					(mSensorMlcCaseCount+1) * sizeof(struct sensor_mlc_case_list));
 			(void)memset(mlc_file_name, 0 ,sizeof(mlc_file_name));
 		}
 	}
@@ -322,7 +322,7 @@ bool SensorApiService::LoadMLC(const char *mcl_fw_name)
 
 	if(mSensorMlcCaseCount > 0) {
 		//Create the thread to read mlc case events
-		if (!Sensor_ThreadCreate(&mMlcThreadtid, mlcPollEvents, this, "SensorMlcEventsRead-")) {
+		if (!Sensor_ThreadCreate(&mMlcThreadtid, mlcPollEvents, this, "SensorMlcEventsRead-", true)) {
 			SENSOR_LOGE(LOG_TAG "Sensor Mlc Events Read thread failed \n");
 			return false;
 		}
