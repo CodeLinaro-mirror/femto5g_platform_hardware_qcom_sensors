@@ -21,6 +21,7 @@
 #include <string.h>
 #include <dlfcn.h>
 #include <sys/types.h>
+#include <limits.h>
 #include <gptp_helper.h>
 #include <SensorCore.h>
 #include <utils/SystemClock.h>
@@ -129,31 +130,26 @@ int getSensorDebugLevel() {
    char *line = NULL;
    int err = 0;
 
-   // Select HAL config path based on availability and readability
-   if (access(DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE, F_OK | R_OK) == 0) {
-       FILE *test = fopen(DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE, "r");
-       if (test) {
-               fclose(test);
-               hal_configuration_path = DATA_CONFIGURATION_FILE;
-               SENSOR_LOGI(SENSOR_TAG "Using HAL config from " DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE "\n");
-       }
-       else {
-               hal_configuration_path = VENDOR_CONFIGURATION_FILE;
-               SENSOR_LOGE(SENSOR_TAG "Failed to open " DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE " errno=%d (%s), falling back to " VENDOR_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE "\n", errno, strerror(errno));
-       }
+   // Select HAL config path by directly opening the preferred file.
+   // Avoid access() + fopen() to prevent TOCTOU race warnings.
+   FILE *test = fopen(DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE, "r");
+   if (test) {
+       fclose(test);
+       hal_configuration_path = DATA_CONFIGURATION_FILE;
+       SENSOR_LOGI(SENSOR_TAG "Using HAL config from " DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE "\n");
    }
    else {
        hal_configuration_path = VENDOR_CONFIGURATION_FILE;
-       SENSOR_LOGI(SENSOR_TAG "Using HAL config from " VENDOR_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE "\n");
+       SENSOR_LOGE(SENSOR_TAG "Failed to open " DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE " errno=%d (%s), falling back to " VENDOR_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE "\n", errno, strerror(errno));
    }
 
-   file_path_name = (char *)calloc(strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+   file_path_name = (char *)calloc(strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE)) + 2, 1);
    if (!file_path_name) {
              err = -errno;
              return -ENOMEM;
    }
 
-   fsize = strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE);
+   fsize = strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE));
    snprintf(file_path_name, fsize + 2, "%s/%s", hal_configuration_path, HAL_CONFIGURATION_FILE);
    fd_config = fopen(file_path_name, "r");
    if (fd_config == NULL) {
@@ -474,14 +470,14 @@ int read_sensor_placement_matrix(float (&location) [3])
   char *line = NULL;
   int err = 0;
 
-  file_path_name = (char *)calloc(strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+  file_path_name = (char *)calloc(strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE)) + 2, 1);
   if (!file_path_name) {
             err = -errno;
             SENSOR_LOGE(SENSOR_TAG "Unable to allocate memory (errno %d)\n", err);
             return -ENOMEM;
   }
 
-  fsize = strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE);
+  fsize = strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE));
   snprintf(file_path_name, fsize + 2, "%s/%s", hal_configuration_path, HAL_CONFIGURATION_FILE);
   SENSOR_LOGI(SENSOR_TAG "Hal Config file_path_name %s\n", file_path_name);
   fd_config = fopen(file_path_name, "r");
@@ -521,14 +517,14 @@ int read_sensor_rotation_matrix(uint16_t *roll, uint16_t *pitch, uint16_t *yaw)
   char *line = NULL;
   int err = 0;
 
-  file_path_name = (char *)calloc(strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+  file_path_name = (char *)calloc(strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE)) + 2, 1);
   if (!file_path_name) {
             err = -errno;
             SENSOR_LOGE(SENSOR_TAG "Unable to allocate memory (errno %d)\n", err);
             return -ENOMEM;
   }
 
-  fsize = strlen(hal_configuration_path) + strlen(HAL_CONFIGURATION_FILE);
+  fsize = strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE));
   snprintf(file_path_name, fsize + 2, "%s/%s", hal_configuration_path, HAL_CONFIGURATION_FILE);
   SENSOR_LOGI(SENSOR_TAG "Hal Config file_path_name %s\n", file_path_name);
   fd_config = fopen(file_path_name, "r");
