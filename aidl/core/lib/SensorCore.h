@@ -43,6 +43,7 @@ using std::vector;
 using std::string;
 
 int getSensorDebugLevel();
+void cleanup();
 
 // Define the SensorCoreData struct
 struct SensorCoreData {
@@ -81,6 +82,8 @@ public:
     uint64_t SensorCore_getBootTimeFromPtpTime(uint64_t ptp_time_ns);
     void SensorCore_Deinit();
     virtual int SensorCore_flush(int32_t in_sensorHandle) = 0;
+    virtual int SensorPlacement(int32_t in_sensorHandle) = 0;
+    int64_t nowBoottimeNanos();
     virtual ~SensorCore() {}
     virtual void onNewSensorsData(std::vector<SensorCoreData> &data) = 0;
 
@@ -111,6 +114,8 @@ public:
     }
     bool SensorServiceAvailable;
     bool GptpInitialized;
+    static float rot[3][3];
+    static float location[3];
 };
 
 #endif /* ANDROID_SENSOR_CORE_LIB */

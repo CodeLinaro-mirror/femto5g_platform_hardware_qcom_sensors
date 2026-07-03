@@ -17,3 +17,7 @@ DEBUG_LEVEL=3
 ################################################
 # Enable 10Hz Batching
 ENABLE_10Hz=1
+################################################
+# The location vector values should be entered
+# in millimeters.
+imu_sensor_placement = [0,0,0]

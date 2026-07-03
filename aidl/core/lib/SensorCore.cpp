@@ -21,12 +21,15 @@
 #include <string.h>
 #include <dlfcn.h>
 #include <sys/types.h>
+#include <limits.h>
 #include <gptp_helper.h>
 #include <SensorCore.h>
 #include <utils/SystemClock.h>
 
 #define HAL_CONFIGURATION_FILE "hal_config"
-#define HAL_CONFIGURATION_PATH "/vendor/etc"
+#define VENDOR_CONFIGURATION_FILE "/vendor/etc"
+#define DATA_CONFIGURATION_FILE "/data/vendor/etc"
+static const char *hal_configuration_path = NULL;
 
 #define RM_MIN 0
 #define RM_MAX 3600
@@ -37,10 +40,14 @@
 using namespace v1::com::qualcomm::qti::sensor;
 using namespace std;
 
-int DEBUG_LEVEL = 0;
+int DEBUG_LEVEL = 1;
 int ENABLE_10Hz = 0;
 
-static float rot[3][3];
+float SensorCore::rot[3][3] = {};
+float SensorCore::location[3] = {};
+
+int init_sensor_location_vector(float (&location)[3]);
+
 static uint16_t roll;
 static uint16_t pitch;
 static uint16_t yaw;
@@ -70,6 +77,13 @@ struct SensorTrackingOption mSensorTrackingOption [] = {{ACCEL_UNCALIBRATED_SENS
 	                                                {GYRO_UNCALIBRATED_SENSOR_ID,state},
 							{HEADING_SENSOR_ID,state}
 						       };
+
+int64_t SensorCore::nowBoottimeNanos() {
+    timespec ts{};
+    clock_gettime(CLOCK_BOOTTIME, &ts);
+    return static_cast<int64_t>(ts.tv_sec) * 1000000000LL +
+           static_cast<int64_t>(ts.tv_nsec);
+}
 
 void parseSensorReturnT(SensorInterfaceTypes::SensorReturnT resp) {
    switch(resp) {
@@ -116,14 +130,27 @@ int getSensorDebugLevel() {
    char *line = NULL;
    int err = 0;
 
-   file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+   // Select HAL config path by directly opening the preferred file.
+   // Avoid access() + fopen() to prevent TOCTOU race warnings.
+   FILE *test = fopen(DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE, "r");
+   if (test) {
+       fclose(test);
+       hal_configuration_path = DATA_CONFIGURATION_FILE;
+       SENSOR_LOGI(SENSOR_TAG "Using HAL config from " DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE "\n");
+   }
+   else {
+       hal_configuration_path = VENDOR_CONFIGURATION_FILE;
+       SENSOR_LOGE(SENSOR_TAG "Failed to open " DATA_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE " errno=%d (%s), falling back to " VENDOR_CONFIGURATION_FILE "/" HAL_CONFIGURATION_FILE "\n", errno, strerror(errno));
+   }
+
+   file_path_name = (char *)calloc(strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE)) + 2, 1);
    if (!file_path_name) {
              err = -errno;
              return -ENOMEM;
    }
 
-   fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-   snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+   fsize = strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE));
+   snprintf(file_path_name, fsize + 2, "%s/%s", hal_configuration_path, HAL_CONFIGURATION_FILE);
    fd_config = fopen(file_path_name, "r");
    if (fd_config == NULL) {
             err = -errno;
@@ -186,24 +213,10 @@ void DeInitHandles()
    return;
 }
 
-void signalHandler(int signal)
+void cleanup()
 {
-   SENSOR_LOGI(SENSOR_TAG "signalHandler\n");
+   SENSOR_LOGI(SENSOR_TAG "cleanup Handler\n");
    DeInitHandles();
-   exit(0);
-   return;
-}
-
-void regSigHandler()
-{
-   struct sigaction mySigAction = {};
-
-   mySigAction.sa_handler = signalHandler;
-   sigemptyset(&mySigAction.sa_mask);
-   sigaction(SIGHUP, &mySigAction, NULL);
-   sigaction(SIGTERM, &mySigAction, NULL);
-   sigaction(SIGINT, &mySigAction, NULL);
-   sigaction(SIGPIPE, &mySigAction, NULL);
    return;
 }
 
@@ -257,7 +270,12 @@ static void onCapabilitiesCb(SensorInterfaceTypes::SensorServiceStateMaskT mask)
 
 static void dump_live_event(SensorInterfaceTypes::SensorImuEventT *e)
 {
-  static int64_t acc_ts = 0;
+  if (!e) {
+      SENSOR_LOGE(SENSOR_TAG "dump_live_event: null event pointer\n");
+      return;
+  }
+
+   static int64_t acc_ts = 0;
   static int64_t gyro_ts = 0;
   static int64_t head_ts = 0;
   static int AccCount = 0, GyroCount = 0;
@@ -300,7 +318,12 @@ static void dump_live_event(SensorInterfaceTypes::SensorImuEventT *e)
 
 static void  onSensorImuDataReadCb(vector<SensorInterfaceTypes::SensorImuEventT> events, uint32_t count)
 {
-  int i =0;
+  if (count == 0 || events.empty()) {
+      SENSOR_LOGE(SENSOR_TAG "onSensorImuDataReadCb: Invalid event count %d or empty events\n", count);
+      return;
+  }
+
+   int i =0;
   static uint64_t ts_prv_acc = 0, ts_prv_gyro = 0 , ts_cur = 0;
   static uint64_t acc_sensor_ts = 0, gyro_sensor_ts = 0;
   bool retPtp = false;
@@ -330,15 +353,20 @@ static void  onSensorImuDataReadCb(vector<SensorInterfaceTypes::SensorImuEventT>
 
 static void  onSensorHeadingDataReadCb(vector<SensorInterfaceTypes::SensorHeadEventT> events, uint32_t count)
 {
-  int i =0;
+  if (count == 0 || events.empty()) {
+      SENSOR_LOGE(SENSOR_TAG "onSensorHeadingDataReadCb: Invalid event count %d or empty events\n", count);
+      return;
+  }
+
+   int i =0;
   static uint64_t ts_prv_head = 0, ts_cur = 0;
   static uint64_t head_sensor_ts = 0;
   static int64_t head_ts = 0;
   static int HeadCount = 0;
-  bool retPtp = false;
-  if ((nullptr != gPTPReqIf) && (nullptr != gPTPReqIf->gptpGetCurPtpTimeIf)) {
-	  retPtp = gPTPReqIf->gptpGetCurPtpTimeIf(&ts_cur);
-  }
+   bool retPtp = false;
+   if ((nullptr != gPTPReqIf) && (nullptr != gPTPReqIf->gptpGetCurPtpTimeIf)) {
+          retPtp = gPTPReqIf->gptpGetCurPtpTimeIf(&ts_cur);
+   }
 
   int sensor_id = events[0].getSensorId();
 
@@ -383,6 +411,15 @@ static void PrintSensorList(vector<SensorInterfaceTypes::SensorInfoT> sensor, in
     return;
 }
 
+int init_sensor_location_vector(float (&location) [3])
+{
+  location[0] = 0.0f;
+  location[1] = 0.0f;
+  location[2] = 0.0f;
+
+  return 0;
+}
+
 // This API is called to initialise rotational matrix
 int init_sensor_rotation_matrix(float (*rot) [3])
 {
@@ -423,6 +460,52 @@ int calculate_sensor_rotation_matrix(uint16_t rolld, uint16_t pitchd, uint16_t y
   return 0;
 }
 
+int read_sensor_placement_matrix(float (&location) [3])
+{
+  char *file_path_name = NULL;
+  FILE *fd_config = NULL;
+  int fsize = 0;
+  int size;
+  char buffer[BUFSIZ];
+  char *line = NULL;
+  int err = 0;
+
+  file_path_name = (char *)calloc(strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE)) + 2, 1);
+  if (!file_path_name) {
+            err = -errno;
+            SENSOR_LOGE(SENSOR_TAG "Unable to allocate memory (errno %d)\n", err);
+            return -ENOMEM;
+  }
+
+  fsize = strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE));
+  snprintf(file_path_name, fsize + 2, "%s/%s", hal_configuration_path, HAL_CONFIGURATION_FILE);
+  SENSOR_LOGI(SENSOR_TAG "Hal Config file_path_name %s\n", file_path_name);
+  fd_config = fopen(file_path_name, "r");
+  if (fd_config == NULL) {
+      err = -errno;
+      SENSOR_LOGE(SENSOR_TAG "Sensor Filed to open %s (errno %d)\n",
+                      file_path_name, err);
+      goto fail;
+  }
+
+  while(fgets(buffer, sizeof(buffer), fd_config) != NULL) {
+      if(strstr(buffer, "imu_sensor_placement = ")) {
+          line = strstr(buffer, "[");
+          if(line != NULL){
+              size = sscanf(&line[1], "%f,%f,%f", &location[0], &location[1], &location[2]);
+              SENSOR_LOGI(SENSOR_TAG "Read hal config file successful, location[0] %f, location[1] %f, location[2] %f\n", location[0], location[1], location[2]);
+          }
+          break;
+      }
+  }
+  fclose(fd_config);
+fail:
+  free(file_path_name);
+  file_path_name = NULL;
+
+  return err;
+}
+
 // This API is called to read rotational matrix
 int read_sensor_rotation_matrix(uint16_t *roll, uint16_t *pitch, uint16_t *yaw)
 {
@@ -434,15 +517,15 @@ int read_sensor_rotation_matrix(uint16_t *roll, uint16_t *pitch, uint16_t *yaw)
   char *line = NULL;
   int err = 0;
 
-  file_path_name = (char *)calloc(strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE) + 2, 1);
+  file_path_name = (char *)calloc(strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE)) + 2, 1);
   if (!file_path_name) {
             err = -errno;
             SENSOR_LOGE(SENSOR_TAG "Unable to allocate memory (errno %d)\n", err);
             return -ENOMEM;
   }
 
-  fsize = strlen(HAL_CONFIGURATION_PATH) + strlen(HAL_CONFIGURATION_FILE);
-  snprintf(file_path_name, fsize + 2, "%s/%s", HAL_CONFIGURATION_PATH, HAL_CONFIGURATION_FILE);
+  fsize = strnlen(hal_configuration_path, PATH_MAX) + strnlen(HAL_CONFIGURATION_FILE, sizeof(HAL_CONFIGURATION_FILE));
+  snprintf(file_path_name, fsize + 2, "%s/%s", hal_configuration_path, HAL_CONFIGURATION_FILE);
   SENSOR_LOGI(SENSOR_TAG "Hal Config file_path_name %s\n", file_path_name);
   fd_config = fopen(file_path_name, "r");
   if (fd_config == NULL) {
@@ -472,9 +555,8 @@ fail:
 
 void SensorCore::SensorCore_Init() {
 
-    regSigHandler();
-
     init_sensor_rotation_matrix(rot);
+    init_sensor_location_vector(location);
     if ( !read_sensor_rotation_matrix(&roll, &pitch, &yaw) ) {
         if(yaw < RM_MIN || pitch < RM_MIN || roll < RM_MIN || yaw > RM_MAX || pitch > RM_MAX || roll > RM_MAX){
             SENSOR_LOGE(SENSOR_TAG "Error: Euler Angles Invalid Range\n");
@@ -488,6 +570,8 @@ void SensorCore::SensorCore_Init() {
                             rot[2][0], rot[2][1], rot[2][2]);
         }
     }
+
+    read_sensor_placement_matrix(location);
 
     /* GPTP */
     loadGptpLibFile();
@@ -571,9 +655,13 @@ void SensorCore::SensorCore_Init() {
        SENSOR_LOGI(SENSOR_TAG "<<--Received SensorConfigUpdateCb id: %d SamplingRate : %f BatchCount: %d\n", sensor_id, SamplingRate, BatchCount);
     });
 
-    imuDataSubscription = myProxy->getSensorImuDataReadEvent().subscribe(
-       [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorImuEventT > events, uint32_t count) {
-       onSensorImuDataReadCb(events, count);
+     imuDataSubscription = myProxy->getSensorImuDataReadEvent().subscribe(
+        [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorImuEventT > events, uint32_t count) {
+        if (count == 0 || events.empty()) {
+            SENSOR_LOGE(SENSOR_TAG "IMU event callback: Invalid count %d or empty events\n", count);
+            return;
+        }
+        onSensorImuDataReadCb(events, count);
        vector<SensorCoreData> idlSensorEventsData;
        SensorCoreData idlSensorEvents = {};
        for (int i=0 ;i <count; i++){
@@ -596,9 +684,13 @@ void SensorCore::SensorCore_Init() {
        onNewSensorsData(idlSensorEventsData);
     });
 
-    headingDataSubscription = myProxy->getSensorHeadingDataReadEvent().subscribe(
-       [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorHeadEventT > events, uint32_t count) {
-       onSensorHeadingDataReadCb(events, count);
+     headingDataSubscription = myProxy->getSensorHeadingDataReadEvent().subscribe(
+        [&](vector< ::v1::com::qualcomm::qti::sensor::SensorInterfaceTypes::SensorHeadEventT > events, uint32_t count) {
+        if (count == 0 || events.empty()) {
+            SENSOR_LOGE(SENSOR_TAG "Heading event callback: Invalid count %d or empty events\n", count);
+            return;
+        }
+        onSensorHeadingDataReadCb(events, count);
        vector<SensorCoreData> idlSensorEventsData;
        SensorCoreData idlSensorEvents = {};
        for (int i=0 ;i <count; i++){
