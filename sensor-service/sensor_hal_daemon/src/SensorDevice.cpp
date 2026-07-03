@@ -44,6 +44,9 @@
 #endif
 #define LOG_TAG "SensorSvc_Device:"
 
+#define SENSOR_SMI230_GYRO_NORMAL   0
+#define SENSOR_SMI230_GYRO_SUSPEND  20
+
 
 bool SensorDevice::mWakeupActive = false;
 
@@ -347,7 +350,19 @@ int SensorDevice::initMaxRange(int type, int sensor_id) {
 		auto it = next(sensor->second[0].gyro_range_scale_map.begin(), mService->mGyroRange);
 		if (it != sensor->second[0].gyro_range_scale_map.end()) {
 			scale_value = std::get<1>(it->second);
-			if (mSensorType == SENSOR_SMI230) mService->sensorActivate(sensor_id, SENSOR_ENABLE);
+			 // For SMI230, reading the range requires the gyro to be enabled.
+			bool smi230_powered = true;
+			if (mSensorType == SENSOR_SMI230) {
+				int pwr_state = SENSOR_SMI230_GYRO_SUSPEND;
+				string pwrFile = mGyro + "/" + "pwr_cfg";
+				if(sysfs_read_int(pwrFile.c_str(), &pwr_state) <= 0) {
+					SENSOR_LOGE(LOG_TAG "Gyro pwr_cfg read failed, assuming suspend\n");
+					pwr_state = SENSOR_SMI230_GYRO_SUSPEND;
+				}
+				smi230_powered = (pwr_state == SENSOR_SMI230_GYRO_NORMAL);
+			}
+
+			if (!smi230_powered) mService->sensorActivate(sensor_id, SENSOR_ENABLE);
 
 			int ret = sysfs_write_scale(rangeFile.c_str(), scale_value);
 			if(ret != 0) {
@@ -366,7 +381,7 @@ int SensorDevice::initMaxRange(int type, int sensor_id) {
 				SENSOR_LOGI(LOG_TAG "Gyro scale_value read %f\n", scale_value);
 			}
 			
-			if (mSensorType == SENSOR_SMI230) mService->sensorActivate(sensor_id, SENSOR_DISABLE);
+			if (!smi230_powered) mService->sensorActivate(sensor_id, SENSOR_DISABLE);
 		    // Find the corresponding key for the read scale value
 		    for (const auto& entry : sensor->second[0].gyro_range_scale_map) {
 			    if (std::fabs(scale_value - std::get<2>(entry.second)) < epsilon) {
