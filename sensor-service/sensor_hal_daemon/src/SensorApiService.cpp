@@ -209,28 +209,30 @@ SensorApiService::~SensorApiService() {
     if (nullptr != mIpcReceiver) {
         mIpcReceiver->stop();
         delete mIpcReceiver;
+	mIpcReceiver = nullptr;
     }
 
     if (nullptr != mQsockReceiver) {
         mQsockReceiver->stop();
         delete mQsockReceiver;
+	mQsockReceiver = nullptr;
     }
 
     //Delete mSensor memory
     if (nullptr != mSensor) {
-	delete mSensor;
+	delete[] mSensor;
 	mSensor = nullptr;
     }
 
     //Delete mSensorList memory
     if (nullptr != mSensorList) {
-	delete mSensorList;
+	delete[] mSensorList;
 	mSensorList = nullptr;
     }
 
-    //Delete mSensorMlcCaseList memory
+    //Delete mSensorMlcCaseList  memory
     if (nullptr != mSensorMlcCaseList) {
-        delete mSensorMlcCaseList;
+	std::free(mSensorMlcCaseList);
         mSensorMlcCaseList = nullptr;
     }
 
