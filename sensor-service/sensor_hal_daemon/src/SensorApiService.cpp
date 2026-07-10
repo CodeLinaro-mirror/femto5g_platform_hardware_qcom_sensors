@@ -82,11 +82,15 @@
 #define SMI130LIB "/usr/lib/libsmi130sensors.so.1"
 #define SMI230LIB "/usr/lib/libsmi230sensors.so.1"
 
+#define SENSOR_SMI230_GYRO_SUSPEND 20
+#define SENSOR_SMI230_GYRO_NORMAL 0
 /******************************************************************************
 SensorApiService - static members
 ******************************************************************************/
 SensorApiService* SensorApiService::mInstance = nullptr;
 std::mutex SensorApiService::mMutex;
+bool SensorApiService::mRequestStop = true;
+
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
 static LocationClientApi* pLcaClient = nullptr;
 #endif
@@ -230,20 +234,45 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     (void)mQsockReceiver->start(true);
 }
 
+void SensorApiService::stopInternal()
+{
+     for(int i = 0 ; i < mSensorCount; i++)  {
+         SENSOR_LOGI(LOG_TAG ">-- Destructor invoked, disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
+         (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
+     }
+
+     if(mSensorType == SENSOR_SMI130 || mSensorType == SENSOR_SMI230){
+         mpoll_dev_v0->common.close(&mpoll_dev_v0->common);
+     }
+
+    if (nullptr != mIpcReceiver) {
+        mIpcReceiver->stop();
+        delete mIpcReceiver;
+        mIpcReceiver = nullptr;
+    }
+
+    if (nullptr != mQsockReceiver) {
+        mQsockReceiver->stop();
+        delete mQsockReceiver;
+        mQsockReceiver = nullptr;
+    }
+    return;
+}
+
+void SensorApiService::requestStop()
+{
+    mRequestStop = false;
+    if (mInstance != nullptr)
+        mInstance->stopInternal();
+
+    return;
+}
+
 /******************************************************************************
 SensorApiService - Destructors
 ******************************************************************************/
 SensorApiService::~SensorApiService() {
     SENSOR_LOGI(LOG_TAG "SensorApiService Destructor is called\n");
-
-    for(int i = 0 ; i < mSensorCount; i++)  {
-        SENSOR_LOGI(LOG_TAG ">-- Destructor invoked, disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
-        (void)sensor_activate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
-    }
-
-    if(mSensorType == 3 || mSensorType == 4){
-        mpoll_dev_v0->common.close(&mpoll_dev_v0->common);
-    }
 
 #ifdef SENSOR_IVSS_ENABLED
     std::shared_ptr<CommonAPI::Runtime> runtime = CommonAPI::Runtime::get();
@@ -269,19 +298,6 @@ SensorApiService::~SensorApiService() {
 #endif
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    // stop ipc receiver thread
-    if (nullptr != mIpcReceiver) {
-        mIpcReceiver->stop();
-        delete mIpcReceiver;
-	mIpcReceiver = nullptr;
-    }
-
-    if (nullptr != mQsockReceiver) {
-        mQsockReceiver->stop();
-        delete mQsockReceiver;
-	mQsockReceiver = nullptr;
-    }
 
     //Delete mSensor memory
     if (nullptr != mSensor) {
@@ -309,7 +325,7 @@ SensorApiService::~SensorApiService() {
 /******************************************************************************
   SensorApiService - onListenerReady send HAL READY message to all clients.
 ******************************************************************************/
-void SensorApiService::onListenerReady() {
+void SensorApiService::onListenerReady(SocketType socketType) {
 
     // traverse client sockets directory - then broadcast READY message
     SENSOR_LOGI(LOG_TAG ">-- onListenerReady Finding client sockets...\n");
@@ -331,13 +347,25 @@ void SensorApiService::onListenerReady() {
         if ('.' == (dp->d_name[0])) {
             continue;
         }
+
+        // IPC listener → IPC sockets only
+        if (socketType == IPC_SOCKET && !S_ISSOCK(sbuf.st_mode)) {
+            SENSOR_LOGV("onListenerReady called by IPC_SOCKET but Socket is QSocket");
+            continue;
+        }
+        // QSocket listener → NOT IPC sockets
+        if (socketType == Q_SOCKET && S_ISSOCK(sbuf.st_mode)) {
+            SENSOR_LOGV("onListenerReady called by Q_SOCKET but Socket is IPCSocket");
+            continue;
+        }
+
         const char* clientName = NULL;
         if (0 == fname.compare(0, fnamebase.size(), fnamebase)) {
             clientName = fname.c_str();
             SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s\n", clientName);
         }
         if (NULL != clientName) {
-            SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName);
+            SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName, socketType);
             SensorAPIHalReadyIndMsg msg(SERVICE_NAME);
             SENSOR_LOGD(LOG_TAG "<-- Sending ready to socket: %s, msg size %d\n", clientName, sizeof(msg));
             (void)pIpcSender->send(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
@@ -537,14 +565,14 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
      mMlcSupported = true;
 
    //Create the thread to send data to all clients.
-   if (!Sensor_ThreadCreate(&mSensorThreadtid, send_sensor_data_to_clients, this, "SensorPoll-")) {
+   if (!Sensor_ThreadCreate(&mSensorThreadtid, send_sensor_data_to_clients, this, "SensorPoll-", true)) {
       SENSOR_LOGE(LOG_TAG "Sensor Poll Data thread failed \n");
       return false;
    }
 
    //Create the thread to send buffer data to all clients if buffering supported by sensor.
    if(mBufferSupported == true) {
-      if (!Sensor_ThreadCreate(&mBufferThreadtid, bufferDataprocessTask, this, "SensorBufferRead-")) {
+      if (!Sensor_ThreadCreate(&mBufferThreadtid, bufferDataprocessTask, this, "SensorBufferRead-", true)) {
 	     SENSOR_LOGE(LOG_TAG "Sensor Buffer Data read thread failed \n");
 	     return false;
      }
@@ -1569,20 +1597,6 @@ void SensorApiService::onSelfTestRequest(SensorHalDaemonClientHandler* pClient,
         timestamp = Gyrotimestamp;
     }
 
-    for(int i = 0 ; i < mSensorCount; i++)  {
-	    if (sensor_id == mSensor[i].sensor_id) {
-	        if (mSensor[i].Activate == SENSOR_ENABLE){
-		    int64_t SamplingRate = FREQUENCY_TO_NS(mSensor[i].SamplingRate);
-		    int64_t BatchingRate =  mSensor[i].BatchCount * SamplingRate  * mBatchConst;
-
-		    SENSOR_LOGI(LOG_TAG ">-- onSelfTest Re-Configure sensor sensor_id %d sampling Rate %lld BatchingRate %lld\n",
-				    mSensor[i].sensor_id, SamplingRate, BatchingRate);
-		    (void)sensor_set_batch(mSensor[i].sensor_id, SamplingRate, BatchingRate); //configure the sensor
-		    (void)sensor_activate(mSensor[i].sensor_id, SENSOR_ENABLE); //Enable the sensor
-	        }
-	    }
-    }
-
 fail:
     if(mSensorType == 1 || mSensorType == 4){
         if(AccelTest == 1) {
@@ -1986,11 +2000,19 @@ void SensorApiService::GetSupportedSamplingRateAndRange(struct sensor_list *s) {
                 float samplingRate[6] = {100, 200, 400};
                 int gyro_range[5] = {125, 250, 500, 1000, 2000};
 		char rangeFilePath[SEARCH_PATH_SIZE]={'\0'};
+		char pwrFilePath[SEARCH_PATH_SIZE]={'\0'};
+		int pwr_state = SENSOR_SMI230_GYRO_SUSPEND;
 		find_path(DYN_INPUT_TYPE, rangeFilePath, "SMI230GYRO", sizeof(rangeFilePath));
+
+		/* Check if Sensor is already Enabled */
+		(void)strlcpy(pwrFilePath, rangeFilePath, sizeof(pwrFilePath));
+		(void)strlcat(pwrFilePath, "pwr_cfg", sizeof(rangeFilePath));
+		(void)sysfs_read_int(pwrFilePath, &pwr_state);
+
 		(void)strlcat(rangeFilePath, "range", sizeof(rangeFilePath));
-		sensor_activate(s->sensor_id, SENSOR_ENABLE);
+		if(pwr_state != SENSOR_SMI230_GYRO_NORMAL) sensor_activate(s->sensor_id, SENSOR_ENABLE);
 		(void)sysfs_read_int(rangeFilePath, &s->range);
-		sensor_activate(s->sensor_id, SENSOR_DISABLE);
+		if(pwr_state != SENSOR_SMI230_GYRO_NORMAL) sensor_activate(s->sensor_id, SENSOR_DISABLE);
                 (void)memcpy(&s->odr[0], samplingRate, sizeof(samplingRate));
                 mMaxGyroSampleRate = NearBySamplingRate(samplingRate, mMaxGyroSampleRate);
                 s->maxSamplingRate = mMaxGyroSampleRate;
@@ -2112,7 +2134,7 @@ void SensorApiService::EnableHeadingSensor() {
     SENSOR_LOGI(LOG_TAG "<<< start heading sensor session\n");
     GnssReportCbs reportcbs = {};
     reportcbs.gnssLocationCallback = GnssLocationCb(onGnssLocationCb);
-    (void)pLcaClient->startPositionSession(100, reportcbs, onLocationResponseCb);
+    (void)pLcaClient->startPositionSession(HEADING_ODR_IN_MS, reportcbs, onLocationResponseCb);
 }
 
 void SensorApiService::DisableHeadingSensor() {
@@ -2136,15 +2158,19 @@ static void SensorApiService::onLocationResponseCb(location_client::LocationResp
 
 void SensorApiService::onSensorHeadingDataReadCb(float heading, float accuracy, uint64_t ts) {
    std::lock_guard<std::mutex> lock(mMutex);
-   float heading_degree = heading * (180.0f/M_PI); // Calculate Heading Degree
-   float accuracy_degree = accuracy * (180.0f/M_PI); // Calculate Accuracy Degree
+   float heading_degree;
+   float accuracy_degree;
+   heading_degree = heading * (180.0f/M_PI); // Calculate Heading Degree
+   heading_degree = (heading_degree < 0) ? 360.0f + heading_degree : heading_degree; // Normalize to [0, 360)
+   accuracy_degree = accuracy * (180.0f/M_PI); // Calculate Accuracy Degree
+   SENSOR_LOGD(LOG_TAG "<<< Heading degree yaw <%f %f> ts %lld\n", heading_degree, accuracy_degree, ts);
 #ifdef SENSOR_IVSS_ENABLED
    myService->onSensorHeadingDataReadCb(heading_degree, accuracy_degree, ts);
 #endif
 }
 
 static void SensorApiService::onGnssLocationCb(const location_client::GnssLocation& location) {
-   SENSOR_LOGI(LOG_TAG "<<< Location yaw <%f %f> ts %lld\n", location.bodyFrameData.yaw, location.bodyFrameData.yawUnc, location.elapsedRealTimeNs);
+   SENSOR_LOGD(LOG_TAG "<<< Heading Location yaw <%f %f> ts %lld\n", location.bodyFrameData.yaw, location.bodyFrameData.yawUnc, location.elapsedRealTimeNs);
    mInstance->onSensorHeadingDataReadCb(location.bodyFrameData.yaw, location.bodyFrameData.yawUnc, location.elapsedRealTimeNs);
 }
 #endif

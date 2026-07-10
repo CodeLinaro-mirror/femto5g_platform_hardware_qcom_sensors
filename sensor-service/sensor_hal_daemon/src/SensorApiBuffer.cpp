@@ -214,7 +214,7 @@ int SensorApiService::readTempASM(float *temperature)
 */
 int SensorApiService::readTempIAM(float *temperature)
 {
-  int data;
+  int data = 0;
   uint64_t timeStamp;
   if ( NULL == mTempFilePtr.iamTempFile.dataFile )
   {

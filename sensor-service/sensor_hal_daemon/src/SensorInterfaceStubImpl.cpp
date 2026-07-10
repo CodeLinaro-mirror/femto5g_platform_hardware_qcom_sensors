@@ -38,6 +38,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define SENSOR_TYPE_HEADING   42
 #define SENSOR_ID_HEADING   5
+#define SENSOR_HEADING_ODR_HZ 10
 
 #define NSEC_IN_ONE_SEC       (1000000000ULL)   /* nanosec in a sec */
 
@@ -164,12 +165,12 @@ vector<SensorInterfaceTypes::SensorInfoT> SensorInterfaceStubImpl::parseSensorIn
 	  idlSensorInfoT.setSensorVersion(1);
 	  idlSensorInfoT.setSensorId(SENSOR_ID_HEADING);
 	  idlSensorInfoT.setType(SENSOR_TYPE_HEADING);
-	  idlSensorInfoT.setMaxSamplingRate(100);
+	  idlSensorInfoT.setMaxSamplingRate(SENSOR_HEADING_ODR_HZ);
 	  idlSensorInfoT.setMinBatchCount(1);
 	  idlSensorInfoT.setMaxBatchCount(1);
 	  idlSensorInfoT.setResolution(0);
 	  idlSensorInfoT.setMaxRange(0);
-	  idlSensorInfoT.setOdr({100});
+	  idlSensorInfoT.setOdr({SENSOR_HEADING_ODR_HZ});
 	  idlSensorInfoTData.push_back(idlSensorInfoT);
 #endif
   return idlSensorInfoTData;
@@ -297,7 +298,7 @@ void SensorInterfaceStubImpl::SensorConfigReq(const shared_ptr<CommonAPI::Client
     }
     /*Handle heading config request*/
     else {
-           fireSensorConfigUpdateEvent(SENSOR_ID_HEADING, 100, 1);
+           fireSensorConfigUpdateEvent(SENSOR_ID_HEADING, SENSOR_HEADING_ODR_HZ, 1);
 	    response  = parseSensorReturnT(resp);
 	   reply(response);
     }
