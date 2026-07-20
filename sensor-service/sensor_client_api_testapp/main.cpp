@@ -442,7 +442,7 @@ int main(int argc, char *argv[]) {
    bool wakeup_enable;
    struct wakeup_config_info wakeup_info;
 
-   SelfTestType selfTestType;
+   SelfTestType selfTestType = All;
 
    pClient = new SensorClient(onCapabilitiesCb);
 

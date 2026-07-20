@@ -369,12 +369,16 @@ void MPLSensor::enable_iio_sysfs(void)
     int data;
     int ret;
 
+    LOGI("HAL:mpu.chip_enable path [%s]", mpu.chip_enable);
+    LOGI("HAL:mpu.scan_el_en path [%s]", mpu.scan_el_en);
+    LOGI("HAL:mpu.buffer_length path [%s]", mpu.buffer_length);
+
     // turn off chip in case
     LOGV_IF(SYSFS_VERBOSE, "HAL:sysfs:echo %d > %s (%lld)",
             0, mpu.chip_enable, (long long)getTimestamp());
     tempFp = fopen(mpu.chip_enable, "w");
     if (tempFp == NULL) {
-        LOGE("HAL:could not open chip enable");
+        LOGE("HAL:could not open chip enable [%s], error %d", mpu.chip_enable, errno);
     } else {
         if (fprintf(tempFp, "%d", 0) < 0) {
             LOGE("HAL:could not write chip enable");
@@ -386,7 +390,7 @@ void MPLSensor::enable_iio_sysfs(void)
             1, mpu.scan_el_en, (long long)getTimestamp());
     tempFp = fopen(mpu.scan_el_en, "w");
     if (tempFp == NULL) {
-        LOGE("HAL:could not open scan element enable");
+        LOGE("HAL:could not open scan element enable [%s], error %d", mpu.scan_el_en, errno);
     } else {
         if (fprintf(tempFp, "%d", 1) < 0) {
             LOGE("HAL:could not write scan element enable");
@@ -398,7 +402,7 @@ void MPLSensor::enable_iio_sysfs(void)
             IIO_BUFFER_LENGTH, mpu.buffer_length, (long long)getTimestamp());
     tempFp = fopen(mpu.buffer_length, "w");
     if (tempFp == NULL) {
-        LOGE("HAL:could not open buffer length");
+        LOGE("HAL:could not open buffer length [%s], error %d", mpu.buffer_length, errno);
     } else {
         if (fprintf(tempFp, "%d", IIO_BUFFER_LENGTH) < 0) {
             LOGE("HAL:could not write buffer length");
@@ -410,7 +414,7 @@ void MPLSensor::enable_iio_sysfs(void)
             1, mpu.chip_enable, (long long)getTimestamp());
     tempFp = fopen(mpu.chip_enable, "w");
     if (tempFp == NULL) {
-        LOGE("HAL:could not open chip enable");
+        LOGE("HAL:could not open chip enable [%s], error %d", mpu.chip_enable, errno);
     } else {
         if (fprintf(tempFp, "%d", 1) < 0) {
             LOGE("HAL:could not write chip enable");
@@ -1636,7 +1640,7 @@ int MPLSensor::inv_init_sysfs_attributes(void)
         dptr = (char**)&mpu;
         do {
             *dptr++ = sptr;
-            memset(sptr, 0, sizeof(char));
+            memset(sptr, 0, MAX_SYSFS_NAME_LEN);
             sptr += sizeof(char[MAX_SYSFS_NAME_LEN]);
         } while (++i < MAX_SYSFS_ATTRB);
     } else {
@@ -1651,11 +1655,11 @@ int MPLSensor::inv_init_sysfs_attributes(void)
     sprintf(mpu.chip_enable, "%s%s", sysfs_path, "/buffer/enable");
     sprintf(mpu.buffer_length, "%s%s", sysfs_path, "/buffer/length");
 
-    snprintf(mpu.scan_el_en, sizeof(mpu.scan_el_en), "%s%s", sysfs_path,
+    snprintf(mpu.scan_el_en, MAX_SYSFS_NAME_LEN, "%s%s", sysfs_path,
             "/scan_elements/in_accel_en");
-    snprintf(mpu.scan_el_index, sizeof(mpu.scan_el_index), "%s%s", sysfs_path,
+    snprintf(mpu.scan_el_index, MAX_SYSFS_NAME_LEN, "%s%s", sysfs_path,
             "/scan_elements/in_accel_index");
-    snprintf(mpu.scan_el_type, sizeof(mpu.scan_el_index), "%s%s", sysfs_path,
+    snprintf(mpu.scan_el_type, MAX_SYSFS_NAME_LEN, "%s%s", sysfs_path,
             "/scan_elements/in_accel_type");
 
     sprintf(mpu.self_test, "%s%s", sysfs_path, "/misc_self_test");
@@ -1694,10 +1698,10 @@ int MPLSensor::inv_init_sysfs_attributes(void)
             "/misc_flush_batch");
 
     /* FIFO high resolution mode */
-    snprintf(mpu.high_res_mode, sizeof(mpu.high_res_mode), "%s%s", sysfs_path, "/in_high_res_mode");
+    snprintf(mpu.high_res_mode, MAX_SYSFS_NAME_LEN, "%s%s", sysfs_path, "/in_high_res_mode");
 
     /* chip temperature fd */
-    snprintf(mpu.chip_temperature, sizeof(mpu.chip_temperature), "%s%s", sysfs_path, "/out_temperature");
+    snprintf(mpu.chip_temperature, MAX_SYSFS_NAME_LEN, "%s%s", sysfs_path, "/out_temperature");
 
     return 0;
 }

@@ -53,6 +53,8 @@ SensorApiService - static members
 ******************************************************************************/
 SensorApiService* SensorApiService::mInstance = nullptr;
 mutex SensorApiService::mMutex;
+bool SensorApiService::mRequestStop = true;
+
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
 static LocationClientApi* pLcaClient = nullptr;
 #endif
@@ -188,12 +190,8 @@ SensorApiService::SensorApiService(const configParamToRead & configParamRead) :
     (void)mQsockReceiver->start(true);
 }
 
-/******************************************************************************
-SensorApiService - Destructors
-******************************************************************************/
-SensorApiService::~SensorApiService() {
-    SENSOR_LOGI(LOG_TAG "SensorApiService Destructor is called\n");
-
+void SensorApiService::stopInternal()
+{
     for(int i = 0 ; i < mSensorCount; i++)  {
         SENSOR_LOGI(LOG_TAG ">--Disable the sensor mSensor[i].sensor_id %d\n", mSensor[i].sensor_id);
         (void)sensorActivate(mSensor[i].sensor_id, SENSOR_DISABLE); //Disable the sensor
@@ -201,36 +199,54 @@ SensorApiService::~SensorApiService() {
 
     //Delete mSensorDevice memory
     if (nullptr != mSensorDevice) {
-	delete mSensorDevice;
-	mSensorDevice = nullptr;
+        delete mSensorDevice;
+        mSensorDevice = nullptr;
     }
 
-    // stop ipc receiver thread
     if (nullptr != mIpcReceiver) {
         mIpcReceiver->stop();
         delete mIpcReceiver;
+        mIpcReceiver = nullptr;
     }
 
     if (nullptr != mQsockReceiver) {
         mQsockReceiver->stop();
         delete mQsockReceiver;
+        mQsockReceiver = nullptr;
     }
+    return;
+}
+
+void SensorApiService::requestStop()
+{
+    mRequestStop = false;
+    if (mInstance != nullptr)
+        mInstance->stopInternal();
+
+    return;
+}
+
+/******************************************************************************
+SensorApiService - Destructors
+******************************************************************************/
+SensorApiService::~SensorApiService() {
+    SENSOR_LOGI(LOG_TAG "SensorApiService Destructor is called\n");
 
     //Delete mSensor memory
     if (nullptr != mSensor) {
-	delete mSensor;
+	delete[] mSensor;
 	mSensor = nullptr;
     }
 
     //Delete mSensorList memory
     if (nullptr != mSensorList) {
-	delete mSensorList;
+	delete[] mSensorList;
 	mSensorList = nullptr;
     }
 
-    //Delete mSensorMlcCaseList memory
+    //Delete mSensorMlcCaseList  memory
     if (nullptr != mSensorMlcCaseList) {
-        delete mSensorMlcCaseList;
+	std::free(mSensorMlcCaseList);
         mSensorMlcCaseList = nullptr;
     }
 
@@ -242,7 +258,7 @@ SensorApiService::~SensorApiService() {
 /******************************************************************************
   SensorApiService - onListenerReady send HAL READY message to all clients.
 ******************************************************************************/
-void SensorApiService::onListenerReady() {
+void SensorApiService::onListenerReady(SocketType socketType) {
 
     // traverse client sockets directory - then broadcast READY message
     SENSOR_LOGI(LOG_TAG ">-- onListenerReady Finding client sockets...\n");
@@ -264,13 +280,25 @@ void SensorApiService::onListenerReady() {
         if ('.' == (dp->d_name[0])) {
             continue;
         }
+
+        // IPC listener → IPC sockets only
+        if (socketType == IPC_SOCKET && !S_ISSOCK(sbuf.st_mode)) {
+            SENSOR_LOGV("onListenerReady called by IPC_SOCKET but Socket is QSocket");
+            continue;
+        }
+        // QSocket listener → NOT IPC sockets
+        if (socketType == Q_SOCKET && S_ISSOCK(sbuf.st_mode)) {
+            SENSOR_LOGV("onListenerReady called by Q_SOCKET but Socket is IPCSocket");
+            continue;
+        }
+
         const char* clientName = NULL;
         if (0 == fname.compare(0, fnamebase.size(), fnamebase)) {
             clientName = fname.c_str();
             SENSOR_LOGV(LOG_TAG "<-- Sending ready to socket: %s\n", clientName);
         }
         if (NULL != clientName) {
-            SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName);
+            SensorHalDaemonIPCSender* pIpcSender = new SensorHalDaemonIPCSender(clientName, socketType);
             SensorAPIHalReadyIndMsg msg(SERVICE_NAME);
             SENSOR_LOGD(LOG_TAG "<-- Sending ready to socket: %s, msg size %d\n", clientName, sizeof(msg));
             (void)pIpcSender->send(reinterpret_cast<uint8_t*>(&msg), sizeof(msg));
@@ -441,14 +469,14 @@ bool SensorApiService::openSensor(const configParamToRead & configParamRead)
    }
 
    //Create the thread to send data to all clients.
-   if (!Sensor_ThreadCreate(&mSensorThreadtid, sendSensorDataToClients, this, "SensorPoll-")) {
+   if (!Sensor_ThreadCreate(&mSensorThreadtid, sendSensorDataToClients, this, "SensorPoll-", true)) {
       SENSOR_LOGE(LOG_TAG "Sensor Poll Data thread failed \n");
       return false;
    }
 
    //Create the thread to send buffer data to all clients if buffering supported by sensor.
    if(mBufferSupported == true) {
-      if (!Sensor_ThreadCreate(&mBufferThreadtid, bufferDataprocessTask, this, "SensorBufferRead-")) {
+      if (!Sensor_ThreadCreate(&mBufferThreadtid, bufferDataprocessTask, this, "SensorBufferRead-", true)) {
 	     SENSOR_LOGE(LOG_TAG "Sensor Buffer Data read thread failed \n");
 	     return false;
      }
@@ -1390,7 +1418,7 @@ void SensorApiService::getsensorWakeupConfInfoLimits(SensorAPIWakeupConfigReqMsg
     if (!pClient) {
 	    SENSOR_LOGE(LOG_TAG ">-- getsensorWakeupConfInfoLimits invlalid client=%s\n", pMsg->mSocketName);
 	    ret = SENSOR_ERROR_INVALID_CLIENT;
-	    goto fail;
+	    return;
     }
     //Input parameter check
     if (mSensorCount != 0) {
@@ -1439,7 +1467,7 @@ void SensorApiService::getsensorWakeupConfUpdate(SensorAPIWakeupConfigReqMsg*  p
     if (!pClient) {
 	    SENSOR_LOGE(LOG_TAG ">-- getsensorWakeupConfUpdate invlalid client=%s\n", pMsg->mSocketName);
 	    ret = SENSOR_ERROR_INVALID_CLIENT;
-	    goto fail;
+	    return;
     }
     //Input parameter check
     if (mSensorCount != 0) {
