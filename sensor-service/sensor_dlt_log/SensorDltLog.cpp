@@ -14,6 +14,8 @@
 #define SENSOR_CONF_PATH "/etc/sensors.conf"
 
 static DltContext ctx;
+static bool appRegisteredByThisLib = false;
+static bool ctxRegistered = false;
 int DLT_ENABLE = 0;
 
 /**@brief:  Reads DLT_ENABLED from the sensor config file and updates DLT_ENABLE.
@@ -73,8 +75,16 @@ void dltLogInit(const char *appid, const char *ctid, const char *description)
     if (DLT_ENABLE && AppId[0] == '\0')
     {
         DLT_REGISTER_APP(appid, description);
+        appRegisteredByThisLib = true;
     }
-    DLT_REGISTER_CONTEXT(ctx, ctid, description);
+    if (dlt_register_context(&ctx, ctid, description) != DLT_RETURN_OK)
+    {
+        DLT_ENABLE = 0;
+    }
+    else
+    {
+        ctxRegistered = true;
+    }
 }
 
 /**@brief:      Function to route all log messages to DLT
@@ -94,6 +104,19 @@ void logtodlt(DltLogLevelType dlt_level, const char *fmt, ...)
     DLT_LOG(ctx, dlt_level, DLT_CSTRING(buf));
 }
 
+void dltLogDeInit(void)
+{
+	if (ctxRegistered)
+	{
+		DLT_UNREGISTER_CONTEXT(ctx);
+		ctxRegistered = false;
+	}
+	if (appRegisteredByThisLib)
+	{
+		DLT_UNREGISTER_APP();
+		appRegisteredByThisLib = false;
+	}
+}
 #ifdef __cplusplus
 }
 #endif

@@ -227,11 +227,10 @@ static void* sigterm_wait_thread(void*)
 //MAIN
 int main(int argc, char *argv[])
 {
+    block_sigterm();
 #ifdef USE_DLT
     dltLogInit("SENS", "SHD", "Sensor Hal Daemon");
 #endif
-
-    block_sigterm();
     pthread_t sig_thread;
     bool rc = Sensor_ThreadCreate(&sig_thread, sigterm_wait_thread, NULL, "sigterm_wait_main_func", false);
     if(rc == false)
@@ -267,5 +266,8 @@ int main(int argc, char *argv[])
 
     SensorApiService::destroy();
     SENSOR_LOGI(LOG_TAG "done\n");
+#ifdef USE_DLT
+    dltLogDeInit();
+#endif
     exit(0);
 }

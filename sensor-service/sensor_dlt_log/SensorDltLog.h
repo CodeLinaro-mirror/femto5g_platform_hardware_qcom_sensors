@@ -20,6 +20,7 @@ extern "C" {
 
 void dltLogInit(const char *appid, const char *ctid, const char *description);
 void logtodlt(DltLogLevelType dlt_level, const char *fmt, ...);
+void dltLogDeInit(void);
 
 #ifdef __cplusplus
 }

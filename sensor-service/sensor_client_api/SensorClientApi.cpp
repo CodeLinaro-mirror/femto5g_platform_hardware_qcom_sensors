@@ -60,6 +60,9 @@ SensorClient::~SensorClient() {
         // two steps processes due to asynchronous message processing
         mApiImpl->destroy();
         // deletion of mApiImpl will be done after messages in the queue are processed
+#ifdef USE_DLT
+        dltLogDeInit();
+#endif
     }
 }
 
