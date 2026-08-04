@@ -120,6 +120,40 @@ SensorDevice::SensorInfo initIAM20680() {
    return sensor;
 }
 
+SensorDevice::SensorInfo initSMI330() {
+   SensorDevice::SensorInfo sensor = {
+        "SMI330",
+	    "smi330",
+	    "smi330",
+	    "smi330",
+	    "in_accel_scale",
+	    "in_anglvel_scale",
+	    "", // self-test not supported
+	    {},
+	    {},
+	    // wakeup_config_info: {minThreshold, maxThreshold, minDuration, maxDuration, minOdr, maxOdr}
+	    {0,0,0,0,12.5,400},
+	    {0,0,12.5},
+	    "/usr/lib/libsmi330sensors.so.1.0.0",
+	    {12.5, 25, 50, 100, 200, 400},
+	    {12.5, 25, 50, 100, 200, 400},
+	    // Accel range->{buff_scale, write_value, read_value}. For SMI330 the sysfs scale
+	    // is written/read directly as the scale value (m/s^2 per LSB) as strings.
+	    {{2,{0.000061035,0.000061035,0.000061035}}, {4,{0.000122070,0.000122070,0.000122070}}, {8,{0.000244140,0.000244140,0.000244140}}, {16,{0.000488281,0.000488281,0.000488281}}},
+	    // Gyro range->{buff_scale, write_value, read_value} (rad/s per LSB)
+	    {{125,{0.003814697,0.003814697,0.003814697}}, {250,{0.007629395,0.007629395,0.007629395}}, {500,{0.015258789,0.015258789,0.015258789}}},
+	    4,
+	    125,
+	    1,
+	   -1,
+	   -1,
+	    false
+   };
+   sensor.temp_files.push_back(SensorDevice::tempPtr("in_temp_raw"));
+
+   return sensor;
+}
+
 SensorDevice::SensorInfo initSMI230() {
    SensorDevice::SensorInfo sensor = {
             "SMI230",
@@ -168,6 +202,7 @@ SensorDevice::SensorDevice(SensorApiService* service) :
    mSensorInfo[SENSOR_ASM330].push_back(initASM330());
    mSensorInfo[SENSOR_IAM20680].push_back(initIAM20680());
    mSensorInfo[SENSOR_SMI230].push_back(initSMI230());
+   mSensorInfo[SENSOR_SMI330].push_back(initSMI330());
 }
 
 SensorDevice::~SensorDevice() {
@@ -307,7 +342,7 @@ void SensorDevice::normalizeSensorRange(int type, const SensorDevice::SensorInfo
 int SensorDevice::initMaxRange(int type, int sensor_id) {
   string rangeFile;
   float scale_value = 0, range = 0;
-  float epsilon = std::numeric_limits<float>::epsilon();
+  float epsilon = 1e-6f;
 
   auto sensor = mSensorInfo.find(mSensorType);
   if (sensor != mSensorInfo.end()) {
@@ -565,6 +600,18 @@ int SensorDevice::readSensorTemperature(float *temperature) {
 		  }
 		  *temperature = temp / 1000.0f; // Convert to Degree Celsius
 		  SENSOR_LOGI(LOG_TAG "SMI230 Temperature: %f\n", *temperature);
+		  return 0;
+	  } else if (mSensorType == SENSOR_SMI330) {
+		  float raw = 0.0f;
+		  // SMI330 temperature: (raw + offset) * scale, where
+		  // offset = 23 * 512 and scale = 1/512 (see SMI330 sensor HAL)
+		  for (const auto& tempPtr : sensorInfo.temp_files) {
+			  tempPtr.tempfile->clear(); // Clear any error flags
+			  tempPtr.tempfile->seekg(0); // Reset file pointer to the beginning
+			  *tempPtr.tempfile >> raw;
+		  }
+		  *temperature = (raw + (23.0f * 512)) * (1.0f / 512); // Convert to Degree Celsius
+		  SENSOR_LOGI(LOG_TAG "SMI330 Temperature: %f\n", *temperature);
 		  return 0;
 	  }
   }

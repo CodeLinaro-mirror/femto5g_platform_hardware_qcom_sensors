@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. 
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "SMI330.h"
@@ -48,7 +53,7 @@ Smi330Acc::Smi330Acc(const std::shared_ptr<SensorThread> sensorThread)
   mSensorData.sensorName = "SMI330 BOSCH Accelerometer Sensor";
   mSensorData.propertyIdentifier = "smi330";
   mSensorData.temperatureSysfsRaw = "in_temp_raw";
-  mSensorData.minDelayUs = 5000;
+  mSensorData.minDelayUs = 2500;  // 400 Hz max (1/400 s = 2500 us); 5000 would cap at 200 Hz
   mSensorData.scanType = kSmi330ScanType;
   mSensorData.maxDelayUs = 2000000;
   mSensorData.power = 0.4f;
@@ -62,7 +67,7 @@ Smi330Gyro::Smi330Gyro(const std::shared_ptr<SensorThread> sensorThread)
   mSensorData.sensorName = "SMI330 BOSCH Gyroscope Sensor";
   mSensorData.propertyIdentifier = "smi330";
   mSensorData.temperatureSysfsRaw = "in_temp_raw";
-  mSensorData.minDelayUs = 5000;
+  mSensorData.minDelayUs = 2500;  // 400 Hz max (1/400 s = 2500 us); 5000 would cap at 200 Hz
   mSensorData.scanType = kSmi330ScanType;
   mSensorData.maxDelayUs = 2000000;
   mSensorData.power = 0.4f;

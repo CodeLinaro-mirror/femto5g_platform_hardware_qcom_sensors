@@ -58,12 +58,23 @@ uint64_t get_timestamp() {
 int sysfs_write_scale(char *file, float val)
 {
 	FILE *fp;
+	int ret;
 
 	fp = fopen(file, "w");
 	if (NULL == fp)
 		return -errno;
 
-	int ret = fprintf(fp, "%.9g", val);
+	/*
+	 * Integer-valued entries (e.g. IAM20680 index, SMI230 register value)
+	 * are written as plain integers. Fractional scales use fixed-point
+	 * notation: %g switches to scientific notation for magnitudes < 1e-4
+	 * (0.000061035 -> "6.1035e-05"), which the kernel IIO fixed-point
+	 * parser rejects (EINVAL), e.g. SMI330 2G accel range.
+	 */
+	if (val == (float)(long)val)
+		ret = fprintf(fp, "%ld", (long)val);
+	else
+		ret = fprintf(fp, "%.9f", val);
 	(void)fclose(fp);
 
 	return ret > 0 ? 0 : ret;

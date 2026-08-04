@@ -12,6 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. 
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "SensorThread.h"
@@ -20,6 +25,7 @@
 #include <unistd.h>
 
 #include <cinttypes>
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <sstream>
