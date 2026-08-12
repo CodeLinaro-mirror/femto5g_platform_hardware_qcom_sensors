@@ -548,6 +548,13 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
      mSensorList[i].sensor_id = s[i].handle;
      mSensorList[i].maxBatchCount = MAX_BATCH_COUNT;
      GetSupportedSamplingRateAndRange(&mSensorList[i]);
+     if (mSensorList[i].range > 0) {
+         if (mSensorList[i].type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+             mSensorList[i].maxRange = (float)mSensorList[i].range * GRAVITY_EARTH;
+         } else if (mSensorList[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED) {
+             mSensorList[i].maxRange = (float)mSensorList[i].range * ((float)M_PI / 180.0f);
+         }
+     }
    }
    //Print sensor list for debug
    PrintSensorList(mSensorList, mSensorCount);
