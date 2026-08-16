@@ -25,9 +25,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  */
@@ -229,6 +228,9 @@ static void* sigterm_wait_thread(void*)
 int main(int argc, char *argv[])
 {
     block_sigterm();
+#ifdef USE_DLT
+    dltLogInit("SENS", "SHD", "Sensor Hal Daemon");
+#endif
     pthread_t sig_thread;
     bool rc = Sensor_ThreadCreate(&sig_thread, sigterm_wait_thread, NULL, "sigterm_wait_main_func", false);
     if(rc == false)
@@ -237,11 +239,12 @@ int main(int argc, char *argv[])
     configParamToRead configParamRead = {};
     configParamRead.EnableFIR = 0; //By default, use moving average
 
-    SENSOR_LOGI(LOG_TAG "sensor_hal_daemon - ver %s\n", HAL_DAEMON_VERSION);
-
     // read configuration file
     SENSOR_READ_CONF(SENSOR_CONF_PATH, &configParamRead);
+
+    SENSOR_LOGI(LOG_TAG "sensor_hal_daemon - ver %s\n", HAL_DAEMON_VERSION);
     SetSensorDebugLevel(configParamRead.DebugLevel);
+
     PrintSensorConfigParameters(configParamRead);
 
     waitForDir(SOCKET_SENSOR_CLIENT_DIR);
@@ -263,5 +266,8 @@ int main(int argc, char *argv[])
 
     SensorApiService::destroy();
     SENSOR_LOGI(LOG_TAG "done\n");
+#ifdef USE_DLT
+    dltLogDeInit();
+#endif
     exit(0);
 }

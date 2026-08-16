@@ -7,6 +7,10 @@
  * Copyright 2021 STMicroelectronics Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include <stdint.h>
 #include <sys/stat.h>
@@ -524,7 +528,7 @@ void SensorApiService::pollEvents(void) {
                 fd[i] = -1;
 
                 if (ret == -1 || event_fd[i] == -1) {
-			SENSOR_LOGE(LOG_TAG  "Failed to retrieve event fd\n")
+			SENSOR_LOGE(LOG_TAG  "Failed to retrieve event fd\n");
 				continue;
                 }
 		pollfd_iio[i].fd = event_fd[i];

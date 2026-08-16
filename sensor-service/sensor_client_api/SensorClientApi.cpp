@@ -25,9 +25,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  */
@@ -45,9 +44,11 @@ SensorClient - constructor
 ******************************************************************************/
 SensorClient::SensorClient(CapabilitiesCb capabitiescb) {
 
+#ifdef USE_DLT
+    dltLogInit("SENC", "SCL", "Sensor Client Library");
+#endif
     DebugLevel = SensorReadDebugLevel();
     SENSOR_LOGI(LOG_TAG "debug_level %d\n", DebugLevel);
-
     mApiImpl = new SensorClientImpl(capabitiescb);
 }
 
@@ -59,6 +60,9 @@ SensorClient::~SensorClient() {
         // two steps processes due to asynchronous message processing
         mApiImpl->destroy();
         // deletion of mApiImpl will be done after messages in the queue are processed
+#ifdef USE_DLT
+        dltLogDeInit();
+#endif
     }
 }
 

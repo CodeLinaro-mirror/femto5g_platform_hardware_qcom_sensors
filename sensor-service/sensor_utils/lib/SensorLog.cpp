@@ -25,8 +25,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include <ctype.h>
@@ -57,6 +57,7 @@ int DEBUG_LEVEL = 0;
  * @param out               : Address to store the output to
  * @return                  : Returns 0 on success, else returns -ve errno
  */
+
 static int Sensor_Read_Sensor_Config(const char *file_name, const char *config_name, 
 const char *out_fmt, void *out)
 {

@@ -71,6 +71,21 @@ fi
 
 AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
 
+AC_ARG_WITH([dltlogging],
+        AC_HELP_STRING([--with-dltlogging], [with DLT logging enabled]))
+
+AM_CONDITIONAL(USE_DLT, test "x${with_dltlogging}" = "xyes")
+
+if (test "x${with_dltlogging}" = "xyes"); then
+        PKG_CHECK_MODULES([DLTLOG], [automotive-dlt])
+        AC_SUBST([DLTLOG_CFLAGS])
+        AC_SUBST([DLTLOG_LIBS])
+
+        PKG_CHECK_MODULES([SENSORDLTLOGLIB], [sensor-dlt-log])
+        AC_SUBST([SENSORDLTLOGLIB_CFLAGS])
+        AC_SUBST([SENSORDLTLOGLIB_LIBS])
+fi
+
 AC_CONFIG_FILES([ \
         Makefile \
         sensor-socket.pc
