@@ -12,6 +12,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <stdint.h>
@@ -26,9 +30,14 @@
 
 #if CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_OREO_VERSION
 #include <log/log.h>
+#include <SensorLog.h>
 #else
 #include <cutils/log.h>
 #endif /* use log/log.h start from android 8 major version */
+
+#ifndef LOG_TAG
+#define LOG_TAG "SensorSvc_HAL:"
+#endif
 
 #include <gui/SensorManager.h>
 #include <gui/Sensor.h>
@@ -63,9 +72,9 @@ int main(int argc, char **argv)
 	handler_list.num = 0;
 
 	if (argc == 1)
-		ALOGI("no arguments, all available selftest will be executed.");
+		SENSOR_LOGI("no arguments, all available selftest will be executed.");
 	else {
-		ALOGI("parsing command line arguments...");
+		SENSOR_LOGI("parsing command line arguments...");
 
 		while ((c = getopt(argc, argv, "h:")) != -1) {
 			switch (c) {
@@ -81,7 +90,7 @@ int main(int argc, char **argv)
 				break;
 
 			case '?':
-				ALOGI("invalid option. Abort!");
+				SENSOR_LOGI("invalid option. Abort!");
 				return -1;
 			}
 		}
@@ -149,7 +158,7 @@ int main(int argc, char **argv)
 			continue;
 
 		if (err == 0) {
-			ALOGW("\"%s\": timeout waiting for selftest result", (const char *)list[i]->getName());
+			SENSOR_LOGW("\"%s\": timeout waiting for selftest result", (const char *)list[i]->getName());
 			continue;
 		}
 
@@ -190,11 +199,11 @@ int main(int argc, char **argv)
 				continue;
 			}
 
-			ALOGI("\"%s\": handle=%d result=\"%s\"", (const char *)list[g]->getName(), results_data.handle, result_string);
+			SENSOR_LOGI("\"%s\": handle=%d result=\"%s\"", (const char *)list[g]->getName(), results_data.handle, result_string);
 		}
 	}
 
-	ALOGI("Selftest finished!");
+	SENSOR_LOGI("Selftest finished!");
 
 	return 0;
 }

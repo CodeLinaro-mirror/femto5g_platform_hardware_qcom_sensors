@@ -37,82 +37,133 @@
 #include <stdarg.h>
 #include <string.h>
 #include <pthread.h>
-#include <vector>
 #include <utils/Log.h>
-
-extern int DEBUG_LEVEL;
-
-#define LOGCAT_ENABLED
-
-/* Choose fallback logging */
-#ifdef LOGCAT_ENABLED
-#define SENSOR_FALLBACK_LOGE(...) ALOGE(__VA_ARGS__)
-#define SENSOR_FALLBACK_LOGW(...) ALOGW(__VA_ARGS__)
-#define SENSOR_FALLBACK_LOGI(...) ALOGI(__VA_ARGS__)
-#define SENSOR_FALLBACK_LOGD(...) ALOGD(__VA_ARGS__)
-#define SENSOR_FALLBACK_LOGV(...) ALOGV(__VA_ARGS__)
-#else
-#define SENSOR_FALLBACK_LOGE(...) printf(__VA_ARGS__)
-#define SENSOR_FALLBACK_LOGW(...) printf(__VA_ARGS__)
-#define SENSOR_FALLBACK_LOGI(...) printf(__VA_ARGS__)
-#define SENSOR_FALLBACK_LOGD(...) printf(__VA_ARGS__)
-#define SENSOR_FALLBACK_LOGV(...) printf(__VA_ARGS__)
+#ifdef __cplusplus
+#include <vector>
 #endif
 
-/* Final logging macros */
-#ifdef USE_DLT
+/* Backend-neutral logging shim: CLOG (commonlog) > DLT > caller's default logging.
+ * The backend is picked at build time by USE_CLOG / USE_DLT. With neither
+ * defined this still compiles: registration is a no-op and SensorLogWrite()
+ * always returns 0, so callers use the default logging tier. */
 
-#include "SensorDltLog.h"
+/** @brief Severity, mapped onto CLOG or DLT levels internally. */
+typedef enum {
+    SENSOR_LOG_FATAL = 0,
+    SENSOR_LOG_ERROR,
+    SENSOR_LOG_WARN,
+    SENSOR_LOG_INFO,
+    SENSOR_LOG_DEBUG,
+    SENSOR_LOG_VERBOSE
+} SensorLogLevel;
 
+/**
+ * @brief Components that own a logging identity. Components not listed here
+ *        log into the context the hosting process registered.
+ */
+typedef enum {
+    /** sensor_hal_daemon: app "SENS", context "SHD". */
+    SENSOR_LOG_ID_HAL_DAEMON = 0,
+    /** sensor_client_api: hosted in a client's process, context "SCL". */
+    SENSOR_LOG_ID_CLIENT_LIB
+} SensorLogComponent;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @brief Register this process's sensors logging identity.
+ *
+ * Refcounted and thread safe, so several component instances in one process
+ * cannot deregister a context still in use by another. A library component
+ * registers without claiming the application id.
+ *
+ * @param[in] component Which sensors component is registering.
+ * @return    1 if a backend is available, 0 if the caller should use its
+ *            default logging.
+ */
+int SensorLogRegister(SensorLogComponent component);
+
+/** @brief Drop one reference taken by SensorLogRegister(). */
+void SensorLogUnregister(void);
+
+/**
+ * @brief Emit one formatted message to the active backend.
+ * @return 1 if the backend consumed the message, 0 if the caller should log it
+ *         via its own default logging tier.
+ */
+int SensorLogWrite(SensorLogLevel level, const char *fmt, ...)
+#ifdef __GNUC__
+    __attribute__((format(printf, 2, 3)))
+#endif
+    ;
+
+/** @brief Whether a backend is registered and accepting messages. */
+int SensorLogBackendActive(void);
+
+/**
+ * @brief Whether the default logging tier should emit for a level, gated by
+ *        DEBUG_LEVEL (E:1 W:2 I:3 D:4 V:5; 0, the default, prints nothing).
+ */
+int SensorLogDefaultEnabled(SensorLogLevel level);
+
+#ifdef __cplusplus
+}
+#endif
+
+#ifndef SENSOR_LOG_DEFAULT_E
+#define SENSOR_LOG_DEFAULT_E(...) \
+    do { if (SensorLogDefaultEnabled(SENSOR_LOG_ERROR))   ALOGE(__VA_ARGS__); } while (0)
+#endif
+#ifndef SENSOR_LOG_DEFAULT_W
+#define SENSOR_LOG_DEFAULT_W(...) \
+    do { if (SensorLogDefaultEnabled(SENSOR_LOG_WARN))    ALOGW(__VA_ARGS__); } while (0)
+#endif
+#ifndef SENSOR_LOG_DEFAULT_I
+#define SENSOR_LOG_DEFAULT_I(...) \
+    do { if (SensorLogDefaultEnabled(SENSOR_LOG_INFO))    ALOGI(__VA_ARGS__); } while (0)
+#endif
+#ifndef SENSOR_LOG_DEFAULT_D
+#define SENSOR_LOG_DEFAULT_D(...) \
+    do { if (SensorLogDefaultEnabled(SENSOR_LOG_DEBUG))   ALOGD(__VA_ARGS__); } while (0)
+#endif
+#ifndef SENSOR_LOG_DEFAULT_V
+#define SENSOR_LOG_DEFAULT_V(...) \
+    do { if (SensorLogDefaultEnabled(SENSOR_LOG_VERBOSE)) ALOGV(__VA_ARGS__); } while (0)
+#endif
+
+#ifndef SENSOR_LOGE
 #define SENSOR_LOGE(...) \
     do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_ERROR, __VA_ARGS__); \
-        else \
-            SENSOR_FALLBACK_LOGE(__VA_ARGS__); \
+        if (!SensorLogWrite(SENSOR_LOG_ERROR, __VA_ARGS__)) \
+            SENSOR_LOG_DEFAULT_E(__VA_ARGS__); \
     } while (0)
 
 #define SENSOR_LOGW(...) \
     do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_WARN, __VA_ARGS__); \
-        else \
-            SENSOR_FALLBACK_LOGW(__VA_ARGS__); \
+        if (!SensorLogWrite(SENSOR_LOG_WARN, __VA_ARGS__)) \
+            SENSOR_LOG_DEFAULT_W(__VA_ARGS__); \
     } while (0)
 
 #define SENSOR_LOGI(...) \
     do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_INFO, __VA_ARGS__); \
-        else \
-            SENSOR_FALLBACK_LOGI(__VA_ARGS__); \
+        if (!SensorLogWrite(SENSOR_LOG_INFO, __VA_ARGS__)) \
+            SENSOR_LOG_DEFAULT_I(__VA_ARGS__); \
     } while (0)
 
 #define SENSOR_LOGD(...) \
     do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_DEBUG, __VA_ARGS__); \
-        else \
-            SENSOR_FALLBACK_LOGD(__VA_ARGS__); \
+        if (!SensorLogWrite(SENSOR_LOG_DEBUG, __VA_ARGS__)) \
+            SENSOR_LOG_DEFAULT_D(__VA_ARGS__); \
     } while (0)
 
 #define SENSOR_LOGV(...) \
     do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_VERBOSE, __VA_ARGS__); \
-        else \
-            SENSOR_FALLBACK_LOGV(__VA_ARGS__); \
+        if (!SensorLogWrite(SENSOR_LOG_VERBOSE, __VA_ARGS__)) \
+            SENSOR_LOG_DEFAULT_V(__VA_ARGS__); \
     } while (0)
-
-#else  /* USE_DLT not defined */
-
-#define SENSOR_LOGE(...) SENSOR_FALLBACK_LOGE(__VA_ARGS__)
-#define SENSOR_LOGW(...) SENSOR_FALLBACK_LOGW(__VA_ARGS__)
-#define SENSOR_LOGI(...) SENSOR_FALLBACK_LOGI(__VA_ARGS__)
-#define SENSOR_LOGD(...) SENSOR_FALLBACK_LOGD(__VA_ARGS__)
-#define SENSOR_LOGV(...) SENSOR_FALLBACK_LOGV(__VA_ARGS__)
-
-#endif
+#endif //SENSOR_LOGE
 
 #define MAX_FIR_COEF_ORDER          20
 
@@ -133,6 +184,8 @@ int CheckDiagEnabled(const char *client_name);
  * @param suffix: suffix for sensor conf key (eg:suffix=ACC_400 means look for FIR_COEFFICIENT_ACC_400 and so on)
  * @return Returns size of coefficient array on success else returns -1
  */
+#ifdef __cplusplus
 int GetFIRCoefficient(std::vector<float> &coef, char *suffix);
+#endif
 
 #endif //__SENSOR_LOG__

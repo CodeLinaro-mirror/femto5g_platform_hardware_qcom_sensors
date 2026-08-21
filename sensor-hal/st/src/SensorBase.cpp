@@ -5,42 +5,10 @@
  * Author: Denis Ciocca - <denis.ciocca@st.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
- */
-
-/*
-Changes from Qualcomm Innovation Center are provided under the following license:
-
-Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
- 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted (subject to the limitations in the
-disclaimer below) provided that the following conditions are met:
- 
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
- 
-    * Redistributions in binary form must reproduce the above
-      copyright notice, this list of conditions and the following
-      disclaimer in the documentation and/or other materials provided
-      with the distribution.
- 
-    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
-      contributors may be used to endorse or promote products derived
-      from this software without specific prior written permission.
- 
-NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
-HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define __STDC_LIMIT_MACROS
@@ -64,7 +32,7 @@ static int64_t elapsedRealtimeNano()
     struct timespec ts;
     int err = clock_gettime(CLOCK_BOOTTIME, &ts);
     if (err) {
-        ALOGE("SensorHAL clock_gettime(CLOCK_BOOTTIME) failed: %s", strerror(errno));
+        SENSOR_LOGE("SensorHAL clock_gettime(CLOCK_BOOTTIME) failed: %s", strerror(errno));
         return 0;
     }
     return (ts.tv_sec * 1000000000) + ts.tv_nsec;
@@ -178,7 +146,7 @@ SensorBase::SensorBase(const char *name, int handle, int type)
 
 	err = pipe(pipe_fd);
 	if (err < 0) {
-		ALOGE("%s: SensorHAL Failed to create pipe file.", GetName());
+		SENSOR_LOGE("%s: SensorHAL Failed to create pipe file.", GetName());
 		goto invalid_the_class;
 	}
 
@@ -351,10 +319,10 @@ int SensorBase::Enable(int handle, bool enable, bool lock_en_mutex)
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
 		if (enable)
-			ALOGD("\"%s\": SensorHAL power-on (sensor type: %d).",
+			SENSOR_LOGD("\"%s\": SensorHAL power-on (sensor type: %d).",
 			      sensor_t_data.name, sensor_t_data.type);
 		else
-			ALOGD("\"%s\": SensorHAL power-off (sensor type: %d).",
+			SENSOR_LOGD("\"%s\": SensorHAL power-off (sensor type: %d).",
 			      sensor_t_data.name, sensor_t_data.type);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 	} else {
@@ -492,7 +460,7 @@ int SensorBase::AllocateBufferForDependencyData(DependencyID id,
 	circular_buffer_data[id] =
 		new CircularBuffer(max_fifo_len < 2 ? 10 : 10 * max_fifo_len);
 	if (!circular_buffer_data[id]) {
-		ALOGE("%s: SensorHAL Failed to allocate circular buffer data.",
+		SENSOR_LOGE("%s: SensorHAL Failed to allocate circular buffer data.",
 		      GetName());
 		return -ENOMEM;
 	}
@@ -508,7 +476,7 @@ void SensorBase::DeAllocateBufferForDependencyData(DependencyID id)
 int SensorBase::AddSensorToDataPush(SensorBase *t)
 {
 	if (push_data.num >= SENSOR_DEPENDENCY_ID_MAX) {
-		ALOGE("%s: SensorHAL Failed to add dependency data, too many sensors to push data.",
+		SENSOR_LOGE("%s: SensorHAL Failed to add dependency data, too many sensors to push data.",
 		      android_name);
 		return -ENOMEM;
 	}
@@ -546,7 +514,7 @@ int SensorBase::AddSensorDependency(SensorBase *p)
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
 
 	if (dependencies.num >= SENSOR_DEPENDENCY_ID_MAX) {
-		ALOGE("%s: SensorHAL Failed to add dependency, too many dependencies.",
+		SENSOR_LOGE("%s: SensorHAL Failed to add dependency, too many dependencies.",
 		      android_name);
 		return -ENOMEM;
 	}
@@ -630,14 +598,14 @@ void SensorBase::WriteFlushEventToPipe()
 	flush_event_data.version = META_DATA_VERSION;
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_VERBOSE)
-	ALOGD("\"%s\": SensorHAL write flush event to pipe (sensor type: %d).",
+	SENSOR_LOGD("\"%s\": SensorHAL write flush event to pipe (sensor type: %d).",
 	      GetName(),
 	      GetType());
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 
 	err = write(write_pipe_fd, &flush_event_data, sizeof(sensors_event_t));
 	if (err <= 0)
-		ALOGE("%s: SensorHAL Failed to write flush event data to pipe.",
+		SENSOR_LOGE("%s: SensorHAL Failed to write flush event data to pipe.",
 		      android_name);
 }
 
@@ -657,20 +625,20 @@ void SensorBase::WriteSensorAdditionalInfoFrameToPipe(additional_info_event_t *p
 	sens_info_singleframe.timestamp = elapsedRealtimeNano();
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_VERBOSE)
-	ALOGD("\"%s\": SensorHAL write additional sensor info event to pipe (sensor type: %d, additional info type: %d).", GetName(), GetType(), sens_info_singleframe.additional_info.type);
+	SENSOR_LOGD("\"%s\": SensorHAL write additional sensor info event to pipe (sensor type: %d, additional info type: %d).", GetName(), GetType(), sens_info_singleframe.additional_info.type);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 	err = write(write_pipe_fd, &sens_info_singleframe, sizeof(sensors_event_t));
 	if (err <= 0)
-		ALOGE("%s: SensorHAL Failed to write additional sensor info event data to pipe.", android_name);
+		SENSOR_LOGE("%s: SensorHAL Failed to write additional sensor info event data to pipe.", android_name);
 }
 
 void SensorBase::WriteSensorAdditionalInfoFrames(additional_info_event_t array_sensorAdditionalInfoDataFrames[], size_t frames_numb)
 {
 
 	for (size_t i = 0; i < frames_numb; ++i) {
-		ALOGV("%s : SensorHAL Before: item #: %zu of %zu",__func__, (i+1), frames_numb);
+		SENSOR_LOGV("%s : SensorHAL Before: item #: %zu of %zu",__func__, (i+1), frames_numb);
 		SensorBase::WriteSensorAdditionalInfoFrameToPipe(&array_sensorAdditionalInfoDataFrames[i]);
-		ALOGV("%s : SensorHAL Frame #:(%zu) of %zu sent.", __func__, (i=1),frames_numb);
+		SENSOR_LOGV("%s : SensorHAL Frame #:(%zu) of %zu sent.", __func__, (i=1),frames_numb);
 	}
 
 }
@@ -685,7 +653,7 @@ void SensorBase::WriteSensorAdditionalInfoReport(additional_info_event_t array_s
 	SensorBase::WriteSensorAdditionalInfoFrameToPipe(const_cast<additional_info_event_t*>(begin_additional_info));
 	WriteSensorAdditionalInfoFrames(array_sensorAdditionalInfoDataFrames, frames_numb);
 	SensorBase::WriteSensorAdditionalInfoFrameToPipe(const_cast<additional_info_event_t*>(end_additional_info));
-	ALOGD("%s : SensorHAL Additional Info Report sent.", __func__);
+	SENSOR_LOGD("%s : SensorHAL Additional Info Report sent.", __func__);
 
 }
 
@@ -695,12 +663,12 @@ int SensorBase::getSensorAdditionalInfoPayLoadFramesArray(additional_info_event_
 
 	*array_sensorAdditionalInfoPLFrames = (additional_info_event_t *)malloc((size_t)frames * sizeof(additional_info_event_t));
 	if (!*array_sensorAdditionalInfoPLFrames) {
-		ALOGE("%s: SensorHAL Failed to allocate memory.", GetName());
+		SENSOR_LOGE("%s: SensorHAL Failed to allocate memory.", GetName());
 		return -ENOMEM;
 	}
 
 	*array_sensorAdditionalInfoPLFrames[0] = *SensorAdditionalInfoEvent::getDefaultSensorPlacementFrameEvent();
-	ALOGD("%s: SensorHAL Using default SAINFO-SensorPlacement (sensor type: %d).", GetName(), GetType());
+	SENSOR_LOGD("%s: SensorHAL Using default SAINFO-SensorPlacement (sensor type: %d).", GetName(), GetType());
 	return frames;
 }
 
@@ -711,7 +679,7 @@ void SensorBase::WriteSAIReportToPipe()
 	if (supportsSensorAdditionalInfo) {
 		frames = getSensorAdditionalInfoPayLoadFramesArray(&array_sensorAdditionalInfoPLFrames);
 		if (array_sensorAdditionalInfoPLFrames) {
-			ALOGD("%s:SensorHAL Sending SAINFO Report.", GetName());
+			SENSOR_LOGD("%s:SensorHAL Sending SAINFO Report.", GetName());
 			if (frames > 0)
 				WriteSensorAdditionalInfoReport(array_sensorAdditionalInfoPLFrames, frames);
 			free(array_sensorAdditionalInfoPLFrames);
@@ -728,15 +696,15 @@ int SensorBase::UseCustomAINFOSensorPlacementPLFramesArray(
 
 	if (!customAINFO_Placement_event) {
 		SensorAI_Placement_event = *SensorAdditionalInfoEvent::getDefaultSensorPlacementFrameEvent();
-		ALOGD("%s: SensorHAL using Sensor Additional Info Placement default", GetName());
+		SENSOR_LOGD("%s: SensorHAL using Sensor Additional Info Placement default", GetName());
 	} else {
 		SensorAI_Placement_event = *customAINFO_Placement_event;
-		ALOGD("%s: SensorHAL using Sensor Additional Info Placement custom", GetName());
+		SENSOR_LOGD("%s: SensorHAL using Sensor Additional Info Placement custom", GetName());
 	}
 
 	*array_sensorAdditionalInfoPLFrames = (additional_info_event_t *)calloc((size_t)frames , sizeof(additional_info_event_t));
 	if (!array_sensorAdditionalInfoPLFrames) {
-		ALOGE("%s: SensorHAL Failed to allocate memory.", GetName());
+		SENSOR_LOGE("%s: SensorHAL Failed to allocate memory.", GetName());
 		return -ENOMEM;
 	}
 	for (int i = 0; i < frames; i++)
@@ -758,7 +726,7 @@ void SensorBase::WriteDataToPipe(int64_t __attribute__((unused))hw_pollrate)
 				    &sensor_event,
 				    sizeof(sensors_event_t));
 			if (err <= 0) {
-				ALOGE("%s: SensorHAL Failed to write sensor data to pipe. (errno: %d)",
+				SENSOR_LOGE("%s: SensorHAL Failed to write sensor data to pipe. (errno: %d)",
 				      android_name, -errno);
 				return;
 			}
@@ -766,7 +734,7 @@ void SensorBase::WriteDataToPipe(int64_t __attribute__((unused))hw_pollrate)
 			last_data_timestamp = sensor_event.timestamp;
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
-			ALOGD("\"%s\": SensorHAL pushed data to android: timestamp=%" PRIu64 "ns (sensor type: %d).",
+			SENSOR_LOGD("\"%s\": SensorHAL pushed data to android: timestamp=%" PRIu64 "ns (sensor type: %d).",
 			      sensor_t_data.name, sensor_event.timestamp, sensor_t_data.type);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 		}
@@ -786,7 +754,7 @@ void SensorBase::ProcessData(SensorBaseData *data)
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_PIE_VERSION)
 #if (CONFIG_ST_HAL_ADDITIONAL_INFO_ENABLED)
 	if (data->flush_event_handle == sensor_t_data.handle) {
-		ALOGD("%s:SensorHAL SAINFO Report: FLUSH.", GetName());
+		SENSOR_LOGD("%s:SensorHAL SAINFO Report: FLUSH.", GetName());
 		WriteSAIReportToPipe();
 	}
 #endif /* CONFIG_ST_HAL_ADDITIONAL_INFO_ENABLED */
@@ -834,7 +802,7 @@ void SensorBase::ReceiveDataFromDependency(int handle, SensorBaseData *data)
 		err =
 		  circular_buffer_data[GetDependencyIDFromHandle(handle)]->writeElement(data);
 		if (err < 0)
-			ALOGE("%s: SensorHAL Circular Buffer override, increase CircularBuffer size. Receiving data from dependency %d.",
+			SENSOR_LOGE("%s: SensorHAL Circular Buffer override, increase CircularBuffer size. Receiving data from dependency %d.",
 			      GetName(),
 			      GetDependencyIDFromHandle(handle));
 #else /* CONFIG_ST_HAL_DEBUG_LEVEL */

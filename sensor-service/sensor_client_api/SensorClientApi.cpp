@@ -44,9 +44,7 @@ SensorClient - constructor
 ******************************************************************************/
 SensorClient::SensorClient(CapabilitiesCb capabitiescb) {
 
-#ifdef USE_DLT
-    dltLogInit("SENC", "SCL", "Sensor Client Library");
-#endif
+    SensorLogRegister(SENSOR_LOG_ID_CLIENT_LIB);
     DebugLevel = SensorReadDebugLevel();
     SENSOR_LOGI(LOG_TAG "debug_level %d\n", DebugLevel);
     mApiImpl = new SensorClientImpl(capabitiescb);
@@ -60,10 +58,8 @@ SensorClient::~SensorClient() {
         // two steps processes due to asynchronous message processing
         mApiImpl->destroy();
         // deletion of mApiImpl will be done after messages in the queue are processed
-#ifdef USE_DLT
-        dltLogDeInit();
-#endif
     }
+    SensorLogUnregister();
 }
 
 /******************************************************************************

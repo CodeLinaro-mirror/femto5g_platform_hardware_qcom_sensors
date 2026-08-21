@@ -5,6 +5,10 @@
  * Author: Denis Ciocca - <denis.ciocca@st.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define __STDC_LIMIT_MACROS
@@ -117,7 +121,7 @@ void SelfTest::ThreadCmdTask()
 		if (fds.revents & POLLIN) {
 			read_size = read(fds.fd, &cmd_data, sizeof(struct selftest_cmd_t));
 			if (read_size != sizeof(struct selftest_cmd_t)) {
-				ALOGE("SensorHAL not valid command format.");
+				SENSOR_LOGE("SensorHAL not valid command format.");
 				continue;
 			}
 

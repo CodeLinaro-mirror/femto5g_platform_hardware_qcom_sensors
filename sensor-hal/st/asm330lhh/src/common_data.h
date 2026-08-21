@@ -13,6 +13,10 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef ANDROID_SENSOR_HAL_COMMON_DATA
@@ -65,6 +69,12 @@
 #define ST_HAL_DEBUG_INFO			(1)
 #define ST_HAL_DEBUG_VERBOSE			(2)
 #define ST_HAL_DEBUG_EXTRA_VERBOSE		(3)
+
+#include <SensorLog.h>
+
+#ifndef LOG_TAG
+#define LOG_TAG "SensorSvc_HAL:"
+#endif
 
 /* Overrite default log utility */
 #ifdef PLTF_LINUX_ENABLED

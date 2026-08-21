@@ -12,12 +12,21 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef LOG_H
 #define LOG_H
 
+#ifndef LOG_TAG
+#define LOG_TAG "SensorSvc_HAL:"
+#endif
+
 #include <cutils/log.h>
+#include <SensorLog.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,11 +39,11 @@ extern "C" {
 
 #define ASSERT		ALOG_ASSERT
 
-#define LOGV		ALOGV
-#define LOGD		ALOGD
-#define LOGI		ALOGI
-#define LOGW		ALOGW
-#define LOGE		ALOGE
+#define LOGV		SENSOR_LOGV
+#define LOGD		SENSOR_LOGD
+#define LOGI		SENSOR_LOGI
+#define LOGW		SENSOR_LOGW
+#define LOGE		SENSOR_LOGE
 
 #define LOGV_IF		ALOGV_IF
 #define LOGD_IF		ALOGD_IF
@@ -65,7 +74,7 @@ extern "C" {
 #else
 #define ASSERT(cond, ...)				\
 	do {						\
-		ALOGE(__VA_ARGS__);	\
+		SENSOR_LOGE(__VA_ARGS__);	\
 		assert(cond);				\
 	} while (0)
 #endif
@@ -74,12 +83,12 @@ extern "C" {
 #define LOGV(...)	((void)0)
 #define LOGD(...)	((void)0)
 //#else
-//#define LOGV(...)	ALOGV("[IAM20680] Sensor:" __VA_ARGS__)
-//#define LOGD(...)	ALOGD("[IAM20680] Sensor:" __VA_ARGS__)
+//#define LOGV(...)	SENSOR_LOGV("[IAM20680] Sensor:" __VA_ARGS__)
+//#define LOGD(...)	SENSOR_LOGD("[IAM20680] Sensor:" __VA_ARGS__)
 //#endif
-#define LOGI(...)	ALOGI("[IAM20680] Sensor:" __VA_ARGS__)
-#define LOGW(...)	ALOGW("[IAM20680] Sensor:" __VA_ARGS__)
-#define LOGE(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#define LOGI(...)	SENSOR_LOGI(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__)
+#define LOGW(...)	SENSOR_LOGW(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__)
+#define LOGE(...)	SENSOR_LOGE(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__)
 
 
 #define LOGV_IF(cond, ...)	((void)LOGV(__VA_ARGS__))

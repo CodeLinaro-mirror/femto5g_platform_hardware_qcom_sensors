@@ -12,10 +12,20 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef _MPL_LOG_H
 #define _MPL_LOG_H
+
+#ifdef MPL_LOG_TAG
+#define LOG_TAG		MPL_LOG_TAG
+#else
+#define LOG_TAG		"SensorSvc_HAL:"
+#endif
 
 #include <cutils/log.h>
 
@@ -24,15 +34,13 @@
 extern "C" {
 #endif
 
+#include <SensorLog.h>
+
 #ifdef __ANDROID__
 
 #ifdef MPL_LOG_NDEBUG
 #undef LOG_NDEBUG
 #define LOG_NDEBUG	MPL_LOG_NDEBUG
-#endif
-#ifdef MPL_LOG_TAG
-#undef LOG_TAG
-#define LOG_TAG		MPL_LOG_TAG
 #endif
 
 /* Android logs */
@@ -40,11 +48,11 @@ extern "C" {
 
 #define MPL_ASSERT	ALOG_ASSERT
 
-#define MPL_LOGV	ALOGV
-#define MPL_LOGD	ALOGD
-#define MPL_LOGI	ALOGI
-#define MPL_LOGW	ALOGW
-#define MPL_LOGE	ALOGE
+#define MPL_LOGV	SENSOR_LOGV
+#define MPL_LOGD	SENSOR_LOGD
+#define MPL_LOGI	SENSOR_LOGI
+#define MPL_LOGW	SENSOR_LOGW
+#define MPL_LOGE	SENSOR_LOGE
 
 #define MPL_LOGV_IF	ALOGV_IF
 #define MPL_LOGD_IF	ALOGD_IF
@@ -70,7 +78,7 @@ extern "C" {
 #else
 #define MPL_ASSERT(cond, ...)					\
 	do {							\
-		ALOGE("[IAM20680] Sensor:" __VA_ARGS__);	\
+		SENSOR_LOGE(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__);	\
 		assert(cond);					\
 	} while (0)
 #endif
@@ -78,39 +86,35 @@ extern "C" {
 #if MPL_LOG_NDEBUG
 #define MPL_LOGV(...)						\
 	if (0) {						\
-		ALOGV("[IAM20680] Sensor:" __VA_ARGS__);	\
+		SENSOR_LOGV(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__);	\
 	}
 #define MPL_LOGD(...)						\
 	if (0) {						\
-		ALOGD("[IAM20680] Sensor:" __VA_ARGS__);	\
+		SENSOR_LOGD(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__);	\
 	}
 #else
-#define MPL_LOGV(...)	ALOGV("[IAM20680] Sensor:" __VA_ARGS__)
-#define MPL_LOGD(...)	ALOGD("[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGV(...)	SENSOR_LOGV(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGD(...)	SENSOR_LOGD(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__)
 #endif
-#define MPL_LOGI(...)	ALOGI("[IAM20680] Sensor:" __VA_ARGS__)
-#define MPL_LOGW(...)	ALOGW("[IAM20680] Sensor:" __VA_ARGS__)
-#define MPL_LOGE(...)	ALOGE("[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGI(...)	SENSOR_LOGI(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGW(...)	SENSOR_LOGW(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__)
+#define MPL_LOGE(...)	SENSOR_LOGE(LOG_TAG "[IAM20680] Sensor:" __VA_ARGS__)
 
 #ifndef __predict_false
 #define __predict_false(exp) __builtin_expect((exp) != 0, 0)
 #endif
 
+/* Statement form: MPL_LOG* now expand to do/while, not expressions. */
 #define MPL_LOGV_IF(cond, ...)						\
-	((__predict_false(cond)) ? ((void)MPL_LOGV(__VA_ARGS__))	\
-				 : (void)0)
+	do { if (__predict_false(cond)) MPL_LOGV(__VA_ARGS__); } while (0)
 #define MPL_LOGD_IF(cond, ...)						\
-	((__predict_false(cond)) ? ((void)MPL_LOGD(__VA_ARGS__))	\
-				 : (void)0)
+	do { if (__predict_false(cond)) MPL_LOGD(__VA_ARGS__); } while (0)
 #define MPL_LOGI_IF(cond, ...)						\
-	((__predict_false(cond)) ? ((void)MPL_LOGI(__VA_ARGS__))	\
-				 : (void)0)
+	do { if (__predict_false(cond)) MPL_LOGI(__VA_ARGS__); } while (0)
 #define MPL_LOGW_IF(cond, ...)						\
-	((__predict_false(cond)) ? ((void)MPL_LOGW(__VA_ARGS__))	\
-				 : (void)0)
+	do { if (__predict_false(cond)) MPL_LOGW(__VA_ARGS__); } while (0)
 #define MPL_LOGE_IF(cond, ...)						\
-	((__predict_false(cond)) ? ((void)MPL_LOGE(__VA_ARGS__))	\
-				 : (void)0)
+	do { if (__predict_false(cond)) MPL_LOGE(__VA_ARGS__); } while (0)
 
 #endif		/* __ANDROID__ */
 

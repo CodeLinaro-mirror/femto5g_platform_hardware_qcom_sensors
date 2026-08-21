@@ -55,24 +55,34 @@ if (test "x${with_glib}" = "xyes"); then
         AC_SUBST(GLIB_LIBS)
 fi
 
+AC_ARG_WITH([clog],
+        AC_HELP_STRING([--with-clog], [with CLOG (commonlog) logging enabled]))
+
 AC_ARG_WITH([dltlogging],
         AC_HELP_STRING([--with-dltlogging], [with DLT logging enabled]))
 
-AM_CONDITIONAL(USE_DLT, test "x${with_dltlogging}" = "xyes")
+if (test "x${with_clog}" = "xyes"); then
+        use_clog=yes
+        use_dlt=no
+else
+        use_clog=no
+        use_dlt=${with_dltlogging}
+fi
 
-if (test "x${with_dltlogging}" = "xyes"); then
+AM_CONDITIONAL(USE_CLOG, test "x${use_clog}" = "xyes")
+AM_CONDITIONAL(USE_DLT, test "x${use_dlt}" = "xyes")
+
+if (test "x${use_clog}" = "xyes"); then
+        PKG_CHECK_MODULES([CLOGLOG], [libclog])
+        AC_SUBST([CLOGLOG_CFLAGS])
+        AC_SUBST([CLOGLOG_LIBS])
+fi
+
+if (test "x${use_dlt}" = "xyes"); then
         PKG_CHECK_MODULES([DLTLOG], [automotive-dlt])
         AC_SUBST([DLTLOG_CFLAGS])
         AC_SUBST([DLTLOG_LIBS])
-
-        PKG_CHECK_MODULES([SENSORDLTLOGLIB], [sensor-dlt-log])
-        AC_SUBST([SENSORDLTLOGLIB_CFLAGS])
-        AC_SUBST([SENSORDLTLOGLIB_LIBS])
 fi
-
-PKG_CHECK_MODULES([SENSORS], [libsensors])
-AC_SUBST([SENSORS_CFLAGS])
-AC_SUBST([SENSORS_LIBS])
 
 AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
 

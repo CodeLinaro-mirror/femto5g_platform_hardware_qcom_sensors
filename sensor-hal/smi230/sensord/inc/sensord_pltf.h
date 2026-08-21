@@ -24,7 +24,13 @@
 #ifndef __SENSORD_PLTF_H
 #define __SENSORD_PLTF_H
 
+#ifndef LOG_TAG
+#define LOG_TAG "SensorSvc_HAL:"
+#endif
+
 #include <utils/Log.h>
+
+#include <SensorLog.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -63,72 +69,14 @@ extern "C"
 #define PDEBUG(fmt, args...) BS_LOG(LOG_LEVEL_D, BS_LOG_FORMAT(fmt, "[DEBUG]"), ##args)
 */
 
-#ifdef USE_DLT
-#include <SensorDltLog.h>
-#endif
-
 #define SENSOR_PREFIX "[VERBOSE] Sensor: "
 
-#ifdef USE_DLT
-
-#define PLADON(fmt, args...) \
-    do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_DEBUG, SENSOR_PREFIX fmt "\n", ##args); \
-        else \
-            ALOGD(SENSOR_PREFIX fmt "\n", ##args); \
-    } while (0)
-
-#define PNOTE(fmt, args...) \
-    do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_INFO, SENSOR_PREFIX fmt "\n", ##args); \
-        else \
-            ALOGI(SENSOR_PREFIX fmt "\n", ##args); \
-    } while (0)
-
-#define PERR(fmt, args...) \
-    do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_ERROR, SENSOR_PREFIX fmt "\n", ##args); \
-        else \
-            ALOGE(SENSOR_PREFIX fmt "\n", ##args); \
-    } while (0)
-
-#define PWARN(fmt, args...) \
-    do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_WARN, SENSOR_PREFIX fmt "\n", ##args); \
-        else \
-            ALOGW(SENSOR_PREFIX fmt "\n", ##args); \
-    } while (0)
-
-#define PINFO(fmt, args...) \
-    do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_INFO, SENSOR_PREFIX fmt "\n", ##args); \
-        else \
-            ALOGI(SENSOR_PREFIX fmt "\n", ##args); \
-    } while (0)
-
-#define PDEBUG(fmt, args...) \
-    do { \
-        if (DLT_ENABLE) \
-            logtodlt(DLT_LOG_DEBUG, SENSOR_PREFIX fmt "\n", ##args); \
-        else \
-            ALOGD(SENSOR_PREFIX fmt "\n", ##args); \
-    } while (0)
-
-#else  /* USE_DLT not defined at all */
-
-#define PLADON(fmt, args...)  ALOGD(SENSOR_PREFIX fmt "\n", ##args)
-#define PNOTE(fmt, args...)   ALOGI(SENSOR_PREFIX fmt "\n", ##args)
-#define PERR(fmt, args...)    ALOGE(SENSOR_PREFIX fmt "\n", ##args)
-#define PWARN(fmt, args...)   ALOGW(SENSOR_PREFIX fmt "\n", ##args)
-#define PINFO(fmt, args...)   ALOGI(SENSOR_PREFIX fmt "\n", ##args)
-#define PDEBUG(fmt, args...)  ALOGD(SENSOR_PREFIX fmt "\n", ##args)
-
-#endif
+#define PLADON(fmt, args...) SENSOR_LOGD(LOG_TAG SENSOR_PREFIX fmt "\n", ##args)
+#define PNOTE(fmt, args...)  SENSOR_LOGI(LOG_TAG SENSOR_PREFIX fmt "\n", ##args)
+#define PERR(fmt, args...)   SENSOR_LOGE(LOG_TAG SENSOR_PREFIX fmt "\n", ##args)
+#define PWARN(fmt, args...)  SENSOR_LOGW(LOG_TAG SENSOR_PREFIX fmt "\n", ##args)
+#define PINFO(fmt, args...)  SENSOR_LOGI(LOG_TAG SENSOR_PREFIX fmt "\n", ##args)
+#define PDEBUG(fmt, args...) SENSOR_LOGD(LOG_TAG SENSOR_PREFIX fmt "\n", ##args)
 
 extern int64_t sensord_get_tmstmp_ns(void);
 extern void trace_log(uint32_t level, const char *fmt, ...);

@@ -2,13 +2,17 @@
 #
 AM_CFLAGS = \
 -I./src \
+-I$(top_srcdir)/common \
 -I./linux \
 -D__func__=__PRETTY_FUNCTION__ \
 -DON_TARGET_TEST \
 -DPLTF_LINUX_ENABLED \
--DCONFIG_ST_HAL_CONFIG_INOTIFY_ENABLED
+-DCONFIG_ST_HAL_CONFIG_INOTIFY_ENABLED \
+$(SENSOR_COMMONLOGLIB_CFLAGS)
 
 ACLOCAL_AMFLAGS = -I m4
+
+requiredlibs = $(SENSOR_COMMONLOGLIB_LIBS)
 
 libasm330sensors_la_SOURCES = \
                 ./src/SensorHAL.cpp \
@@ -44,7 +48,7 @@ libasm330sensors_la_CFLAGS = $(AM_CFLAGS)
 libasm330sensors_la_LDFLAGS = -lpthread -shared -version-info 1:0:0
 libasm330sensors_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
-libasm330sensors_la_LIBADD = -lstdc++ -llog
+libasm330sensors_la_LIBADD = $(requiredlibs) -lstdc++ -llog
 
 #Create and Install libraries
 lib_LTLIBRARIES = libasm330sensors.la

@@ -2,14 +2,18 @@
 #
 AM_CFLAGS = \
 -I./sensors \
+-I$(top_srcdir)/common \
 -I./sensors/tools \
 -I./sensors/linux/test-sensors-hal/android_linux \
 -D__func__=__PRETTY_FUNCTION__ \
 -DON_TARGET_TEST \
 -DBATCH_MODE_SUPPORT \
--D_HW_DONT_INCLUDE_CORE_
+-D_HW_DONT_INCLUDE_CORE_ \
+$(SENSOR_COMMONLOGLIB_CFLAGS)
 
 ACLOCAL_AMFLAGS = -I m4
+
+requiredlibs = $(SENSOR_COMMONLOGLIB_LIBS)
 
 libiam20680sensors_la_SOURCES = \
                              ./sensors/MPLSupport.cpp\
@@ -32,7 +36,7 @@ libiam20680sensors_la_CFLAGS = $(AM_CFLAGS)
 libiam20680sensors_la_LDFLAGS = -lpthread -shared -version-info 1:0:0
 libiam20680sensors_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
 endif
-libiam20680sensors_la_LIBADD = -lstdc++
+libiam20680sensors_la_LIBADD = $(requiredlibs) -lstdc++
 
 #Create and Install libraries
 lib_LTLIBRARIES = libiam20680sensors.la

@@ -5,6 +5,10 @@
  * Author: Denis Ciocca - <denis.ciocca@st.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define __STDC_LIMIT_MACROS
@@ -514,7 +518,7 @@ int HWSensorBase::ApplyFactoryCalibrationData(char *filename,
 		     &factory_scale[1],
 		     &factory_scale[2]);
 	if (err < 0)
-		ALOGW("\"%s\": Failed to read factory scale values, it will be used default values.",
+		SENSOR_LOGW("\"%s\": Failed to read factory scale values, it will be used default values.",
 		      GetName());
 
 	fclose(calibration_file);

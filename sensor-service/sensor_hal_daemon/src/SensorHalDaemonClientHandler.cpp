@@ -25,9 +25,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  */
@@ -319,7 +318,7 @@ bool SensorHalDaemonClientHandler::onCapabilitiesCallback(SensorCapabilitiesMask
    SENSOR_LOGI(LOG_TAG "--< onCapabilitiesCallback=0x%x", mask);
    bool rc = false;
 #ifdef SENSOR_IVSS_ENABLED
-   if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
+   if(mService->mIvssEnabled && strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
      mService->myService->onCapabilitiesCallback(mask);
      return true;
    }
@@ -410,7 +409,7 @@ bool SensorHalDaemonClientHandler::SendDataToClient(sensors_event_t *e, int coun
   // please do not attempt to hold the lock, as the caller of this function
   // already holds the lock
 #ifdef SENSOR_IVSS_ENABLED
-  if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
+  if(mService->mIvssEnabled && strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
      mService->myService->onSensorDataReadCb(e, count);
      (void)memset(e, 0, sizeof(sensors_event_t) * count);
      return true;
@@ -574,7 +573,7 @@ void SensorHalDaemonClientHandler::onSensorListCb(struct sensor_list *s, int cou
    // already holds the lock
    SENSOR_LOGI(LOG_TAG "--< onSensorListCb\n");
 #ifdef SENSOR_IVSS_ENABLED
-   if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0)
+   if(mService->mIvssEnabled && strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0)
 	   return;
 #endif
    if (nullptr != mIpcSender) {
@@ -611,7 +610,7 @@ void SensorHalDaemonClientHandler::onSensorBatchingCb(int sensor_id, float Sampl
    // already holds the lock
    SENSOR_LOGI(LOG_TAG "--< onSensorBatchingCb\n");
 #ifdef SENSOR_IVSS_ENABLED
-   if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
+   if(mService->mIvssEnabled && strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0) {
            mService->myService->fireSensorConfigUpdateEvent(sensor_id, SamplingRate, BatchCount);
 	   return;
    }
@@ -647,7 +646,7 @@ void SensorHalDaemonClientHandler::onSensorMlcCaseListCb(struct sensor_mlc_case_
    // already holds the lock
    SENSOR_LOGI(LOG_TAG "--< onSensorMlcCaseListCb\n");
 #ifdef SENSOR_IVSS_ENABLED
-   if(strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0)
+   if(mService->mIvssEnabled && strncmp(mName.c_str(),"tosomeip",sizeof(mName.c_str())) == 0)
 	   return;
 #endif
    StoreMlcCaseListStatus(s, count);

@@ -5,6 +5,10 @@
  * Author: Mario Tesi <mario.tesi@st.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <errno.h>
@@ -53,7 +57,7 @@ static void sig_callback(int sig)
 
 static int show_sensor_placement(struct hal_config_t *config)
 {
-	ALOGD("SensorHAL Rotation Matrix: \t%5.2f %5.2f %5.2f %6.2f\t%5.2f %5.2f %5.2f %6.2f\t%5.2f %5.2f %5.2f %6.2f\n",
+	SENSOR_LOGD("SensorHAL Rotation Matrix: \t%5.2f %5.2f %5.2f %6.2f\t%5.2f %5.2f %5.2f %6.2f\t%5.2f %5.2f %5.2f %6.2f\n",
 		config->sensor_placement.rot[0][0],
 		config->sensor_placement.rot[0][1],
 		config->sensor_placement.rot[0][2],
@@ -66,9 +70,9 @@ static int show_sensor_placement(struct hal_config_t *config)
 		config->sensor_placement.rot[2][1],
 		config->sensor_placement.rot[2][2],
 		config->sensor_placement.location[2]);
-	ALOGD("SensorHAL Crash  theshold %d duration %d\n", config->algo_crash_impact_th, config->algo_crash_min_duration);
-	ALOGD("SensorHAL Towing theshold %d duration %d\n", config->algo_towing_jack_delta_th, config->algo_towing_jack_min_duration);
-	ALOGD("SensorHAL Ignition State %d\n", config->ignition_off);
+	SENSOR_LOGD("SensorHAL Crash  theshold %d duration %d\n", config->algo_crash_impact_th, config->algo_crash_min_duration);
+	SENSOR_LOGD("SensorHAL Towing theshold %d duration %d\n", config->algo_towing_jack_delta_th, config->algo_towing_jack_min_duration);
+	SENSOR_LOGD("SensorHAL Ignition State %d\n", config->ignition_off);
 
 	return 0;
 }
@@ -193,17 +197,17 @@ static int write_algos_parameters_to_driver(struct hal_config_t *config)
 			      (uint8_t)(value >> 8),
 			      (uint8_t)(value & 0x00FF));
 		if (ret < 0) {
-			ALOGE("\"%s\": SensorHAL Failed to allocate min duration",
+			SENSOR_LOGE("\"%s\": SensorHAL Failed to allocate min duration",
 			      __FUNCTION__);
 
 			return ret;
 		}
 
-		ALOGD("\"%s\": SensorHAL Updating towing/jack min duration to %s",
+		SENSOR_LOGD("\"%s\": SensorHAL Updating towing/jack min duration to %s",
 		      __FUNCTION__, fsm_str);
 		ret = device_iio_utils::update_fsm_jack_min_duration(fsm_str);
 		if (ret < 0) {
-			ALOGE("\"%s\": SensorHAL Failed to update towing/jack min duration",
+			SENSOR_LOGE("\"%s\": SensorHAL Failed to update towing/jack min duration",
 			      __FUNCTION__);
 
 			return ret;
@@ -222,17 +226,17 @@ static int write_algos_parameters_to_driver(struct hal_config_t *config)
 			      (uint8_t)(valueth2 >> 8),
 			      (uint8_t)(valueth2 & 0x00FF));
 		if (ret < 0) {
-			ALOGE("\"%s\": SensorHAL Failed to allocate crash impact threshold",
+			SENSOR_LOGE("\"%s\": SensorHAL Failed to allocate crash impact threshold",
 			      __FUNCTION__);
 
 			return ret;
 		}
 
-		ALOGD("\"%s\": SensorHAL Updating crash impact threshold to %s",
+		SENSOR_LOGD("\"%s\": SensorHAL Updating crash impact threshold to %s",
 		      __FUNCTION__, fsm_str);
 		ret = device_iio_utils::update_crash_impact_th(fsm_str);
 		if (ret < 0) {
-			ALOGE("\"%s\": SensorHAL Failed to update crash impact threshold",
+			SENSOR_LOGE("\"%s\": SensorHAL Failed to update crash impact threshold",
 			      __FUNCTION__);
 
 			return ret;
@@ -248,17 +252,17 @@ static int write_algos_parameters_to_driver(struct hal_config_t *config)
 			      (uint8_t)(value >> 8),
 			      (uint8_t)(value & 0x00FF));
 		if (ret < 0) {
-			ALOGE("\"%s\": SensorHAL Failed to allocate crash min duration",
+			SENSOR_LOGE("\"%s\": SensorHAL Failed to allocate crash min duration",
 			      __FUNCTION__);
 
 			return ret;
 		}
 
-		ALOGD("\"%s\": SensorHAL Updating crash min duration to %s",
+		SENSOR_LOGD("\"%s\": SensorHAL Updating crash min duration to %s",
 		      __FUNCTION__, fsm_str);
 		ret = device_iio_utils::update_crash_min_duration(fsm_str);
 		if (ret < 0) {
-			ALOGE("\"%s\": SensorHAL Failed to update crash min duration",
+			SENSOR_LOGE("\"%s\": SensorHAL Failed to update crash min duration",
 			      __FUNCTION__);
 
 			return ret;
@@ -398,7 +402,7 @@ static int update_file_data(const char *file, char *path)
 	stat(file_path_name, &st);
 	size = st.st_size;
 	if (size == 0) {
-		ALOGE("SensorHAL Zero len file %s\n", file_path_name);
+		SENSOR_LOGE("SensorHAL Zero len file %s\n", file_path_name);
 
 		goto err_out;
 	}
@@ -406,7 +410,7 @@ static int update_file_data(const char *file, char *path)
 	fd_config = fopen(file_path_name, "r");
 	if (!fd_config) {
 		err = -errno;
-		ALOGE("SensorHAL Filed to open %s (errno %d)\n", file_path_name, err);
+		SENSOR_LOGE("SensorHAL Filed to open %s (errno %d)\n", file_path_name, err);
 
 		goto err_out;
 	}
@@ -504,20 +508,20 @@ static void *hal_configuration_thread(void *parm)
 
 	fd = inotify_init();
 	if (fd < 0) {
-		ALOGE("SensorHAL inotify_init");
+		SENSOR_LOGE("SensorHAL inotify_init");
 		return NULL;
 	}
 
 	buffer = (char *)malloc(bufsiz);
 	if (!buffer) {
-		ALOGE("SensorHAL no mem");
+		SENSOR_LOGE("SensorHAL no mem");
 		return NULL;
 	}
 
 	thread_params = (struct thread_params_t *)parm;
 	if (!thread_params->pathname ||
 	    !is_directory(thread_params->pathname)) {
-		ALOGE("SensorHAL pathname is not a valid directory %s\n", thread_params->pathname);
+		SENSOR_LOGE("SensorHAL pathname is not a valid directory %s\n", thread_params->pathname);
 		exit(-1);
 	}
 
@@ -535,7 +539,7 @@ static void *hal_configuration_thread(void *parm)
 			buffer = NULL;
 		}
 
-		ALOGE("SensorHAL unable to add watch");
+		SENSOR_LOGE("SensorHAL unable to add watch");
 		exit(-1);
 	}
 
@@ -553,13 +557,13 @@ static void *hal_configuration_thread(void *parm)
 			struct inotify_event *event = (struct inotify_event *)&buffer[i];
 
 			if (event->mask & IN_Q_OVERFLOW) {
-				ALOGE( "SensorHAL Overflow" );
+				SENSOR_LOGE( "SensorHAL Overflow" );
 			}
 
 			if (event->len) {
 				if (event->mask & IN_CLOSE) {
 					if (event->mask & IN_CLOSE_WRITE) {
-						ALOGD("SensorHAL Configuration file %s closed for write", event->name);
+						SENSOR_LOGD("SensorHAL Configuration file %s closed for write", event->name);
 						if (strcmp(event->name, HAL_CONFIGURATION_FILE) == 0) {
 							update_file_data(HAL_CONFIGURATION_FILE, thread_params->pathname);
 							write_algos_parameters_to_driver(&hal_config);
@@ -600,7 +604,7 @@ int init_notify_loop(char *pathname, STSensorHAL_data *hal_data)
 	int status;
 
 	if (!pathname) {
-		ALOGE("SensorHAL Invalid path name\n");
+		SENSOR_LOGE("SensorHAL Invalid path name\n");
 
 		return -1;
 	}
@@ -610,7 +614,7 @@ int init_notify_loop(char *pathname, STSensorHAL_data *hal_data)
 	sa.sa_flags &= ~SA_RESTART;
 
 	if (sigaction(SIGINT, &sa, NULL) == -1) {
-		ALOGE("SensorHAL unable to install sigint handler");
+		SENSOR_LOGE("SensorHAL unable to install sigint handler");
 
 		return -1;
 	}
@@ -621,7 +625,7 @@ int init_notify_loop(char *pathname, STSensorHAL_data *hal_data)
 				hal_configuration_thread,
 				(void *)&thread_params);
 	if ( status <  0) {
-		ALOGE("SensorHAL pthread_create failed");
+		SENSOR_LOGE("SensorHAL pthread_create failed");
 
 		return -1;
 	}

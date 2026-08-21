@@ -25,9 +25,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  */
@@ -140,6 +139,7 @@ typedef struct {
     int   DebugLevel;
     int   EnableFIR;
     int   SensorSelfTest;
+    int   IvssEnabled;
 } configParamToRead;
 
 
@@ -260,6 +260,10 @@ public:
 #ifdef SENSOR_IVSS_ENABLED
     std::shared_ptr<SensorInterfaceStubImpl> myService;
 #endif
+    // IVSS_ENABLED from sensors.conf, read before any SENSOR_IVSS_ENABLED
+    // code runs - gates those sections at runtime even when the build flag
+    // (--with-sensor_ivss) is on.
+    bool mIvssEnabled;
     float rot[3][3];
 #ifdef SENSOR_HEAD_TYPE_SUPPORT
     void EnableHeadingSensor();

@@ -8,15 +8,12 @@ AM_CFLAGS = \
 -I./sensord \
 -D__func__=__PRETTY_FUNCTION__ \
 -DON_TARGET_TEST \
--DPLTF_LINUX_ENABLED
+-DPLTF_LINUX_ENABLED \
+$(SENSOR_COMMONLOGLIB_CFLAGS)
 
 ACLOCAL_AMFLAGS = -I m4
 
-requiredlibs =
-if USE_DLT
-AM_CFLAGS += -DUSE_DLT $(DLTLOG_CFLAGS) $(SENSORDLTLOGLIB_CFLAGS)
-requiredlibs += $(DLTLOG_LIBS) $(SENSORDLTLOGLIB_LIBS)
-endif
+requiredlibs = $(SENSOR_COMMONLOGLIB_LIBS)
 
 libsmi230sensors_la_SOURCES = \
                               ./hal/sensors.cpp \

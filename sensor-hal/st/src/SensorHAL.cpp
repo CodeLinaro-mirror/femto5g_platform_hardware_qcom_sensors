@@ -5,42 +5,10 @@
  * Author: Denis Ciocca - <denis.ciocca@st.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
- */
-
-/*
-Changes from Qualcomm Innovation Center are provided under the following license:
-
-Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
- 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted (subject to the limitations in the
-disclaimer below) provided that the following conditions are met:
- 
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
- 
-    * Redistributions in binary form must reproduce the above
-      copyright notice, this list of conditions and the following
-      disclaimer in the documentation and/or other materials provided
-      with the distribution.
- 
-    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
-      contributors may be used to endorse or promote products derived
-      from this software without specific prior written permission.
- 
-NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
-HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define __STDC_LIMIT_MACROS
@@ -263,7 +231,7 @@ static SensorBase* st_hal_create_class_sensor(STSensorHAL_device_iio_devices_dat
 			err = ((HWSensorBase *)sb)->ApplyFactoryCalibrationData((char *)ST_HAL_FACTORY_ACCEL_DATA_FILENAME,
 					&priv_data->calibration_last_modification[ST_HAL_PRIVATE_DATA_CALIBRATION_LM_ACCEL_ID]);
 			if (err < 0)
-				ALOGE("\"%s\": SensorHAL Failed to read factory calibration values.",
+				SENSOR_LOGE("\"%s\": SensorHAL Failed to read factory calibration values.",
 				      data->android_name);
 		}
 #endif /* CONFIG_ST_HAL_FACTORY_CALIBRATION */
@@ -280,7 +248,7 @@ static SensorBase* st_hal_create_class_sensor(STSensorHAL_device_iio_devices_dat
 			err = ((HWSensorBase *)sb)->ApplyFactoryCalibrationData((char *)ST_HAL_FACTORY_GYRO_DATA_FILENAME,
 					&priv_data->calibration_last_modification[ST_HAL_PRIVATE_DATA_CALIBRATION_LM_GYRO_ID]);
 			if (err < 0)
-				ALOGE("\"%s\": SensorHAL Failed to read factory calibration values.",
+				SENSOR_LOGE("\"%s\": SensorHAL Failed to read factory calibration values.",
 				      data->android_name);
 		}
 #endif /* CONFIG_ST_HAL_FACTORY_CALIBRATION */
@@ -315,7 +283,7 @@ void SENSOR_READ_CONF(char *file_name, int *acc_range, int *gyro_range)
 
     file = fopen(file_name, "r");
     if (file == NULL) {
-        ALOGE("SensorHAL open failed: %s: %s\n", file_name, strerror(errno));
+        SENSOR_LOGE("SensorHAL open failed: %s: %s\n", file_name, strerror(errno));
         return;
     }
 
@@ -421,7 +389,7 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 
 	gyro_num = device_iio_utils::get_device_by_name(stsensor->driver_name);
 	if (gyro_num < 0) {
-		ALOGE("SensorHAL No IIO sensors found into /sys/bus/iio/devices/ folder.");
+		SENSOR_LOGE("SensorHAL No IIO sensors found into /sys/bus/iio/devices/ folder.");
 
 		return 0;
 	}
@@ -430,7 +398,7 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 		       "/sys/bus/iio/devices/iio:device%d",
 		       gyro_num);
 	if (err < 0) {
-		ALOGE("SensorHAL Unable to allocate sysfs path.");
+		SENSOR_LOGE("SensorHAL Unable to allocate sysfs path.");
 
 		return 0;
 	}
@@ -461,14 +429,14 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 	/* check if file already opened by other process */
 	err = asprintf(&buffer_path, "/dev/iio:device%d", gyro_num);
        if (err <= 0) {
-               ALOGE("%s: SensorHAL Failed to allocate iio device path string.",
+               SENSOR_LOGE("%s: SensorHAL Failed to allocate iio device path string.",
                      __FUNCTION__);
                goto st_hal_load_free_device_iio_channels;
        }
 
        fd = open(buffer_path, O_RDONLY | O_NONBLOCK);
        if (fd < 0) {
-               ALOGE("%s: SensorHAL Failed to open iio char device (%s)." ,
+               SENSOR_LOGE("%s: SensorHAL Failed to open iio char device (%s)." ,
                      __FUNCTION__,
                      buffer_path);
                goto st_hal_load_free_device_iio_channels;
@@ -478,7 +446,7 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 
 	err = device_iio_utils::enable_sensor(data->device_iio_sysfs_path, false);
 	if (err < 0) {
-		ALOGE("SensorHAL Unable to disable sensor.");
+		SENSOR_LOGE("SensorHAL Unable to disable sensor.");
 
 		goto st_hal_load_free_device_iio_channels;
 	}
@@ -486,7 +454,7 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 	err = device_iio_utils::get_sampling_frequency_available(data->device_iio_sysfs_path,
 								 &data->sfa);
 	if (err < 0) {
-		ALOGE("SensorHAL Unable to get sampling frequency availability. (errno: %d)", err);
+		SENSOR_LOGE("SensorHAL Unable to get sampling frequency availability. (errno: %d)", err);
 
 		goto st_hal_load_free_device_iio_channels;
 	}
@@ -494,7 +462,7 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 	err = device_iio_utils::get_scale_available(data->device_iio_sysfs_path, &data->sa,
 						    stsensor->device_iio_sensor_type);
 	if (err < 0) {
-		ALOGE("\"%s\": SensorHAL unable to get scale availability. (errno: %d)",
+		SENSOR_LOGE("\"%s\": SensorHAL unable to get scale availability. (errno: %d)",
 		      stsensor->driver_name, err);
 		goto st_hal_load_free_device_iio_channels;
 	}
@@ -506,7 +474,7 @@ static int st_hal_load_gyro_data(const struct ST_sensors_supported *stsensor,
 					   data->channels,
 					   data->num_channels);
 		if (err < 0) {
-			ALOGE("\"%s\": SensorHAL failed to set device full-scale. (errno: %d)",
+			SENSOR_LOGE("\"%s\": SensorHAL failed to set device full-scale. (errno: %d)",
 			      stsensor->driver_name, err);
 			goto st_hal_load_free_device_iio_channels;
 		}
@@ -562,7 +530,7 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 
 	acc_num = device_iio_utils::get_device_by_name(stsensor->driver_name);
 	if (acc_num < 0) {
-		ALOGE("SensorHAL No ACC sensors found into /sys/bus/iio/devices/ folder.");
+		SENSOR_LOGE("SensorHAL No ACC sensors found into /sys/bus/iio/devices/ folder.");
 
 		return 0;
 	}
@@ -572,7 +540,7 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 		       "/sys/bus/iio/devices/iio:device%d",
 		       acc_num);
 	if (err < 0) {
-		ALOGE("SensorHAL Unable to allocate sysfs path.");
+		SENSOR_LOGE("SensorHAL Unable to allocate sysfs path.");
 
 		return 0;
 	}
@@ -603,14 +571,14 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 	/* check if file already opened by other process */
        err = asprintf(&buffer_path, "/dev/iio:device%d", acc_num);
        if (err <= 0) {
-               ALOGE("%s: SensorHAL Failed to allocate iio device path string.",
+               SENSOR_LOGE("%s: SensorHAL Failed to allocate iio device path string.",
                      __FUNCTION__);
                goto st_hal_load_free_device_iio_channels;
        }
 
        fd = open(buffer_path, O_RDONLY | O_NONBLOCK);
        if (fd < 0) {
-               ALOGE("%s: SensorHAL Failed to open iio char device (%s)." ,
+               SENSOR_LOGE("%s: SensorHAL Failed to open iio char device (%s)." ,
                      __FUNCTION__,
                      buffer_path);
                goto st_hal_load_free_device_iio_channels;
@@ -620,7 +588,7 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 
 	err = device_iio_utils::enable_sensor(data->device_iio_sysfs_path, false);
 	if (err < 0) {
-		ALOGE("SensorHAL Unable to disable sensor.");
+		SENSOR_LOGE("SensorHAL Unable to disable sensor.");
 
 		goto st_hal_load_free_device_iio_channels;
 	}
@@ -628,7 +596,7 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 	err = device_iio_utils::get_sampling_frequency_available(data->device_iio_sysfs_path,
 								 &data->sfa);
 	if (err < 0) {
-		ALOGE("SensorHAL Unable to get sampling frequency availability for accel. (errno: %d)",
+		SENSOR_LOGE("SensorHAL Unable to get sampling frequency availability for accel. (errno: %d)",
 		      err);
 
 		goto st_hal_load_free_device_iio_channels;
@@ -638,7 +606,7 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 						    &data->sa,
 						    stsensor->device_iio_sensor_type);
 	if (err < 0) {
-		ALOGE("\"%s\": SensorHAL unable to get scale availability. (errno: %d)",
+		SENSOR_LOGE("\"%s\": SensorHAL unable to get scale availability. (errno: %d)",
 		      stsensor->driver_name, err);
 		goto st_hal_load_free_device_iio_channels;
 	}
@@ -650,7 +618,7 @@ static int st_hal_load_acc_data(const struct ST_sensors_supported *stsensor,
 					   data[0].channels,
 					   data[0].num_channels);
 		if (err < 0) {
-			ALOGE("\"%s\": SensorHAL failed to set device full-scale. (errno: %d)",
+			SENSOR_LOGE("\"%s\": SensorHAL failed to set device full-scale. (errno: %d)",
 			      stsensor->driver_name, err);
 
 			goto st_hal_load_free_device_iio_channels;
@@ -776,7 +744,7 @@ static int st_hal_dev_batch(struct sensors_poll_device_1 *dev, int handle,
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
-	ALOGD("SensorHAL changed timeout=%" PRIu64 "ms pollrate_ns=%" PRIu64 "ms",
+	SENSOR_LOGD("SensorHAL changed timeout=%" PRIu64 "ms pollrate_ns=%" PRIu64 "ms",
 	      timeout,
 	      period_ns);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
@@ -842,7 +810,7 @@ static int st_hal_dev_setDelay(struct sensors_poll_device_t *dev,
 	unsigned int index;
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
-	ALOGD("%s: SensorHAL handle %d poll rate %" PRIu64 " ns", __FUNCTION__, handle, ns);
+	SENSOR_LOGD("%s: SensorHAL handle %d poll rate %" PRIu64 " ns", __FUNCTION__, handle, ns);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 
 	index = st_hal_get_handle(hal_data, handle);
@@ -864,7 +832,7 @@ static int st_hal_dev_activate(struct sensors_poll_device_t *dev,
 	unsigned int index;
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
-	ALOGD("%s: SensorHAL handle %d enabled %d", __FUNCTION__, handle, enabled);
+	SENSOR_LOGD("%s: SensorHAL handle %d enabled %d", __FUNCTION__, handle, enabled);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 
 	index = st_hal_get_handle(hal_data, handle);
@@ -1014,7 +982,7 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 #ifdef CONFIG_ST_HAL_FACTORY_CALIBRATION
 	err = st_hal_read_private_data(&private_data);
 	if (err < 0) {
-		ALOGE("SensorHAL Failed to read private data. First boot?");
+		SENSOR_LOGE("SensorHAL Failed to read private data. First boot?");
 		st_hal_set_default_private_data(&private_data);
 	}
 #endif /* CONFIG_ST_HAL_FACTORY_CALIBRATION */
@@ -1044,13 +1012,13 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 							  NULL);
 #endif /* CONFIG_ST_HAL_FACTORY_CALIBRATION */
 		if (!sensor_class) {
-			ALOGE("\"%s\": SensorHAL failed to create HW sensor class.",
+			SENSOR_LOGE("\"%s\": SensorHAL failed to create HW sensor class.",
 			      device_iio_devices_data[i].device_name);
 			continue;
 		}
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_VERBOSE)
-	ALOGD("\"%s\": SensorHAL created HW class instance, handle: %d (sensor type: %d).",
+	SENSOR_LOGD("\"%s\": SensorHAL created HW class instance, handle: %d (sensor type: %d).",
 	      sensor_class->GetName(),
 	      sensor_class->GetHandle(),
 	      sensor_class->GetType());
@@ -1071,19 +1039,19 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 #ifdef CONFIG_ST_HAL_FACTORY_CALIBRATION
 	err = st_hal_write_private_data(&private_data);
 	if (err < 0)
-		ALOGE("SensorHAL Failed to write private data.");
+		SENSOR_LOGE("SensorHAL Failed to write private data.");
 #endif /* CONFIG_ST_HAL_FACTORY_CALIBRATION */
 
 	for (i = 0; i < (int)ARRAY_SIZE(ST_virtual_sensors_list); i++) {
 		sensor_class = st_hal_create_virtual_class_sensor(ST_virtual_sensors_list[i].android_sensor_type, classes_available + 1);
 		if (!sensor_class) {
-			ALOGE("SensorHAL Failed to create SW sensor class (sensor type: %d).", ST_virtual_sensors_list[i].android_sensor_type);
+			SENSOR_LOGE("SensorHAL Failed to create SW sensor class (sensor type: %d).", ST_virtual_sensors_list[i].android_sensor_type);
 			continue;
 		}
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_VERBOSE)
 		if (sensor_class->GetType() < SENSOR_TYPE_ST_CUSTOM_NO_SENSOR)
-			ALOGD("\"%s\": SensorHAL created SW class instance, handle: %d (sensor type: %d).", sensor_class->GetName(), sensor_class->GetHandle(), sensor_class->GetType());
+			SENSOR_LOGD("\"%s\": SensorHAL created SW class instance, handle: %d (sensor type: %d).", sensor_class->GetName(), sensor_class->GetHandle(), sensor_class->GetType());
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 
 		temp_sensor_class[classes_available] = sensor_class;
@@ -1115,7 +1083,7 @@ static int st_hal_open_sensors(const struct hw_module_t *module,
 			}
 
 			if ((c == classes_available) || (err < 0)) {
-				ALOGE("\"%s\": SensorHAL failed to add dependency (sensor type dependency: %d).",
+				SENSOR_LOGE("\"%s\": SensorHAL failed to add dependency (sensor type dependency: %d).",
 				      temp_sensor_class[i]->GetName(),
 				      type_dependencies[type_index]);
 
@@ -1180,7 +1148,7 @@ failed_to_add_dependency:
 						     &SensorBase::ThreadDataWork,
 						     (void *)temp_sensor_class[i]);
 				if (err < 0) {
-					ALOGE("%s: SensorHAL Failed to create IIO data pThread.",
+					SENSOR_LOGE("%s: SensorHAL Failed to create IIO data pThread.",
 					      temp_sensor_class[i]->GetName());
 					sensor_class_valid[i] = false;
 					continue;
@@ -1194,7 +1162,7 @@ failed_to_add_dependency:
 						     &SensorBase::ThreadEventsWork,
 						     (void *)temp_sensor_class[i]);
 				if (err < 0) {
-					ALOGE("%s: SensorHAL Failed to create IIO events pThread.",
+					SENSOR_LOGE("%s: SensorHAL Failed to create IIO events pThread.",
 					      temp_sensor_class[i]->GetName());
 					sensor_class_valid[i] = false;
 					continue;
@@ -1221,7 +1189,7 @@ failed_to_add_dependency:
 					    device_found_num);
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
-	ALOGD("%d sensorHAL available and ready.", hal_data->sensor_available);
+	SENSOR_LOGD("%d sensorHAL available and ready.", hal_data->sensor_available);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 
 #if CONFIG_ST_HAL_CONFIG_INOTIFY_ENABLED
@@ -1342,7 +1310,7 @@ static int st_hal_set_operation_mode(unsigned int mode)
 	for (i = 0; i < (int)hal_data->sensor_available; i++) {
 		err = hal_data->sensor_classes[hal_data->sensor_t_list[i].handle]->InjectionMode(enable_injection);
 		if (err < 0) {
-			ALOGE("SensorHAL Failed to set HAL operation mode. (errno=%d)", err);
+			SENSOR_LOGE("SensorHAL Failed to set HAL operation mode. (errno=%d)", err);
 			goto rollback_operation_mode;
 		}
 	}

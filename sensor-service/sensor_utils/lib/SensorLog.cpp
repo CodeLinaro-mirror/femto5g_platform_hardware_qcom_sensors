@@ -37,7 +37,15 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <vector>
+#include <pthread.h>
 #include <SensorDiagLog.h>
+
+#ifdef USE_CLOG
+#include "clog.h"
+#include "clog_ids.h"
+#elif defined(USE_DLT)
+#include <dlt/dlt.h>
+#endif
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -47,18 +55,19 @@
 //Config file
 #define SENSOR_CONF_PATH "/etc/sensors.conf"
 
-int DEBUG_LEVEL = 0;
+/* Messages longer than this are truncated. */
+#define LOG_MAX_LENGTH 512
 
-/**
- * Sensor_Read_Sensor_Config: Read config from the given file and store the value
- * @param file_name         : Path to configuration file
- * @param config_name       : Config name including '=' (eg: DEBUG=)
- * @param out_fmt           : Format specifier for the output
- * @param out               : Address to store the output to
- * @return                  : Returns 0 on success, else returns -ve errno
+/**@brief:  Reads a "key=value" config entry out of a config file. A '#'
+ *          stops scanning of that line; later lines take precedence if the
+ *          key repeats. Never logs, so it is safe to call from anywhere.
+ * @param file_name   : Path to configuration file
+ * @param config_name : Config name including '=' (eg: DIAG_CLIENTS=)
+ * @param out_fmt      : sscanf format specifier for the value
+ * @param out          : Address to store the parsed value
+ * @return             : 0 on success, else -EINVAL
  */
-
-static int Sensor_Read_Sensor_Config(const char *file_name, const char *config_name, 
+static int ReadSensorConfig(const char *file_name, const char *config_name,
 const char *out_fmt, void *out)
 {
     FILE *file;
@@ -69,7 +78,6 @@ const char *out_fmt, void *out)
 
     file = fopen(file_name, "r");
     if (file == NULL) {
-        SENSOR_LOGE(LOG_TAG "file open failed : %d(%s)\n", errno, strerror(errno));
         return -EINVAL;
     }
 
@@ -93,6 +101,365 @@ const char *out_fmt, void *out)
     }
     (void)fclose(file);
     return ret;
+}
+
+/* 0 (silent) by default, not lazily read from sensors.conf, so there is no
+ * conditional or file read on the SENSOR_LOGx hot path. */
+static int DEBUG_LEVEL = 0;
+
+int SensorLogDefaultEnabled(SensorLogLevel level)
+{
+    return (DEBUG_LEVEL >= (int)level) && (DEBUG_LEVEL <= 5);
+}
+
+
+typedef enum {
+    ROLE_APP = 0,   /* owns the process, registers the application id */
+    ROLE_LIBRARY    /* hosted elsewhere, must not claim the application id */
+} SensorLogRole;
+
+typedef struct {
+    SensorLogRole role;
+    const char   *appId;        /* NULL for libraries */
+    const char   *ctxId;
+    const char   *description;
+} SensorLogIdentity;
+
+/* Ids match the DLT ids already used, so log names do not change. Libraries
+ * carry an appId too: CLOG ignores it, but DLT has no library registration. */
+static const SensorLogIdentity kIdentities[] = {
+    /* SENSOR_LOG_ID_HAL_DAEMON */
+    { ROLE_APP,     "SENS", "SHD", "Sensor Hal Daemon" },
+    /* SENSOR_LOG_ID_CLIENT_LIB */
+    { ROLE_LIBRARY, "SENC", "SCL", "Sensor Client Library" }
+};
+
+#define IDENTITY_COUNT ((int)(sizeof(kIdentities) / sizeof(kIdentities[0])))
+
+/* gRefCount: a client application may hold several SensorClient objects, and
+ * tearing the backend down on the first destructor would break the others. */
+static pthread_mutex_t gLock = PTHREAD_MUTEX_INITIALIZER;
+static int gRefCount = 0;
+static int gBackendActive = 0;
+
+#ifdef USE_CLOG
+
+static clog_context_t gClogCtx = NULL;
+static int gClogAppRegistered = 0;
+static int gClogLibRegistered = 0;
+
+static clog_level_t ToClogLevel(SensorLogLevel level)
+{
+    switch (level)
+    {
+        case SENSOR_LOG_FATAL:   return CLOG_LEVEL_FATAL;
+        case SENSOR_LOG_ERROR:   return CLOG_LEVEL_ERROR;
+        case SENSOR_LOG_WARN:    return CLOG_LEVEL_WARN;
+        case SENSOR_LOG_INFO:    return CLOG_LEVEL_INFO;
+        case SENSOR_LOG_DEBUG:   return CLOG_LEVEL_DEBUG;
+        case SENSOR_LOG_VERBOSE: return CLOG_LEVEL_VERBOSE;
+        default:                 return CLOG_LEVEL_ERROR;
+    }
+}
+
+/**@brief:  Maps a component onto its numeric ids in the CLOG registry. */
+static void ClogIdsFor(SensorLogComponent component,
+                       clog_app_id_t *appNumId, clog_context_id_t *ctxNumId)
+{
+    switch (component)
+    {
+        case SENSOR_LOG_ID_HAL_DAEMON:
+            *appNumId = (clog_app_id_t)CLOG_APP_SENS;
+            *ctxNumId = (clog_context_id_t)CLOG_ACTX_SENS_SHD;
+            break;
+        case SENSOR_LOG_ID_CLIENT_LIB:
+            *appNumId = (clog_app_id_t)0;
+            *ctxNumId = (clog_context_id_t)CLOG_LCTX_SCL;
+            break;
+        default:
+            *appNumId = (clog_app_id_t)0;
+            *ctxNumId = (clog_context_id_t)0;
+            break;
+    }
+}
+
+/* Caller holds gLock. Returns 1 when a context is registered and usable. */
+static int BackendRegister(SensorLogComponent component,
+                           const SensorLogIdentity *id)
+{
+    clog_app_id_t appNumId;
+    clog_context_id_t ctxNumId;
+
+    ClogIdsFor(component, &appNumId, &ctxNumId);
+
+    if (id->role == ROLE_APP)
+    {
+        if (CLOG_REGISTER_APP(appNumId, id->appId, id->description) != CLOG_RETURN_OK)
+        {
+            return 0;
+        }
+        gClogAppRegistered = 1;
+    }
+    else
+    {
+        /* Libraries must not claim the app id: the host may already own one. */
+        if (CLOG_REGISTER_LIBRARY() != CLOG_RETURN_OK)
+        {
+            return 0;
+        }
+        gClogLibRegistered = 1;
+    }
+
+    gClogCtx = CLOG_REGISTER_CONTEXT(ctxNumId, id->ctxId, id->description,
+                                     CLOG_DIAG_SSID_NOT_AVAILABLE,
+                                     id->ctxId, id->ctxId);
+    if (gClogCtx == NULL)
+    {
+        if (gClogAppRegistered)
+        {
+            (void)CLOG_UNREGISTER_APP();
+            gClogAppRegistered = 0;
+        }
+        if (gClogLibRegistered)
+        {
+            (void)CLOG_UNREGISTER_LIBRARY();
+            gClogLibRegistered = 0;
+        }
+        return 0;
+    }
+
+    return 1;
+}
+
+/* Caller holds gLock. */
+static void BackendUnregister(void)
+{
+    if (gClogCtx != NULL)
+    {
+        (void)CLOG_UNREGISTER_CONTEXT(gClogCtx);
+        gClogCtx = NULL;
+    }
+    if (gClogAppRegistered)
+    {
+        (void)CLOG_UNREGISTER_APP();
+        gClogAppRegistered = 0;
+    }
+    if (gClogLibRegistered)
+    {
+        (void)CLOG_UNREGISTER_LIBRARY();
+        gClogLibRegistered = 0;
+    }
+}
+
+static int BackendWrite(SensorLogLevel level, const char *buf)
+{
+    return (CLOG_LOG(gClogCtx, ToClogLevel(level), "%s", buf) == CLOG_RETURN_OK);
+}
+
+#elif defined(USE_DLT)
+
+#define DLT_ID_SIZE 5
+#define DLT_ENABLED_KEY "DLT_ENABLED="
+
+static DltContext gDltCtx;
+static int gDltAppRegistered = 0;
+
+static DltLogLevelType ToDltLevel(SensorLogLevel level)
+{
+    switch (level)
+    {
+        case SENSOR_LOG_FATAL:   return DLT_LOG_FATAL;
+        case SENSOR_LOG_ERROR:   return DLT_LOG_ERROR;
+        case SENSOR_LOG_WARN:    return DLT_LOG_WARN;
+        case SENSOR_LOG_INFO:    return DLT_LOG_INFO;
+        case SENSOR_LOG_DEBUG:   return DLT_LOG_DEBUG;
+        case SENSOR_LOG_VERBOSE: return DLT_LOG_VERBOSE;
+        default:                 return DLT_LOG_ERROR;
+    }
+}
+
+/**@brief:  Reads DLT_ENABLED from the sensor config file.
+ * @return  Configured value, or 0 if the key or the file is absent.
+ */
+static int ReadDltEnabledConfig(void)
+{
+    int value = 0;
+
+    if (ReadSensorConfig(SENSOR_CONF_PATH, DLT_ENABLED_KEY, "%d", &value) != 0)
+    {
+        value = 0;
+    }
+    return value;
+}
+
+/* Caller holds gLock. Returns 1 when a context is registered and usable. */
+static int BackendRegister(SensorLogComponent component,
+                           const SensorLogIdentity *id)
+{
+    char registeredAppId[DLT_ID_SIZE] = {0};
+
+    (void)component;
+
+    if (!ReadDltEnabledConfig())
+    {
+        return 0;
+    }
+
+    /* DLT has no library registration, so both roles claim the app id - but
+     * only when the process has none, so a client's own id is kept. */
+    DLT_GET_APPID(registeredAppId);
+    if (id->appId != NULL && registeredAppId[0] == '\0')
+    {
+        DLT_REGISTER_APP(id->appId, id->description);
+        gDltAppRegistered = 1;
+    }
+
+    if (dlt_register_context(&gDltCtx, id->ctxId, id->description) != DLT_RETURN_OK)
+    {
+        if (gDltAppRegistered)
+        {
+            DLT_UNREGISTER_APP();
+            gDltAppRegistered = 0;
+        }
+        return 0;
+    }
+
+    return 1;
+}
+
+/* Caller holds gLock. */
+static void BackendUnregister(void)
+{
+    DLT_UNREGISTER_CONTEXT(gDltCtx);
+
+    if (gDltAppRegistered)
+    {
+        DLT_UNREGISTER_APP();
+        gDltAppRegistered = 0;
+    }
+}
+
+static int BackendWrite(SensorLogLevel level, const char *buf)
+{
+    DLT_LOG(gDltCtx, ToDltLevel(level), DLT_CSTRING(buf));
+    return 1;
+}
+
+#else /* neither USE_CLOG nor USE_DLT */
+
+static int BackendRegister(SensorLogComponent component,
+                           const SensorLogIdentity *id)
+{
+    (void)component;
+    (void)id;
+    return 0;
+}
+
+static void BackendUnregister(void)
+{
+}
+
+static int BackendWrite(SensorLogLevel level, const char *buf)
+{
+    (void)level;
+    (void)buf;
+    return 0;
+}
+
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int SensorLogRegister(SensorLogComponent component)
+{
+    int active;
+
+    if ((int)component < 0 || (int)component >= IDENTITY_COUNT)
+    {
+        return 0;
+    }
+
+    (void)pthread_mutex_lock(&gLock);
+
+    if (gRefCount == 0)
+    {
+        gBackendActive = BackendRegister(component, &kIdentities[component]);
+    }
+
+    /* Counted even when the backend is unavailable, to keep the matching
+     * SensorLogUnregister() balanced. */
+    gRefCount++;
+    active = gBackendActive;
+
+    (void)pthread_mutex_unlock(&gLock);
+
+    return active;
+}
+
+void SensorLogUnregister(void)
+{
+    (void)pthread_mutex_lock(&gLock);
+
+    if (gRefCount > 0 && --gRefCount == 0)
+    {
+        if (gBackendActive)
+        {
+            BackendUnregister();
+            gBackendActive = 0;
+        }
+    }
+
+    (void)pthread_mutex_unlock(&gLock);
+}
+
+int SensorLogWrite(SensorLogLevel level, const char *fmt, ...)
+{
+    char buf[LOG_MAX_LENGTH];
+    va_list ap;
+    int ret;
+
+    if (fmt == NULL || !gBackendActive)
+    {
+        return 0;
+    }
+
+    va_start(ap, fmt);
+    ret = vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+
+    if (ret < 0)
+    {
+        return 0;
+    }
+
+    return BackendWrite(level, buf);
+}
+
+int SensorLogBackendActive(void)
+{
+    return gBackendActive;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+/* Safety net for hosts that exit without unregistering. No-op once the
+ * references are balanced, so an explicit unregister is not undone twice. */
+static void __attribute__((destructor)) SensorLogAtUnload(void)
+{
+    (void)pthread_mutex_lock(&gLock);
+
+    if (gRefCount > 0 && gBackendActive)
+    {
+        BackendUnregister();
+        gBackendActive = 0;
+        gRefCount = 0;
+    }
+
+    (void)pthread_mutex_unlock(&gLock);
 }
 
 /**
@@ -155,18 +522,17 @@ static int strtok_safe(const char *inp_str, const size_t inp_size, const size_t 
     return idx - out_idx;
 }
 
-int SensorReadDebugLevel() {
-    int ret = Sensor_Read_Sensor_Config(SENSOR_CONF_PATH, "DEBUG_LEVEL=", "%d", &DEBUG_LEVEL);
-    if(ret != 0)
-    {
-        SENSOR_LOGE(LOG_TAG "invalid config\n");
-    }
-    return DEBUG_LEVEL;
+void SetSensorDebugLevel(int debug_level) {
+    DEBUG_LEVEL = debug_level;
 }
 
-void SetSensorDebugLevel(int debug_level) {
+int SensorReadDebugLevel() {
+    int value = 0;
 
-    DEBUG_LEVEL = debug_level;
+    if (ReadSensorConfig(SENSOR_CONF_PATH, "DEBUG_LEVEL=", "%d", &value) == 0) {
+        DEBUG_LEVEL = value;
+    }
+    return DEBUG_LEVEL;
 }
 
 
@@ -236,7 +602,7 @@ static int frac_to_float_array(char *str_arr, std::vector<float> &out, size_t ma
 int CheckDiagEnabled(const char *client_name)
 {
     char diag_clients[MAX_DIAG_CLIENTS * MAX_CLIENT_NAME_LEN + 1];//+1 for /0
-    int ret = Sensor_Read_Sensor_Config(SENSOR_CONF_PATH, "DIAG_CLIENTS=", "%s", (void*)&diag_clients[0]);
+    int ret = ReadSensorConfig(SENSOR_CONF_PATH, "DIAG_CLIENTS=", "%s", (void*)&diag_clients[0]);
     if(ret != 0)
     {
         SENSOR_LOGE(LOG_TAG "invalid config\n");
@@ -263,7 +629,7 @@ int GetFIRCoefficient(std::vector<float> &coef, char *suffix)
     int ret = 0;
 
     snprintf(key_val, 1024, "FIR_COEFFICIENT_%s=", suffix);
-    ret = Sensor_Read_Sensor_Config(SENSOR_CONF_PATH, key_val, "%s", (void*)&conf_coef);
+    ret = ReadSensorConfig(SENSOR_CONF_PATH, key_val, "%s", (void*)&conf_coef);
     if(ret != 0)
     {
         SENSOR_LOGE(LOG_TAG "invalid config for FIR_COEFFICIENT_%s\n", suffix);

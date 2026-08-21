@@ -167,6 +167,11 @@ void SENSOR_READ_CONF(char *file_name, configParamToRead *configParamRead)
                  if(line) (void)sscanf(&line[1], "%d", &configParamRead->EnableFIR);
                  break;
          }
+         else if(strstr(buffer, "IVSS_ENABLED=")) {
+                 line = strstr(buffer, "=");
+                 if(line) (void)sscanf(&line[1], "%d", &configParamRead->IvssEnabled);
+                 break;
+         }
        }
     }
     (void)fclose(file);
@@ -228,9 +233,7 @@ static void* sigterm_wait_thread(void*)
 int main(int argc, char *argv[])
 {
     block_sigterm();
-#ifdef USE_DLT
-    dltLogInit("SENS", "SHD", "Sensor Hal Daemon");
-#endif
+    SensorLogRegister(SENSOR_LOG_ID_HAL_DAEMON);
     pthread_t sig_thread;
     bool rc = Sensor_ThreadCreate(&sig_thread, sigterm_wait_thread, NULL, "sigterm_wait_main_func", false);
     if(rc == false)
@@ -266,8 +269,6 @@ int main(int argc, char *argv[])
 
     SensorApiService::destroy();
     SENSOR_LOGI(LOG_TAG "done\n");
-#ifdef USE_DLT
-    dltLogDeInit();
-#endif
+    SensorLogUnregister();
     exit(0);
 }

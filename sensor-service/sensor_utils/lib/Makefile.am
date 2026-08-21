@@ -2,18 +2,26 @@ AM_CFLAGS = \
     -DDEBUG \
     -I inc/ \
     -I src/ \
-     $(SENSORS_CFLAGS)\
     -std=c++11\
     -fno-permissive
 
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -std=c++11
 
-requiredlibs =
-if USE_DLT
-AM_CFLAGS += -DUSE_DLT $(DLTLOG_CFLAGS) $(SENSORDLTLOGLIB_CFLAGS)
-requiredlibs += $(DLTLOG_LIBS) $(SENSORDLTLOGLIB_LIBS)
+SENSORUTILS_CFLAGS =
+SENSORUTILS_LIBS =
+
+if USE_CLOG
+SENSORUTILS_CFLAGS += -DUSE_CLOG $(CLOGLOG_CFLAGS)
+SENSORUTILS_LIBS += $(CLOGLOG_LIBS)
 endif
+
+if USE_DLT
+SENSORUTILS_CFLAGS += -DUSE_DLT $(DLTLOG_CFLAGS)
+SENSORUTILS_LIBS += $(DLTLOG_LIBS)
+endif
+
+requiredlibs = $(SENSORUTILS_LIBS)
 
 h_sources = \
 	    SensorThread.h \
@@ -37,13 +45,13 @@ libsensor_util_lib_la_h_sources = $(h_sources)
 ######################
 
 if USE_GLIB
-libsensor_util_lib_la_CFLAGS = -DUSE_GLIB $(AM_CFLAGS) @GLIB_CFLAGS@
+libsensor_util_lib_la_CFLAGS = -DUSE_GLIB $(AM_CFLAGS) @GLIB_CFLAGS@ $(SENSORUTILS_CFLAGS)
 libsensor_util_lib_la_LDFLAGS = -lstdc++ -g -Wl,-z,defs -lpthread @GLIB_LIBS@ -shared -version-info 1:0:0
-libsensor_util_lib_la_CPPFLAGS = -DUSE_GLIB $(AM_CFLAGS) $(AM_CPPFLAGS) @GLIB_CFLAGS@
+libsensor_util_lib_la_CPPFLAGS = -DUSE_GLIB $(AM_CFLAGS) $(AM_CPPFLAGS) @GLIB_CFLAGS@ $(SENSORUTILS_CFLAGS)
 else
-libsensor_util_lib_la_CFLAGS = $(AM_CFLAGS)
+libsensor_util_lib_la_CFLAGS = $(AM_CFLAGS) $(SENSORUTILS_CFLAGS)
 libsensor_util_lib_la_LDFLAGS = -lstdc++ -Wl,-z,defs -lpthread -shared -version-info 1:0:0
-libsensor_util_lib_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS)
+libsensor_util_lib_la_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS) $(SENSORUTILS_CFLAGS)
 endif
 
 libsensor_util_lib_la_LIBADD = $(requiredlibs) -lstdc++ -ldl -llog -lm -ldiag

@@ -5,6 +5,10 @@
  * Author: Denis Ciocca - <denis.ciocca@st.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <stdlib.h>
@@ -19,9 +23,14 @@
 
 #if CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_OREO_VERSION
 #include <log/log.h>
+#include <SensorLog.h>
 #else
 #include <cutils/log.h>
 #endif /* use log/log.h start from android 8 major version */
+
+#ifndef LOG_TAG
+#define LOG_TAG "SensorSvc_HAL:"
+#endif
 
 #include "../configuration.h"
 #include "../src/common_data.h"
@@ -122,7 +131,7 @@ static void st_sensors_daemon_copy_file_to_folder(char *filename, int where)
 		goto close_data_file_to_write;
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
-	ALOGI("factory calibration file updated: %s", data_file_to_write);
+	SENSOR_LOGI("factory calibration file updated: %s", data_file_to_write);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 
 close_data_file_to_write:
@@ -170,7 +179,7 @@ static void st_sensors_daemon_remove_file_from_folder(char *filename, int where)
 	}
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
-	ALOGI("factory calibration file removed: %s", data_file_to_remove);
+	SENSOR_LOGI("factory calibration file removed: %s", data_file_to_remove);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 
 	free(data_file_to_remove);
@@ -189,7 +198,7 @@ int main(int __attribute__((unused))argc, char __attribute__((unused))*argv[])
 #endif /* CONFIG_ST_HAL_FACTORY_CALIBRATION_USING_APK */
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
-	ALOGI("ST factory calibration deamon start.");
+	SENSOR_LOGI("ST factory calibration deamon start.");
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 
 #ifdef CONFIG_ST_HAL_FACTORY_CALIBRATION_USING_APK

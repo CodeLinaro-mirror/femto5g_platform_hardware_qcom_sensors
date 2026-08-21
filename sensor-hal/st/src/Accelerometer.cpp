@@ -5,42 +5,10 @@
  * Author: Denis Ciocca - <denis.ciocca@st.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
- */
-
-/*
-Changes from Qualcomm Innovation Center are provided under the following license:
-
-Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
- 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted (subject to the limitations in the
-disclaimer below) provided that the following conditions are met:
- 
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
- 
-    * Redistributions in binary form must reproduce the above
-      copyright notice, this list of conditions and the following
-      disclaimer in the documentation and/or other materials provided
-      with the distribution.
- 
-    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
-      contributors may be used to endorse or promote products derived
-      from this software without specific prior written permission.
- 
-NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
-HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <fcntl.h>
@@ -93,7 +61,7 @@ int Accelerometer::Ignition(int status)
 		Enable(10, true, true);
 	}
 
-	ALOGD("\"%s\": SensorHAL Ignition mode %d", sensor_t_data.name, status);
+	SENSOR_LOGD("\"%s\": SensorHAL Ignition mode %d", sensor_t_data.name, status);
 	toggle_ignition = status;
 
 	return 0;
@@ -162,17 +130,17 @@ void Accelerometer::calculateThresholdMLC(SensorBaseData &data)
 					      thresh_hex[2][1], thresh_hex[2][0],
 					      thresh_hex[2][3], thresh_hex[2][2]);
 				if (ret < 0) {
-					ALOGE("\"%s\": SensorHAL Failed to allocate FSM threshold",
+					SENSOR_LOGE("\"%s\": SensorHAL Failed to allocate FSM threshold",
 					      sensor_t_data.name);
 
 					return;
 				}
 
-				ALOGD("\"%s\": SensorHAL Updating FSM thresholds %s",
+				SENSOR_LOGD("\"%s\": SensorHAL Updating FSM thresholds %s",
 				      sensor_t_data.name, fsm_th_str);
 				ret = device_iio_utils::update_fsm_thresholds(fsm_th_str);
 				if (ret < 0) {
-					ALOGE("\"%s\": SensorHAL Failed to update FSM threshold",
+					SENSOR_LOGE("\"%s\": SensorHAL Failed to update FSM threshold",
 					      sensor_t_data.name);
 
 					return;
@@ -212,7 +180,7 @@ void Accelerometer::ProcessData(SensorBaseData *data)
 	//applyRotationMatrix(*data);
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
-	ALOGD("\"%s\": SensorHAL received new sensor data: x=%f y=%f z=%f, timestamp=%" PRIu64 "ns, deltatime=%" PRIu64 "ns (sensor type: %d).",
+	SENSOR_LOGD("\"%s\": SensorHAL received new sensor data: x=%f y=%f z=%f, timestamp=%" PRIu64 "ns, deltatime=%" PRIu64 "ns (sensor type: %d).",
 	      sensor_t_data.name, data->raw[0], data->raw[1], data->raw[2],
 	      data->timestamp, data->timestamp - sensor_event.timestamp, sensor_t_data.type);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */

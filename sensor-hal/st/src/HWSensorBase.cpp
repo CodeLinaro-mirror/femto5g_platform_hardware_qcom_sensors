@@ -5,42 +5,10 @@
  * Author: Denis Ciocca - <denis.ciocca@st.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
- */
-
-/*
-Changes from Qualcomm Innovation Center are provided under the following license:
-
-Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
- 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted (subject to the limitations in the
-disclaimer below) provided that the following conditions are met:
- 
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
- 
-    * Redistributions in binary form must reproduce the above
-      copyright notice, this list of conditions and the following
-      disclaimer in the documentation and/or other materials provided
-      with the distribution.
- 
-    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
-      contributors may be used to endorse or promote products derived
-      from this software without specific prior written permission.
- 
-NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
-HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define __STDC_LIMIT_MACROS
@@ -287,14 +255,14 @@ HWSensorBase::HWSensorBase(HWSensorBaseCommonData *data,
 		       "/dev/iio:device%d",
 		       data->device_iio_dev_num);
 	if (err <= 0) {
-		ALOGE("%s: SensorHAL Failed to allocate iio device path string.",
+		SENSOR_LOGE("%s: SensorHAL Failed to allocate iio device path string.",
 		      GetName());
 		goto invalid_this_class;
 	}
 
 	pollfd_iio[0].fd = open(buffer_path, O_RDONLY | O_NONBLOCK);
 	if (pollfd_iio[0].fd < 0) {
-		ALOGE("%s: SensorHAL Failed to open iio char device (%s)." ,
+		SENSOR_LOGE("%s: SensorHAL Failed to open iio char device (%s)." ,
 		      GetName(),
 		      buffer_path);
 		goto free_buffer_path;
@@ -316,7 +284,7 @@ HWSensorBase::HWSensorBase(HWSensorBaseCommonData *data,
 	switch (err) {
 	case 0:
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
-		ALOGD("\"%s\": SensorHAL injection mode available, sensor is an injector.",
+		SENSOR_LOGD("\"%s\": SensorHAL injection mode available, sensor is an injector.",
 		      GetName());
 #endif /* CONFIG_ST_HAL_DEBUG_INFO */
 		sensor_t_data.flags |= DATA_INJECTION_MASK;
@@ -325,7 +293,7 @@ HWSensorBase::HWSensorBase(HWSensorBaseCommonData *data,
 
 	case 1:
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
-		ALOGD("\"%s\": SensorHAL injection mode available, sensor is injected.",
+		SENSOR_LOGD("\"%s\": SensorHAL injection mode available, sensor is injected.",
 		      GetName());
 #endif /* CONFIG_ST_HAL_DEBUG_INFO */
 		sensor_t_data.flags |= DATA_INJECTION_MASK;
@@ -334,7 +302,7 @@ HWSensorBase::HWSensorBase(HWSensorBaseCommonData *data,
 
 	default:
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
-		ALOGD("\"%s\": SensorHAL injection mode not available.", GetName());
+		SENSOR_LOGD("\"%s\": SensorHAL injection mode not available.", GetName());
 #endif /* CONFIG_ST_HAL_DEBUG_INFO */
 		sensor_t_data.flags &= ~DATA_INJECTION_MASK;
 		break;
@@ -379,7 +347,7 @@ int HWSensorBase::WriteBufferLenght(unsigned int buf_len)
 	err = device_iio_utils::set_hw_fifo_watermark(common_data.device_iio_sysfs_path,
 						      hw_buf_fifo_len);
 	if (err < 0) {
-		ALOGE("%s: SensorHAL Failed to write hw fifo watermark.", GetName());
+		SENSOR_LOGE("%s: SensorHAL Failed to write hw fifo watermark.", GetName());
 		return err;
 	}
 
@@ -392,7 +360,7 @@ int64_t elapsedRealtimeNano()
     struct timespec ts;
     int err = clock_gettime(CLOCK_BOOTTIME, &ts);
     if (err) {
-        ALOGE("SensorHAL clock_gettime(CLOCK_BOOTTIME) failed: %s", strerror(errno));
+        SENSOR_LOGE("SensorHAL clock_gettime(CLOCK_BOOTTIME) failed: %s", strerror(errno));
         return 0;
     }
     return (ts.tv_sec * 1000000000LL) + ts.tv_nsec;
@@ -421,7 +389,7 @@ int HWSensorBase::Enable(int handle, bool enable, bool lock_en_mutex)
 		err = device_iio_utils::enable_sensor(common_data.device_iio_sysfs_path,
 						      GetStatus(false));
 		if (err < 0) {
-			ALOGE("%s: SensorHAL Failed to enable iio sensor device.", GetName());
+			SENSOR_LOGE("%s: SensorHAL Failed to enable iio sensor device.", GetName());
 			goto restore_status_enable;
 		}
 
@@ -436,9 +404,9 @@ int HWSensorBase::Enable(int handle, bool enable, bool lock_en_mutex)
 			sensor_my_enable = elapsedRealtimeNano();
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_PIE_VERSION)
 #if (CONFIG_ST_HAL_ADDITIONAL_INFO_ENABLED)
-			ALOGD("%s:SensorHAL SAINFO Report: ENABLE.", GetName());
+			SENSOR_LOGD("%s:SensorHAL SAINFO Report: ENABLE.", GetName());
 			WriteSAIReportToPipe();
-			ALOGD("%s : SensorHAL SAI ENABLE Report.", GetName());
+			SENSOR_LOGD("%s : SensorHAL SAI ENABLE Report.", GetName());
 #endif /* CONFIG_ST_HAL_ADDITIONAL_INFO_ENABLED */
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
 		} else {
@@ -488,7 +456,7 @@ int HWSensorBase::SetDelay(int __attribute__((unused))handle,
 	}
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
-	ALOGD("\"%s\": SensorHAL changed pollrate to timeout=%" PRIu64 "ms (sensor type: %d).",
+	SENSOR_LOGD("\"%s\": SensorHAL changed pollrate to timeout=%" PRIu64 "ms (sensor type: %d).",
 	      sensor_t_data.name,
 	      (uint64_t)NS_TO_MS((uint64_t)timeout),
 	      sensor_t_data.type);
@@ -565,7 +533,7 @@ int HWSensorBase::ApplyFactoryCalibrationData(char *filename,
 		     &factory_scale[1],
 		     &factory_scale[2]);
 	if (err < 0)
-		ALOGW("\"%s\": SensorHAL Failed to read factory scale values, it will be used default values.",
+		SENSOR_LOGW("\"%s\": SensorHAL Failed to read factory scale values, it will be used default values.",
 		      GetName());
 
 	fclose(calibration_file);
@@ -612,7 +580,7 @@ int HWSensorBase::FlushData(int handle, bool lock_en_mutex)
 
 			err = device_iio_utils::hw_fifo_flush(common_data.device_iio_sysfs_path);
 			if (err < 0) {
-				ALOGE("%s: SensorHAL Failed to flush hw fifo.",
+				SENSOR_LOGE("%s: SensorHAL Failed to flush hw fifo.",
 				      GetName());
 				goto unlock_mutex;
 			}
@@ -648,16 +616,16 @@ void HWSensorBase::ProcessFlushData(int __attribute__((unused))handle,
 	if (timestamp > sample_in_processing_timestamp) {
 		err = flush_stack.writeElement(flush_handle, timestamp);
 		if (err < 0)
-			ALOGE("%s: SensorHAL Failed to write Flush event into stack.",
+			SENSOR_LOGE("%s: SensorHAL Failed to write Flush event into stack.",
 			      GetName());
 	} else {
 		if (flush_handle == sensor_t_data.handle) {
 			WriteFlushEventToPipe();
 #if (CONFIG_ST_HAL_ANDROID_VERSION >= ST_HAL_PIE_VERSION)
 #if (CONFIG_ST_HAL_ADDITIONAL_INFO_ENABLED)
-			ALOGD("%s:SensorHAL SAINFO Report: FLUSH.", GetName());
+			SENSOR_LOGD("%s:SensorHAL SAINFO Report: FLUSH.", GetName());
 			WriteSAIReportToPipe();
-			ALOGD("%s : SensorHAL FLUSH Report.", GetName());
+			SENSOR_LOGD("%s : SensorHAL FLUSH Report.", GetName());
 #endif /* CONFIG_ST_HAL_ADDITIONAL_INFO_ENABLED */
 #endif /* CONFIG_ST_HAL_ANDROID_VERSION */
 		} else {
@@ -686,7 +654,7 @@ void HWSensorBase::ThreadDataTask()
 
 	data = (uint8_t *)malloc(hw_fifo_len * scan_size * HW_SENSOR_BASE_DEFAULT_IIO_BUFFER_LEN * sizeof(uint8_t));
 	if (!data) {
-		ALOGE("%s: SensorHAL Failed to allocate sensor data buffer (fifo_len %d, scan_size %d).",
+		SENSOR_LOGE("%s: SensorHAL Failed to allocate sensor data buffer (fifo_len %d, scan_size %d).",
 		      GetName(), hw_fifo_len, (int)scan_size);
 		return;
 	}
@@ -700,7 +668,7 @@ void HWSensorBase::ThreadDataTask()
 			read_size = read(pollfd_iio[0].fd, data,
 					 hw_fifo_len * scan_size * HW_SENSOR_BASE_DEFAULT_IIO_BUFFER_LEN);
 			if (read_size <= 0) {
-				ALOGE("%s: SensorHAL Failed to read data from iio char device.",
+				SENSOR_LOGE("%s: SensorHAL Failed to read data from iio char device.",
 				      GetName());
 				continue;
 			}
@@ -755,7 +723,7 @@ void HWSensorBase::ThreadEventsTask()
 			read_size = read(pollfd_iio[1].fd, event_data,
 					 10 * sizeof(struct device_iio_events));
 			if (read_size <= 0) {
-				ALOGE("%s: SensorHAL Failed to read event data from iio char device.",
+				SENSOR_LOGE("%s: SensorHAL Failed to read event data from iio char device.",
 				      GetName());
 				continue;
 			}
@@ -793,7 +761,7 @@ int HWSensorBase::InjectionMode(bool enable)
 		err = device_iio_utils::set_injection_mode(common_data.device_iio_sysfs_path,
 							   enable);
 		if (err < 0) {
-			ALOGE("%s: SensorHAL Failed to switch injection mode.",
+			SENSOR_LOGE("%s: SensorHAL Failed to switch injection mode.",
 			      GetName());
 			free(injection_data);
 			return err;
@@ -930,7 +898,7 @@ int HWSensorBaseWithPollrate::SetDelay(int handle, int64_t period_ns,
 		err = device_iio_utils::set_sampling_frequency(common_data.device_iio_sysfs_path,
 							       sampling_frequency_available.freq[i]);
 		if (err < 0) {
-			ALOGE("%s: SensorHAL Failed to write sampling frequency to iio device.", GetName());
+			SENSOR_LOGE("%s: SensorHAL Failed to write sampling frequency to iio device.", GetName());
 			goto mutex_unlock;
 		}
 
@@ -939,7 +907,7 @@ int HWSensorBaseWithPollrate::SetDelay(int handle, int64_t period_ns,
 		err = odr_switch.writeElement(timestamp,
 					      FREQUENCY_TO_NS(sampling_frequency_available.freq[i]));
 		if (err < 0)
-			ALOGE("%s: SensorHAL Failed to write new odr on stack.",
+			SENSOR_LOGE("%s: SensorHAL Failed to write new odr on stack.",
 			      GetName());
 
 		if (handle == sensor_t_data.handle)
@@ -979,7 +947,7 @@ int HWSensorBaseWithPollrate::SetDelay(int handle, int64_t period_ns,
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_INFO)
 	if (message)
-		ALOGD("\"%s\": SensorHAL changed pollrate to %.2fHz, timeout=%" PRIu64 "ms (sensor type: %d).",
+		SENSOR_LOGD("\"%s\": SensorHAL changed pollrate to %.2fHz, timeout=%" PRIu64 "ms (sensor type: %d).",
 		      sensor_t_data.name, NS_TO_FREQUENCY((float)(uint64_t)min_pollrate_ns),
 		      (uint64_t)NS_TO_MS((uint64_t)min_timeout_ns), sensor_t_data.type);
 #endif /* CONFIG_ST_HAL_DEBUG_INFO */
@@ -1015,7 +983,7 @@ int HWSensorBaseWithPollrate::FlushData(int handle, bool lock_en_mutex)
 
 			err = device_iio_utils::hw_fifo_flush(common_data.device_iio_sysfs_path);
 			if (err < 0) {
-				ALOGE("%s: SensorHAL Failed to flush hw fifo.", GetName());
+				SENSOR_LOGE("%s: SensorHAL Failed to flush hw fifo.", GetName());
 				goto unlock_mutex;
 			}
 		} else
@@ -1060,7 +1028,7 @@ void HWSensorBaseWithPollrate::WriteDataToPipe(int64_t hw_pollrate)
 		if (((samples_counter % decimator) == 0) || odr_changed) {
 			err = write(write_pipe_fd, &sensor_event, sizeof(sensors_event_t));
 			if (err <= 0) {
-				ALOGE("%s: SensorHAL Failed to write sensor data to pipe. (errno: %d)",
+				SENSOR_LOGE("%s: SensorHAL Failed to write sensor data to pipe. (errno: %d)",
 				      android_name, -errno);
 				samples_counter--;
 				return;
@@ -1070,7 +1038,7 @@ void HWSensorBaseWithPollrate::WriteDataToPipe(int64_t hw_pollrate)
 			last_data_timestamp = sensor_event.timestamp;
 
 #if (CONFIG_ST_HAL_DEBUG_LEVEL >= ST_HAL_DEBUG_EXTRA_VERBOSE)
-			ALOGD("\"%s\": SensorHAL pushed data to android: timestamp=%" PRIu64 "ns real_pollrate=%" PRIu64 " (sensor type: %d).",
+			SENSOR_LOGD("\"%s\": SensorHAL pushed data to android: timestamp=%" PRIu64 "ns real_pollrate=%" PRIu64 " (sensor type: %d).",
 			      sensor_t_data.name, sensor_event.timestamp, current_real_pollrate, sensor_t_data.type);
 #endif /* CONFIG_ST_HAL_DEBUG_LEVEL */
 		}

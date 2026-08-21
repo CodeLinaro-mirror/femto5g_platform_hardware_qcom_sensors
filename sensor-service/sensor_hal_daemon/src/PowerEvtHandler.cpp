@@ -25,17 +25,15 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
- *
  */
 
 #include <unistd.h>
 #include <PowerEvtHandler.h>
 #include <SensorApiService.h>
-#include <syslog.h>
+#include <SensorLog.h>
 
 #define ACK_TIMEOUT_US 300000 // 300 msec
 
@@ -49,7 +47,7 @@ PowerEvtHandler* PowerEvtHandler::getPwrEvtHandler(SensorApiService* sensorServi
 
 PowerEvtHandler::PowerEvtHandler() {
     int ret = pwr_state_notification_register(PowerEvtHandler::pwrStateCb);
-    syslog(LOG_INFO, "PowerEvtHandler: register api returned: %d", ret);
+    SENSOR_LOGI("PowerEvtHandler: register api returned: %d", ret);
 }
 
 PowerEvtHandler::~PowerEvtHandler() {
@@ -60,7 +58,7 @@ int PowerEvtHandler::pwrStateCb(power_state_t pwr_state) {
     client_ack.ack = ERR;
     PowerStateType powerState = POWER_STATE_UNKNOWN;
     SensorCapabilitiesMask mask;
-    syslog(LOG_INFO, "PowerEvtHandler: pwrStateCb: %d", pwr_state.sys_state);
+    SENSOR_LOGI("PowerEvtHandler: pwrStateCb: %d", pwr_state.sys_state);
     switch (pwr_state.sys_state) {
         case SYS_SUSPEND:
             client_ack.ack = SUSPEND_ACK;
@@ -87,7 +85,7 @@ int PowerEvtHandler::pwrStateCb(power_state_t pwr_state) {
 
     //Allow some time to stop the session and write calibration data NVM.
     (void)usleep(ACK_TIMEOUT_US);
-    syslog(LOG_INFO, "PowerEvtHandler: pwrStateCb sending ack");
+    SENSOR_LOGI("PowerEvtHandler: pwrStateCb sending ack");
     send_acknowledgement(client_ack);
 
     return 0;

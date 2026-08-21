@@ -5,42 +5,10 @@
  * Author: Denis Ciocca - <denis.ciocca@st.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
- */
-
-/*
-Changes from Qualcomm Innovation Center are provided under the following license:
-
-Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
- 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted (subject to the limitations in the
-disclaimer below) provided that the following conditions are met:
- 
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
- 
-    * Redistributions in binary form must reproduce the above
-      copyright notice, this list of conditions and the following
-      disclaimer in the documentation and/or other materials provided
-      with the distribution.
- 
-    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
-      contributors may be used to endorse or promote products derived
-      from this software without specific prior written permission.
- 
-NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
-HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <iostream>
@@ -119,7 +87,7 @@ int device_iio_utils::sysfs_write_str(char *file, char *str)
 {
 	FILE *fp;
 
-	ALOGD("SensorHAL sysfs_write_str: write to file ret %s data %s", file, str);
+	SENSOR_LOGD("SensorHAL sysfs_write_str: write to file ret %s data %s", file, str);
 
 	fp = fopen(file, "w");
 	if (NULL == fp)
@@ -428,7 +396,7 @@ int device_iio_utils::get_fifo_length(const char *device_dir)
 
 	ret = sysfs_write_int(tmp_filaname, 1);
 	if (ret < 0) {
-		ALOGE("SensorHAL Failed to enable hw fifo: %s.", tmp_filaname);
+		SENSOR_LOGE("SensorHAL Failed to enable hw fifo: %s.", tmp_filaname);
 	}
 
 out:
@@ -755,7 +723,7 @@ int device_iio_utils::update_fsm_thresholds(char *threshold_data)
 
 	ret = get_device_by_type(device_iio_mlc_device_type);
 	if (ret < 0) {
-        ALOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
+        SENSOR_LOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
               device_iio_mlc_device_type);
 
 		return ret;
@@ -784,7 +752,7 @@ int device_iio_utils::update_fsm_jack_min_duration(char *min_duration)
 
 	ret = get_device_by_type(device_iio_mlc_device_type);
 	if (ret < 0) {
-        ALOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
+        SENSOR_LOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
               device_iio_mlc_device_type);
 
 		return ret;
@@ -813,7 +781,7 @@ int device_iio_utils::update_crash_impact_th(char *crash_impact_th)
 
 	ret = get_device_by_type(device_iio_mlc_device_type);
 	if (ret < 0) {
-        ALOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
+        SENSOR_LOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
               device_iio_mlc_device_type);
 
 		return ret;
@@ -842,7 +810,7 @@ int device_iio_utils::update_crash_min_duration(char *crash_min_duration)
 
 	ret = get_device_by_type(device_iio_mlc_device_type);
 	if (ret < 0) {
-        ALOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
+        SENSOR_LOGE("%s: SensorHAL unable to detect device type %s", __FUNCTION__,
               device_iio_mlc_device_type);
 
 		return ret;
