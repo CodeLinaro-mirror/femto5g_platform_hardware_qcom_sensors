@@ -109,7 +109,12 @@ static int strtok_safe(const char *inp_str, const size_t inp_size, const size_t 
 {
     int idx = skip;
     int out_idx = 0;
-    int check_size = strlen(inp_str);
+    int check_size = 0;
+    if (inp_str == NULL)
+    {
+        return -1;
+    }
+    check_size = strlen(inp_str);
     if(check_size > inp_size)
     {
         check_size = inp_size;
@@ -170,8 +175,8 @@ void SetSensorDebugLevel(int debug_level) {
  */
 static int frac_to_float_array(char *str_arr, std::vector<float> &out, size_t max_size)
 {
-    char val_str[1024];
-    char val_str1[21];
+    char val_str[1024] = {0};
+    char val_str1[21] = {0};
     int numerator, denominator;
     int skip1=0;
     int skip = 0;
