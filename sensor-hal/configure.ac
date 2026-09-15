@@ -65,6 +65,7 @@ AC_CONFIG_FILES([ \
         iam20680/Makefile \
         st/Makefile \
         smi230/Makefile \
+        smi330/Makefile \
         libsensors.pc \
         ])
 

@@ -47,6 +47,7 @@ typedef enum
   SENSOR_ASM330,
   SENSOR_IAM20680,
   SENSOR_SMI230,
+  SENSOR_SMI330,
 } sensorType;
 
 // forward declaration
