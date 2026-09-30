@@ -32,7 +32,7 @@ using namespace std;
 #define GYRO_UNCALIBRATED_SENSOR_ID  16
 #define HEADING_SENSOR_ID   5
 #define GID_TELAFCLIENT (5003)
-#define GID_SYSTEMCLIENT (1000)
+#define GID_SYSTEMCLIENT (3052)
 
 struct SensorTrackingOption {
    int sensor_id;
