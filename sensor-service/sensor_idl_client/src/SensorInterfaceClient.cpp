@@ -31,8 +31,8 @@ using namespace std;
 #define ACCEL_UNCALIBRATED_SENSOR_ID 1
 #define GYRO_UNCALIBRATED_SENSOR_ID  16
 #define HEADING_SENSOR_ID   5
-#define GID_SENSORCLIENT (3011)
 #define GID_TELAFCLIENT (5003)
+#define GID_SYSTEMCLIENT (1000)
 
 struct SensorTrackingOption {
    int sensor_id;
@@ -270,7 +270,7 @@ static void printHelp() {
     (void)printf( "q: Quit\n");
 }
 
-int main() {
+int main(int argc , char *argv[]) {
     char *stopstring;
     char odr[10];
     char enable[10];
@@ -278,18 +278,32 @@ int main() {
     int batch_count = 0, j = 0, i = 0, Enable = 0;
     info.sender_ = 1234;
 
-    // check if this process started by root
-    if (0 == getuid()) { 
-        // started as root.
-        (void)printf("!!! sensor idl client started as root change to sensors group\n");
-        // Set the group id first and then set the effective userid, to sensors.
-        if(-1 == setgid(GID_SENSORCLIENT)) {
-            (void)printf("Error: setgid to sensor failed. %s\n", strerror(errno));
-        }
-        if(-1 == setgid(GID_TELAFCLIENT)) {
-            (void)printf("Error: setgid to telaf failed. %s\n", strerror(errno));
-        }
-    }
+	bool telePlatMode = false;
+
+	if (argc > 1) {
+		if (strcmp(argv[1], "-p") == 0) {
+			telePlatMode = true;
+		} else {
+			printf("Invalid argument: %s\n", argv[1]);
+			return -1;
+		}
+	}
+
+	if (telePlatMode) {
+		printf("Running in TelePlat mode\n");
+
+		if (-1 == setgid(GID_SYSTEMCLIENT)) {
+			printf("Error: setgid to system failed. %s\n",
+				strerror(errno));
+		}
+	} else {
+		printf("Running in TelAF mode\n");
+
+		if (-1 == setgid(GID_TELAFCLIENT)) {
+			printf("Error: setgid to telaf failed. %s\n",
+				strerror(errno));
+		}
+	}
 
     regSigHandler();
 
