@@ -128,7 +128,7 @@ SensorDevice::SensorInfo initSMI230() {
 	    "self_test",
 	    {},
 	    {},
-	    {83,1000,100,163820,12.5,12.5},
+	    {83,999,100,163820,12.5,12.5},
 	    {0,0,12.5},
 	    "/usr/lib/libsmi230sensors.so.1.0.0",
 	    {12.5, 25, 50, 100, 200, 400},
@@ -1065,7 +1065,7 @@ int SensorDevice::sensorWakeupEnable(int sensor_id, struct wakeup_config wakeup,
 		  } else if (wakeupPtr.wakeupfilePath == "anymotion_duration") {
 			  int duration = int(wakeup.duration / 20);
 			  SENSOR_LOGI(LOG_TAG "writing duration value %d to sysfs %s\n", duration, wakeupfile.c_str());
-			  *wakeupPtr.wakeupfile << wakeup.duration;
+			  *wakeupPtr.wakeupfile << duration;
 			  sensorinfo.wakeup.duration = wakeup.duration;
 		  } else if (wakeupPtr.wakeupfilePath == "anymotion_x_enable") {
 			  *wakeupPtr.wakeupfile << enable;
