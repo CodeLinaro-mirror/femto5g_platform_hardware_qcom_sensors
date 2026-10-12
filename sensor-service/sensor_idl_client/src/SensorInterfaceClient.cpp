@@ -342,6 +342,13 @@ int main(int argc , char *argv[]) {
 	case CommonAPI::AvailabilityStatus::AVAILABLE:
 	cout << "Sensor Service AVAILABLE" << endl;
 	if(SHD_RESTARTED) {
+		/* Daemon may survive (e.g. only someip gateway restarted) and still hold our old register/enable counts.
+		 * Release them first, otherwise the counts stay above 0 and sensors can never be disabled again. */
+		for (int j=0; mSensorTrackingOption && j < sensor_count; j++) {
+		 if (mSensorTrackingOption[j].state == SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE)
+		   myProxy->SensorControlReq(mSensorTrackingOption[j].sensor_id, SensorInterfaceTypes::SensorStateT::SENSOR_STATE_DISABLE, callStatus, resp, &info);
+		}
+		myProxy->DeRegisterSensorClientReq(callStatus, resp, &info);
 	myProxy->RegisterSensorClientReq(callStatus, resp, &info);
 	for (int i=0; i < sensor_count; i++) {
 	 if (mSensorTrackingOption[i].state == SensorInterfaceTypes::SensorStateT::SENSOR_STATE_ENABLE) {
@@ -399,7 +406,7 @@ int main(int argc , char *argv[]) {
 	    return;
     }
     PrintSensorInfoT(sensor, sensor_count);
-    mSensorTrackingOption = new (std::nothrow) struct SensorTrackingOption[sensor_count];
+    mSensorTrackingOption = new (std::nothrow) struct SensorTrackingOption[sensor_count]();
     if(!mSensorTrackingOption) {
 	    cout << "new failed" << endl;
 	    exit(1);
