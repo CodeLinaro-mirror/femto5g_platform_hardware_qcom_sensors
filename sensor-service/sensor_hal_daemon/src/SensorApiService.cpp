@@ -548,6 +548,13 @@ bool SensorApiService::open_sensor(const configParamToRead & configParamRead)
      mSensorList[i].sensor_id = s[i].handle;
      mSensorList[i].maxBatchCount = MAX_BATCH_COUNT;
      GetSupportedSamplingRateAndRange(&mSensorList[i]);
+     if (mSensorList[i].range > 0) {
+         if (mSensorList[i].type == SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED) {
+             mSensorList[i].maxRange = (float)mSensorList[i].range * GRAVITY_EARTH;
+         } else if (mSensorList[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED) {
+             mSensorList[i].maxRange = (float)mSensorList[i].range * ((float)M_PI / 180.0f);
+         }
+     }
    }
    //Print sensor list for debug
    PrintSensorList(mSensorList, mSensorCount);
@@ -1194,6 +1201,19 @@ int SensorApiService::activateSensor(SensorAPIEnableReqMsg* pMsg) {
    //Activating/Deactivating the sensor
    for (int i=0 ; i < mSensorCount; i++) {
      if (pMsg->sensor_id == mSensor[i].sensor_id) {
+	// Fail activation if SensorCofig (startBatching) has not been called yet for this client
+	if (pMsg->enable == SENSOR_ENABLE) {
+		if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER && pClient->mAccBatchCount == 0) {
+			SENSOR_LOGE(LOG_TAG "<-- activateSensor failed: sensorConfig not run for Accel, client=%s\n", pMsg->mSocketName);
+			ret = SENSOR_ERROR_CONFIG_FAILED;
+			goto fail;
+		}
+		if ((mSensor[i].type == SENSOR_TYPE_GYROSCOPE || mSensor[i].type == SENSOR_TYPE_GYROSCOPE_UNCALIBRATED) && pClient->mGyroBatchCount == 0) {
+			SENSOR_LOGE(LOG_TAG "<-- activateSensor failed: sensorConfig not run for Gyro, client=%s\n", pMsg->mSocketName);
+			ret = SENSOR_ERROR_CONFIG_FAILED;
+			goto fail;
+		}
+	}
 	pClient->mActivate[i] = pMsg->enable;
 	if (mSensor[i].type == SENSOR_TYPE_ACCELEROMETER) {
 		pClient->mAccTracking = pMsg->enable;

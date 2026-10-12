@@ -31,8 +31,8 @@ using namespace std;
 #define ACCEL_UNCALIBRATED_SENSOR_ID 1
 #define GYRO_UNCALIBRATED_SENSOR_ID  16
 #define HEADING_SENSOR_ID   5
-#define GID_SENSORCLIENT (3011)
 #define GID_TELAFCLIENT (5003)
+#define GID_SYSTEMCLIENT (3052)
 
 struct SensorTrackingOption {
    int sensor_id;
@@ -270,7 +270,7 @@ static void printHelp() {
     (void)printf( "q: Quit\n");
 }
 
-int main() {
+int main(int argc , char *argv[]) {
     char *stopstring;
     char odr[10];
     char enable[10];
@@ -278,18 +278,32 @@ int main() {
     int batch_count = 0, j = 0, i = 0, Enable = 0;
     info.sender_ = 1234;
 
-    // check if this process started by root
-    if (0 == getuid()) { 
-        // started as root.
-        (void)printf("!!! sensor idl client started as root change to sensors group\n");
-        // Set the group id first and then set the effective userid, to sensors.
-        if(-1 == setgid(GID_SENSORCLIENT)) {
-            (void)printf("Error: setgid to sensor failed. %s\n", strerror(errno));
-        }
-        if(-1 == setgid(GID_TELAFCLIENT)) {
-            (void)printf("Error: setgid to telaf failed. %s\n", strerror(errno));
-        }
-    }
+	bool telePlatMode = false;
+
+	if (argc > 1) {
+		if (strcmp(argv[1], "-p") == 0) {
+			telePlatMode = true;
+		} else {
+			printf("Invalid argument: %s\n", argv[1]);
+			return -1;
+		}
+	}
+
+	if (telePlatMode) {
+		printf("Running in TelePlat mode\n");
+
+		if (-1 == setgid(GID_SYSTEMCLIENT)) {
+			printf("Error: setgid to system failed. %s\n",
+				strerror(errno));
+		}
+	} else {
+		printf("Running in TelAF mode\n");
+
+		if (-1 == setgid(GID_TELAFCLIENT)) {
+			printf("Error: setgid to telaf failed. %s\n",
+				strerror(errno));
+		}
+	}
 
     regSigHandler();
 
@@ -414,15 +428,22 @@ int main() {
 	    cout << "==== Calling SensorConfigReq ====>> " << endl;
 	    for(int i=0; i < sensor_count; i++) {
 		vector<float>mODR = sensor[i].getOdr();
-	        (void)printf("Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n", mODR[0],mODR[1],mODR[2],mODR[3],mODR[4],mODR[5]);
-	        (void)memset (odr, 0, sizeof(odr)/sizeof(odr[0]));
-		(void)memset (batchcount, 0, sizeof(batchcount)/sizeof(batchcount[0]));
-		(void)printf( "Enter sampling rate: ");
-		(void)fgets(odr, sizeof(odr)/sizeof(odr[0]), stdin);
-		j=strtol(odr,&stopstring,10);
-		(void)printf( "Enter batch set: ");
-		(void)fgets(batchcount, sizeof(batchcount)/sizeof(batchcount[0]), stdin);
-		batch_count=strtol(batchcount,&stopstring,10);
+		int odr_count = (int)mODR.size();
+		(void)printf("Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n", mODR[0],mODR[1],mODR[2],mODR[3],mODR[4],mODR[5]);
+		(void)memset(odr, 0, sizeof(odr));
+		(void)printf("Enter sampling rate: ");
+		(void)fgets(odr, sizeof(odr), stdin);
+		j = strtol(odr, &stopstring, 10);
+		if (j < 0 || j >= odr_count || mODR[j] <= 0.0f)
+			j = 0;
+		(void)memset(batchcount, 0, sizeof(batchcount));
+		(void)printf("Enter batch set: ");
+		(void)fgets(batchcount, sizeof(batchcount), stdin);
+		batch_count = strtol(batchcount, &stopstring, 10);
+		if (batch_count < sensor[i].getMinBatchCount())
+			batch_count = sensor[i].getMinBatchCount();
+		else if (batch_count > sensor[i].getMaxBatchCount())
+			batch_count = sensor[i].getMaxBatchCount();
 		(void)printf("\nConfig sensor_id %d  sampling %fHZ and batch %d\n", sensor[i].getSensorId(), mODR[j], batch_count);
 		myProxy->SensorConfigReq(sensor[i].getSensorId(), mODR[j], batch_count, callStatus, resp, &info);
 		if (callStatus != CommonAPI::CallStatus::SUCCESS) {

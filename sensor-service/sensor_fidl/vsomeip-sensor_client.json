@@ -21,7 +21,7 @@
             "service" : "0xEE01",
             "instance" : "0x1",
             "unreliable" : "30501",
-            "someip-tp": 
+            "someip-tp":
             {
 		"client-to-service": ["0x8065", "0x8066", "0x8067", "0x8068"]
             }
