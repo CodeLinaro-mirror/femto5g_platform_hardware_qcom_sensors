@@ -414,15 +414,22 @@ int main() {
 	    cout << "==== Calling SensorConfigReq ====>> " << endl;
 	    for(int i=0; i < sensor_count; i++) {
 		vector<float>mODR = sensor[i].getOdr();
-	        (void)printf("Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n", mODR[0],mODR[1],mODR[2],mODR[3],mODR[4],mODR[5]);
-	        (void)memset (odr, 0, sizeof(odr)/sizeof(odr[0]));
-		(void)memset (batchcount, 0, sizeof(batchcount)/sizeof(batchcount[0]));
-		(void)printf( "Enter sampling rate: ");
-		(void)fgets(odr, sizeof(odr)/sizeof(odr[0]), stdin);
-		j=strtol(odr,&stopstring,10);
-		(void)printf( "Enter batch set: ");
-		(void)fgets(batchcount, sizeof(batchcount)/sizeof(batchcount[0]), stdin);
-		batch_count=strtol(batchcount,&stopstring,10);
+		int odr_count = (int)mODR.size();
+		(void)printf("Enter 0:%fHZ 1:%fHZ 2:%fHZ 3:%fHZ 4:%fHZ 5:%fHZ\n", mODR[0],mODR[1],mODR[2],mODR[3],mODR[4],mODR[5]);
+		(void)memset(odr, 0, sizeof(odr));
+		(void)printf("Enter sampling rate: ");
+		(void)fgets(odr, sizeof(odr), stdin);
+		j = strtol(odr, &stopstring, 10);
+		if (j < 0 || j >= odr_count || mODR[j] <= 0.0f)
+			j = 0;
+		(void)memset(batchcount, 0, sizeof(batchcount));
+		(void)printf("Enter batch set: ");
+		(void)fgets(batchcount, sizeof(batchcount), stdin);
+		batch_count = strtol(batchcount, &stopstring, 10);
+		if (batch_count < sensor[i].getMinBatchCount())
+			batch_count = sensor[i].getMinBatchCount();
+		else if (batch_count > sensor[i].getMaxBatchCount())
+			batch_count = sensor[i].getMaxBatchCount();
 		(void)printf("\nConfig sensor_id %d  sampling %fHZ and batch %d\n", sensor[i].getSensorId(), mODR[j], batch_count);
 		myProxy->SensorConfigReq(sensor[i].getSensorId(), mODR[j], batch_count, callStatus, resp, &info);
 		if (callStatus != CommonAPI::CallStatus::SUCCESS) {
