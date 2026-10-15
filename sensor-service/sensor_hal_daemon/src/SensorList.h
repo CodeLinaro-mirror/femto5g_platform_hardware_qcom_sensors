@@ -106,7 +106,7 @@ typedef enum {
         /** Sensor No response from SHD timeout happens **/
         SENSOR_ERROR_NO_RESPONSE_FROM_SHD_TIMEOUT = -16,
         /** Sensor selftest is not supported **/
-        SENSOR_ERROR_SELFTEST_NOT_SUPPORTED = -17,
+        SENSOR_SELFTEST_NOT_SUPPORTED = -17,
         /** Sensor device in suspend state */
         SENSOR_ERROR_DEVICE_IN_SUSPEND = -20,
 }SensorRet;
